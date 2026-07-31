@@ -7,7 +7,7 @@ class UserBase(BaseModel):
     email: EmailStr
     status: bool = True
     phone: str | None = None
-    password: str  # 🔒 requerido al crear usuario
+    password: str
 
 
 class UserCreate(UserBase):

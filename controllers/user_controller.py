@@ -16,7 +16,7 @@ def crear_usuario(user: UserCreate, db: Session):
         email=user.email,
         status=user.status,
         phone=user.phone,
-        password=get_password_hash(user.password)  # 🔒 guardar cifrad
+        password=get_password_hash(user.password)
     )
     try:
         user = repo.add(nuevo)
