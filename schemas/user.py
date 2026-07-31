@@ -7,6 +7,7 @@ class UserBase(BaseModel):
     email: EmailStr
     status: bool = True
     phone: str | None = None
+    password: str  # 🔒 requerido al crear usuario
 
 
 class UserCreate(UserBase):
@@ -18,6 +19,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     status: bool | None = None
     phone: str | None = None
+    password: str | None = None  # opcional al actualizar
 
 
 class UserRead(UserBase):

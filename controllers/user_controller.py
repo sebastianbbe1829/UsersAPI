@@ -5,6 +5,7 @@ from ..logging_config import logger
 from ..models import UserDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
+from ..auth import get_password_hash  # 🔒 importar función de hash
 
 
 def crear_usuario(user: UserCreate, db: Session):
@@ -14,7 +15,8 @@ def crear_usuario(user: UserCreate, db: Session):
         name=user.name,
         email=user.email,
         status=user.status,
-        phone=user.phone
+        phone=user.phone,
+        password=get_password_hash(user.password)  # 🔒 guardar cifrad
     )
     try:
         user = repo.add(nuevo)
@@ -58,6 +60,8 @@ def actualizar_usuario(dni: str, datos: UserUpdate, db: Session):
         usuario.status = datos.status
     if datos.phone is not None:
         usuario.phone = datos.phone
+    if datos.password is not None:
+        usuario.password = get_password_hash(datos.password)  # 🔒 actualizar cifrada
 
     try:
         user = repo.update(usuario)

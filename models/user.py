@@ -9,3 +9,4 @@ class UserDB(Base):
     email = Column(String, unique=True, index=True)
     status = Column(Boolean, default=True)
     phone = Column(String, nullable=True)
+    password = Column(String, nullable=False)  # 🔒 nuevo campo
