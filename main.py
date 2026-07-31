@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from .database import Base, engine
-from .routes import user_routes
-from .auth import auth_router   # 🔑 importar el router de autenticación
+from .routes import user_routes, auth_routers
 from .logging_config import logger
 
 app = FastAPI(
@@ -14,10 +13,15 @@ app = FastAPI(
         "displayRequestDuration": True,
         "defaultModelsExpandDepth": 0,
         "defaultModelExpandDepth": 1,
+        "filter": True,
+        "syntaxHighlight": True,
+        "persistAuthorization": True,
+        "tryItOutEnabled": True,
+        "deepLinking": True,
     },
     openapi_tags=[
         {"name": "Usuarios", "description": "Operaciones sobre usuarios"},
-        {"name": "Auth", "description": "Autenticación y generación de tokens JWT"},  # 🔑 nueva sección en docs
+        {"name": "Auth", "description": "Autenticación y generación de tokens JWT"},
     ],
 )
 
@@ -31,5 +35,5 @@ logger.info("Tablas de base de datos creadas y esquema verificado")
 app.include_router(user_routes)
 logger.info("Rutas de usuarios registradas")
 
-app.include_router(auth_router)   # 🔑 registrar rutas de autenticación
+app.include_router(auth_routers)
 logger.info("Rutas de autenticación registradas")

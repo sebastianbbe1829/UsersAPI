@@ -6,10 +6,19 @@ from .user_controller import (
     eliminar_usuario,
 )
 
+from .auth_controller import (
+    get_current_user,
+    get_password_hash,
+    get_db,
+)
+
 __all__ = [
     "crear_usuario",
     "listar_usuarios",
     "obtener_usuario",
     "actualizar_usuario",
     "eliminar_usuario",
+    "get_current_user",
+    "get_password_hash",
+    "get_db",
 ]

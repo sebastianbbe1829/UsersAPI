@@ -3,9 +3,9 @@ from fastapi import APIRouter, Body, Depends, Path, Query, status, Request, HTTP
 from sqlalchemy.orm import Session
 
 from ..controllers import user_controller
-from ..auth import get_current_user, get_password_hash
 from ..models import UserDB
 from ..database import get_db
+from ..controllers import get_current_user
 from ..schemas import UserCreate, UserRead, UserUpdate
 
 user_routes = APIRouter(
@@ -25,10 +25,22 @@ async def crear_usuario(
     current_user: UserDB = Depends(get_current_user),
 ):
     """Crear un nuevo usuario con DNI único y contraseña cifrada."""
-    user_obj = UserCreate(**await request.json())
+    try:
+        user_obj = UserCreate(**await request.json())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Datos inválidos: {e}")
+
     if not isinstance(user_obj.password, str):
         raise HTTPException(status_code=400, detail="Password inválido")
-    return user_controller.crear_usuario(user_obj, db)
+
+    try:
+        return user_controller.crear_usuario(user_obj, db)
+    except HTTPException as e:
+        # ya lanzada desde el controlador (ej. IntegrityError)
+        raise e
+    except Exception as e:
+        # cualquier otro error inesperado
+        raise HTTPException(status_code=500, detail="Error interno al crear usuario")
 
 @user_routes.get(
     "",

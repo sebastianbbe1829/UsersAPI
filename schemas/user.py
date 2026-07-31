@@ -5,13 +5,12 @@ class UserBase(BaseModel):
     dni: str
     name: str
     email: EmailStr
-    status: bool = True
     phone: str | None = None
-    password: str
 
 
 class UserCreate(UserBase):
-    pass
+    status: bool = True
+    password: str
 
 
 class UserUpdate(BaseModel):
@@ -19,8 +18,9 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     status: bool | None = None
     phone: str | None = None
-    password: str | None = None  # opcional al actualizar
+    password: str | None = None
 
 
 class UserRead(UserBase):
     model_config = ConfigDict(from_attributes=True)
+

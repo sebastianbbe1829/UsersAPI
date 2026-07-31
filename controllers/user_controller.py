@@ -5,10 +5,9 @@ from ..logging_config import logger
 from ..models import UserDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
-from ..auth import get_password_hash  # 🔒 importar función de hash
+from ..controllers.auth_controller import get_password_hash
 
-
-def crear_usuario(user: UserCreate, db: Session):
+def crear_usuario(user: UserCreate, db: Session) -> UserDB:
     repo = UserRepository(db)
     nuevo = UserDB(
         dni=user.dni,
@@ -19,13 +18,23 @@ def crear_usuario(user: UserCreate, db: Session):
         password=get_password_hash(user.password)
     )
     try:
-        user = repo.add(nuevo)
-        logger.info("Usuario creado", extra={"user_id": user.id, "dni": user.dni})
-        return user
+        creado = repo.add(nuevo)
+        logger.info("Usuario creado", extra={"user_id": creado.id, "dni": creado.dni})
+        return creado
     except IntegrityError:
         db.rollback()
         logger.warning("Error al crear usuario", extra={"email": user.email, "dni": user.dni})
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El usuario ya existe o el email ya está registrado ")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario ya existe o el email ya está registrado"
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error inesperado al crear usuario: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al crear usuario"
+        )
 
 
 def listar_usuarios(db: Session, status: bool | None = None):
