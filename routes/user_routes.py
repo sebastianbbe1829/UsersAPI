@@ -1,8 +1,9 @@
 from typing import List
-from fastapi import APIRouter, Body, Depends, Path, Query, status, Request, HTTPException
+from fastapi import APIRouter, Body, Depends, Path, Query, Request, status, HTTPException
 from sqlalchemy.orm import Session
 
 from ..controllers import user_controller
+from ..controllers.auth_controller import get_password_hash
 from ..models import UserDB
 from ..database import get_db
 from ..controllers import get_current_user
@@ -20,27 +21,17 @@ user_routes = APIRouter(
     summary="Crear usuario",
 )
 async def crear_usuario(
-    request: Request,
+    user_obj: UserCreate,
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
     """Crear un nuevo usuario con DNI único y contraseña cifrada."""
     try:
-        user_obj = UserCreate(**await request.json())
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Datos inválidos: {e}")
-
-    if not isinstance(user_obj.password, str):
-        raise HTTPException(status_code=400, detail="Password inválido")
-
-    try:
         return user_controller.crear_usuario(user_obj, db)
-    except HTTPException as e:
-        # ya lanzada desde el controlador (ej. IntegrityError)
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        # cualquier otro error inesperado
-        raise HTTPException(status_code=500, detail="Error interno al crear usuario")
+        raise HTTPException(status_code=500, detail="Error interno al crear usuario") from e
 
 @user_routes.get(
     "",
@@ -106,9 +97,6 @@ async def actualizar_usuario(
     current_user: UserDB = Depends(get_current_user),
 ):
     """Actualizar los datos de un usuario identificado por DNI."""
-    # 🔑 si se actualiza la contraseña, cifrarla
-    if datos.password:
-        datos.password = get_password_hash(datos.password)
     return user_controller.actualizar_usuario(dni, datos, db)
 
 @user_routes.delete(
@@ -130,11 +118,14 @@ async def eliminar_usuario(
     return
 
 # Endpoint temporal para crear el primer usuario sin token
-@user_routes.post("/bootstrap", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-async def crear_usuario_inicial(request: Request, db: Session = Depends(get_db)):
-    user_obj = UserCreate(**await request.json())
-
-    if not isinstance(user_obj.password, str):
-        raise HTTPException(status_code=400, detail="Password inválido")
-
+@user_routes.post(
+    "/bootstrap",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear usuario inicial sin token",
+)
+async def crear_usuario_inicial(
+    user_obj: UserCreate,
+    db: Session = Depends(get_db),
+):
     return user_controller.crear_usuario(user_obj, db)

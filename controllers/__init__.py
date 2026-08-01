@@ -9,7 +9,6 @@ from .user_controller import (
 from .auth_controller import (
     get_current_user,
     get_password_hash,
-    get_db,
 )
 
 __all__ = [
