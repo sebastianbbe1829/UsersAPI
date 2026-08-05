@@ -32,6 +32,7 @@ app = FastAPI(
 logger.info("Iniciando aplicación UsersAPI")
 
 # Crear tablas
+logger.debug("URL BD: %s", engine.url)
 Base.metadata.create_all(bind=engine)
 logger.info("Tablas de base de datos creadas y esquema verificado")
 
