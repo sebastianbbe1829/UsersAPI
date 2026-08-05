@@ -27,7 +27,7 @@ async def crear_usuario(
 ):
     """Crear un nuevo usuario con DNI único y contraseña cifrada."""
     try:
-        return user_controller.crear_usuario(user_obj, db)
+        return user_controller.crear_usuario(user_obj, db, current_user)
     except HTTPException:
         raise
     except Exception as e:

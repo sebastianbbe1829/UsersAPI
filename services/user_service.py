@@ -7,9 +7,10 @@ from ..models import UserDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
 from .auth_service import get_password_hash
+from datetime import datetime
 
 
-def create_user(user: UserCreate, db: Session) -> UserDB:
+def create_user(user: UserCreate, db: Session, current_user: UserDB | None = None) -> UserDB:
     repo = UserRepository(db)
     nuevo = UserDB(
         dni=user.dni,
@@ -18,6 +19,8 @@ def create_user(user: UserCreate, db: Session) -> UserDB:
         status=user.status,
         phone=user.phone,
         password=get_password_hash(user.password),
+        created_by=(current_user.email if current_user is not None else "bootstrap"),
+        created_at=datetime.now().date(),
     )
     try:
         creado = repo.add(nuevo)

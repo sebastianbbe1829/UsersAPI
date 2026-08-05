@@ -27,6 +27,5 @@ class UserRead(UserBase):
 
 
 class UserDeleteResponse(UserBase):
-    status: bool = Field(description="Estado activo del usuario")
     message: str = Field(description="Mensaje de confirmación de eliminación")
 
