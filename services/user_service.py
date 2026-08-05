@@ -20,7 +20,7 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
         phone=user.phone,
         password=get_password_hash(user.password),
         created_by=(current_user.email if current_user is not None else "bootstrap"),
-        created_at=datetime.now().date(),
+        created_at=datetime.now(),
     )
     try:
         creado = repo.add(nuevo)

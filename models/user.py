@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, Integer, String, Boolean, text
+from sqlalchemy import Column, Date, DateTime, Integer, String, Boolean, text
 from sqlalchemy import Identity
 
 from ..database import Base
@@ -16,7 +16,7 @@ class UserDB(Base):
     status = Column(Boolean, default=True)
     phone = Column(String(20), nullable=True)
     password = Column(String(200), nullable=False)
-    created_at = Column(Date, nullable=False)
+    created_at = Column(DateTime, nullable=False)
     created_by = Column(String(100), nullable=False)
     created_by_bd = Column(
         String(100),
