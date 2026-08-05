@@ -1,3 +1,3 @@
-from .user import UserCreate, UserRead, UserUpdate
+from .user import UserCreate, UserDeleteResponse, UserRead, UserUpdate
 
-__all__ = ["UserCreate", "UserRead", "UserUpdate"]
+__all__ = ["UserCreate", "UserDeleteResponse", "UserRead", "UserUpdate"]

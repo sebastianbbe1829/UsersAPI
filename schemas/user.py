@@ -22,5 +22,11 @@ class UserUpdate(BaseModel):
 
 
 class UserRead(UserBase):
+    status: bool = Field(description="Estado activo del usuario")
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserDeleteResponse(UserBase):
+    status: bool = Field(description="Estado activo del usuario")
+    message: str = Field(description="Mensaje de confirmación de eliminación")
 

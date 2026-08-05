@@ -95,3 +95,11 @@ def delete_user(dni: str, db: Session):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
     repo.delete(usuario)
     logger.info("Usuario eliminado", extra={"user_id": usuario.id, "dni": dni})
+    return {
+        "dni": usuario.dni,
+        "name": usuario.name,
+        "email": usuario.email,
+        "status": usuario.status,
+        "phone": usuario.phone,
+        "message": "Usuario eliminado correctamente",
+    }

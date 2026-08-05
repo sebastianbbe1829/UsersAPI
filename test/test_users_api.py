@@ -74,6 +74,41 @@ def test_create_user_returns_201_and_persists_user(db_session: Session, client: 
     db_session.commit()
 
 
+def test_delete_user_returns_safe_response(db_session: Session, client: TestClient):
+    user_dni = f"{uuid4().int % 100000000:08d}"
+    user_email = f"{uuid4().hex[:8]}@example.com"
+    user = UserDB(
+        dni=user_dni,
+        name="Usuario Borrar",
+        email=user_email,
+        status=True,
+        phone="3000000000",
+        password=pwd_context.hash("segura123"),
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    token = create_access_token({"sub": user.dni})
+    response = client.delete(
+        f"/users/{user_dni}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["message"] == "Usuario eliminado correctamente"
+    assert payload["dni"] == user_dni
+    assert payload["email"] == user_email
+    assert payload["name"] == "Usuario Borrar"
+    assert payload["status"] is True
+    assert payload["phone"] == "3000000000"
+    assert "password" not in payload
+    assert "id" not in payload
+
+    assert db_session.query(UserDB).filter(UserDB.dni == user_dni).first() is None
+
+
 def test_get_user_list_requires_authentication(client: TestClient):
     response = client.get("/users")
     assert response.status_code == 401

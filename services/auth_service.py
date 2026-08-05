@@ -1,3 +1,5 @@
+import math
+
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -103,11 +105,26 @@ def validate_token(token: str, db: Session):
         now = int(datetime.now(timezone.utc).timestamp())
         logger.debug("Tiempo actual=%s, expiración=%s", now, exp)
         if exp is not None and exp < now:
-            logger.warning("⏰ Token expirado para usuario dni=%s", user_dni)
+            logger.warning("⏰ Token expirado para usuario dni=%s, email=%s", user_dni, user.email)
             raise HTTPException(status_code=401, detail="Token expirado")
 
-        logger.info("✅ Token válido para usuario dni=%s", user_dni)
-        return {"valid": True, "expiration": exp, "now": now, "user": {"dni": user.dni, "email": user.email}}
+        # Calcular tiempo restante
+        remaining_seconds = exp - now if exp else None
+        remaining_minutes_exact = (remaining_seconds / 60) if remaining_seconds else None
+        remaining_minutes_rounded = math.ceil(remaining_minutes_exact) if remaining_minutes_exact else None
+        logger.info("✅ Token válido para usuario dni=%s, email=%s", user_dni, user.email)
+        return {
+            "valid": True,
+            "expiration": exp,
+            "now": now,
+            "remaining_seconds": remaining_seconds,
+            "remaining_minutes_exact": remaining_minutes_exact,
+            "remaining_minutes_rounded": remaining_minutes_rounded,
+            "user": {
+                "dni": user.dni,
+                "email": user.email
+            }
+        }
     except JWTError as exc:
         logger.error("❌ Error al decodificar token: %s", exc)
         raise HTTPException(status_code=401, detail="Token inválido") from exc

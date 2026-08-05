@@ -7,7 +7,7 @@ from ..controllers.auth_controller import get_password_hash
 from ..models import UserDB
 from ..database import get_db
 from ..controllers import get_current_user
-from ..schemas import UserCreate, UserRead, UserUpdate
+from ..schemas import UserCreate, UserDeleteResponse, UserRead, UserUpdate
 
 user_routes = APIRouter(
     prefix="/users",
@@ -101,7 +101,8 @@ async def actualizar_usuario(
 
 @user_routes.delete(
     "/{dni}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=UserDeleteResponse,
+    status_code=status.HTTP_200_OK,
     summary="Eliminar usuario por DNI",
 )
 async def eliminar_usuario(
@@ -114,8 +115,8 @@ async def eliminar_usuario(
     current_user: UserDB = Depends(get_current_user),
 ):
     """Eliminar un usuario usando su DNI."""
-    user_controller.eliminar_usuario(dni, db)
-    return
+    return user_controller.eliminar_usuario(dni, db)
+    
 
 # Endpoint temporal para crear el primer usuario sin token
 @user_routes.post(
