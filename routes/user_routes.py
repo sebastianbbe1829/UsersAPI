@@ -97,7 +97,7 @@ async def actualizar_usuario(
     current_user: UserDB = Depends(get_current_user),
 ):
     """Actualizar los datos de un usuario identificado por DNI."""
-    return user_controller.actualizar_usuario(dni, datos, db)
+    return user_controller.actualizar_usuario(dni, datos, db, current_user)
 
 @user_routes.delete(
     "/{dni}",

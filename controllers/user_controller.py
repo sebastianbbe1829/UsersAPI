@@ -18,8 +18,8 @@ def obtener_usuario(dni: str, db: Session):
     return get_user(dni, db)
 
 
-def actualizar_usuario(dni: str, datos: UserUpdate, db: Session):
-    return update_user(dni, datos, db)
+def actualizar_usuario(dni: str, datos: UserUpdate, db: Session, current_user: UserDB | None = None):
+    return update_user(dni, datos, db, current_user)
 
 
 def eliminar_usuario(dni: str, db: Session):

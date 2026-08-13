@@ -59,7 +59,7 @@ def get_user(dni: str, db: Session):
     return usuario
 
 
-def update_user(dni: str, datos: UserUpdate, db: Session):
+def update_user(dni: str, datos: UserUpdate, db: Session, current_user: UserDB | None = None)-> UserDB:
     repo = UserRepository(db)
     usuario = repo.get_by_dni(dni)
     if not usuario:
@@ -76,6 +76,10 @@ def update_user(dni: str, datos: UserUpdate, db: Session):
         usuario.phone = datos.phone
     if datos.password is not None:
         usuario.password = get_password_hash(datos.password)
+
+    # Actualizar auditoría
+    usuario.updated_by = (current_user.email if current_user is not None else "bootstrap")
+    usuario.updated_at = datetime.now()
 
     try:
         user = repo.update(usuario)

@@ -23,3 +23,11 @@ class UserDB(Base):
         nullable=True,
         server_default=text("USER")  # aquí respetas el default de Oracle
     )
+    # Auditoría de actualización
+    updated_at = Column(DateTime, nullable=True)
+    updated_by = Column(String(100), nullable=True)
+    updated_by_bd = Column(
+        String(100),
+        nullable=True,
+        server_default=text("USER")  # default de Oracle
+    )
