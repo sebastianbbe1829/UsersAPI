@@ -22,6 +22,11 @@ class UserRepository:
     def get_by_dni(self, dni: str):
         return self.db.query(UserDB).filter(UserDB.dni == dni, UserDB.status != 3).first()
 
+    def get_by_email_or_dni(self, email: str, dni: str):
+        # Incluye eliminados para poder reactivarlos
+        return self.db.query(UserDB).filter(
+            (UserDB.email == email) | (UserDB.dni == dni)
+        ).first()
 
     def update(self, user: UserDB):
         self.db.commit()

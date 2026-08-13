@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      background-color: #004080;
+      color: #ffffff;
+      padding: 25px;
+      text-align: center;
+    }
+    .header img {
+      width: 220px;
+      height: auto;
+      display: block;
+      margin: 0 auto 10px auto;
+    }
+    .container {
+      background: #ffffff;
+      margin: 30px auto;
+      padding: 25px;
+      border-radius: 8px;
+      max-width: 600px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #004080;
+    }
+    p {
+      color: #333333;
+      line-height: 1.6;
+    }
+    .button {
+      display: inline-block;
+      margin-top: 25px;
+      padding: 14px 24px;
+      background-color: #007bff;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #999999;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="cid:logo" alt="Gestión Usuarios SBB">
+    <h1>UsersAPI Notification</h1>
+  </div>
+  <div class="container">
+    <h2>{{ subject }}</h2>
+    <p>{{ message }}</p>
+    <a href="http://localhost:5173/" class="button" target="_blank">Ingresar a UsersAPI</a>
+  </div>
+  <div class="footer">
+    <p>Sent by {{ sender }} | UsersAPI</p>
+  </div>
+</body>
+</html>

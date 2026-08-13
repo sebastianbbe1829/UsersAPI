@@ -1,34 +1,110 @@
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from datetime import datetime
+
+from UsersAPI.util.whatsapp_utils import send_whatsapp
 
 from ..logging_config import logger
 from ..models import UserDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
 from .auth_service import get_password_hash
-from datetime import datetime
+from ..util.email_utils import send_email
 
 
 def create_user(user: UserCreate, db: Session, current_user: UserDB | None = None) -> UserDB:
     repo = UserRepository(db)
-    nuevo = UserDB(
+
+    # Buscar si ya existe por email o dni (incluyendo eliminados)
+    existente = repo.get_by_email_or_dni(user.email, user.dni)
+
+    if existente:
+        if existente.status == 3:  # eliminado lógico → reactivar
+            existente.name = user.name
+            existente.phone = user.phone
+            existente.password = get_password_hash(user.password)
+            existente.status = 1
+            existente.updated_by = current_user.email if current_user else "bootstrap"
+            existente.updated_at = datetime.now()
+
+            try:
+                actualizado = repo.update(existente)
+                logger.info("Usuario reactivado", extra={"user_id": actualizado.id, "dni": actualizado.dni})
+            except Exception as exc:
+                    db.rollback()
+                    logger.error("Error inesperado al reactivar usuario: %s", exc)
+                    raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error interno al reactivar usuario",
+            ) from exc
+
+            try:
+                send_email(
+                    recipient=actualizado.email, # pyright: ignore[reportArgumentType]
+                    subject="Bienvenido nuevamente a UsersAPI",
+                    message=f"Hola {actualizado.name}, tu cuenta ha sido reactivada exitosamente."
+                )
+            except Exception as e:
+                logger.warning("Usuario reactivado pero fallo al enviar correo: %s", e)
+
+            # Enviar whatsapp de bienvenida
+            try:
+                send_whatsapp(
+                    to_number=user.phone, # pyright: ignore[reportArgumentType]
+                    message=f"Hola {user.name}, tu cuenta ha sido reactivada exitosamente.",
+                    template_name="hello_world"  # Puedes cambiar el nombre del template según tu configuración
+                )
+            except Exception as e:
+                        logger.warning("Usuario reactivado pero fallo al enviar mensaje de whatsapp: %s", e)
+
+            return actualizado
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El usuario ya existe o el email ya está registrado",
+            )
+
+    # Si no existe → crear nuevo
+    nuevo_usuario = UserDB(
         dni=user.dni,
         name=user.name,
         email=user.email,
         status=user.status,
         phone=user.phone,
         password=get_password_hash(user.password),
-        created_by=(current_user.email if current_user is not None else "bootstrap"),
+        created_by=(current_user.email if current_user else "bootstrap"),
         created_at=datetime.now(),
     )
     try:
-        creado = repo.add(nuevo)
+        creado = repo.add(nuevo_usuario)
         logger.info("Usuario creado", extra={"user_id": creado.id, "dni": creado.dni})
+
+        # Enviar correo de bienvenida
+        try:
+            send_email(
+                recipient=creado.email, # pyright: ignore[reportArgumentType]
+                subject="Bienvenido a UsersAPI",
+                message=f"Hola {creado.name}, tu cuenta ha sido creada exitosamente."
+            )
+        except Exception as e:
+            logger.warning("Usuario creado pero fallo al enviar correo: %s", e)
+
+        # Enviar whatsapp de bienvenida
+        try:
+            send_whatsapp(
+                to_number=creado.phone, # pyright: ignore[reportArgumentType]
+                message=f"Hola {creado.name}, tu cuenta ha sido creada exitosamente.",
+                template_name="hello_world"  # Puedes cambiar el nombre del template según tu configuración
+            )
+        except Exception as e:
+                    logger.warning("Usuario creado pero fallo al enviar mensaje de whatsapp: %s", e)
+
         return creado
+
     except IntegrityError:
         db.rollback()
-        logger.warning("Error al crear usuario", extra={"email": user.email, "dni": user.dni})
+        logger.warning("Error al crear usuario: email o dni duplicado", extra={"email": user.email, "dni": user.dni})
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El usuario ya existe o el email ya está registrado",
@@ -59,7 +135,7 @@ def get_user(dni: str, db: Session):
     return usuario
 
 
-def update_user(dni: str, datos: UserUpdate, db: Session, current_user: UserDB | None = None)-> UserDB:
+def update_user(dni: str, datos: UserUpdate, db: Session, current_user: UserDB | None = None) -> UserDB:
     repo = UserRepository(db)
     usuario = repo.get_by_dni(dni)
     if not usuario:
@@ -77,14 +153,35 @@ def update_user(dni: str, datos: UserUpdate, db: Session, current_user: UserDB |
     if datos.password is not None:
         usuario.password = get_password_hash(datos.password)
 
-    # Actualizar auditoría
-    usuario.updated_by = (current_user.email if current_user is not None else "bootstrap")
+    usuario.updated_by = (current_user.email if current_user else "bootstrap")
     usuario.updated_at = datetime.now()
 
     try:
-        user = repo.update(usuario)
-        logger.info("Usuario actualizado", extra={"user_id": user.id, "dni": user.dni, "email": user.email})
-        return user
+        actualizado = repo.update(usuario)
+        logger.info("Usuario actualizado", extra={"user_id": actualizado.id, "dni": actualizado.dni, "email": actualizado.email})
+
+        # Enviar correo de actualización
+        try:
+            send_email(
+                recipient=actualizado.email, # pyright: ignore[reportArgumentType]
+                subject="Tu cuenta en UsersAPI fue actualizada",
+                message=f"Hola {actualizado.name}, la información de tu cuenta ha sido actualizada."
+            )
+        except Exception as e:
+            logger.warning("Usuario actualizado pero fallo al enviar correo: %s", e)
+
+         # Enviar whatsapp de bienvenida
+        try:
+            send_whatsapp(
+                            to_number=actualizado.phone, # pyright: ignore[reportArgumentType]
+                            message=f"Hola {actualizado.name}, tu cuenta ha sido actualizada exitosamente.",
+                            template_name="hello_world"  # Puedes cambiar el nombre del template según tu configuración
+                        )
+        except Exception as e:
+            logger.warning("Usuario actualizado pero fallo al enviar mensaje de whatsapp: %s", e)
+
+        return actualizado
+
     except IntegrityError:
         db.rollback()
         logger.warning("Error al actualizar usuario: email duplicado", extra={"dni": dni, "email": datos.email})
@@ -100,13 +197,13 @@ def delete_user(dni: str, db: Session):
     if not usuario:
         logger.warning("Usuario no encontrado al eliminar", extra={"dni": dni})
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    repo.delete(usuario)  # Soft delete: cambia estado a 3
+    repo.delete(usuario)
     logger.info("Usuario eliminado (soft delete)", extra={"user_id": usuario.id, "dni": dni, "status": usuario.status})
     return {
         "dni": usuario.dni,
         "name": usuario.name,
         "email": usuario.email,
-        "status": usuario.status,  # Ahora será 3
+        "status": usuario.status,
         "phone": usuario.phone,
         "message": "Usuario eliminado correctamente",
     }
