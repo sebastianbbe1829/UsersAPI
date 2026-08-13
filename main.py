@@ -6,6 +6,7 @@ from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT, HTTP_500_INTERNAL_S
 from .database import Base, engine
 from .routes import user_routes, auth_routers
 from .logging_config import logger
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="UsersAPI",
@@ -27,6 +28,18 @@ app = FastAPI(
         {"name": "Usuarios", "description": "Operaciones sobre usuarios"},
         {"name": "Auth", "description": "Autenticación y generación de tokens JWT"},
     ],
+)
+
+# ==========================================
+# CORS
+# ==========================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 logger.info("Iniciando aplicación UsersAPI")
