@@ -63,9 +63,10 @@ def get_current_user(token: str, db: Session) -> UserDB:
         logger.warning("Token inválido: %s", exc)
         raise credentials_exception from exc
 
-    user = db.query(UserDB).filter(UserDB.dni == dni).first()
+    # Validar que el usuario exista y esté activo
+    user = db.query(UserDB).filter(UserDB.dni == dni, UserDB.status == 1).first()
     if user is None:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado o inactivo")
     return user
 
 
@@ -99,7 +100,7 @@ def validate_token(token: str, db: Session):
             logger.error("❌ Token inválido: no contiene 'sub'")
             raise HTTPException(status_code=401, detail="Token inválido")
 
-        user = db.query(UserDB).filter(UserDB.dni == user_dni).first()
+        user = db.query(UserDB).filter(UserDB.dni == user_dni, UserDB.status == 1).first()
         if not user:
             logger.warning("Usuario con dni=%s no encontrado en BD", user_dni)
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
