@@ -9,20 +9,20 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    status: bool = Field(default=True, description="Estado activo del usuario")
+    status: int = Field(default=1, description="Estado del usuario: 0=inactivo, 1=activo, 3=eliminado lógicamente")
     password: str = Field(min_length=6, description="Contraseña del usuario")
 
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=100)
     email: EmailStr | None = None
-    status: bool | None = None
+    status: int | None = Field(default=None, description="Estado: 0=inactivo, 1=activo, 3=eliminado lógicamente")
     phone: str | None = Field(default=None, min_length=7, max_length=20)
     password: str | None = Field(default=None, min_length=6)
 
 
 class UserRead(UserBase):
-    status: bool = Field(description="Estado activo del usuario")
+    status: int = Field(description="Estado del usuario: 0=inactivo, 1=activo, 3=eliminado lógicamente")
     model_config = ConfigDict(from_attributes=True)
 
 

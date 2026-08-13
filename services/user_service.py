@@ -42,7 +42,7 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
         ) from exc
 
 
-def list_users(db: Session, status_filter: bool | None = None):
+def list_users(db: Session, status_filter: int | None = None):
     repo = UserRepository(db)
     usuarios = repo.get_all(status_filter)
     logger.debug("Listando usuarios", extra={"count": len(usuarios), "status_filter": status_filter})
@@ -96,13 +96,13 @@ def delete_user(dni: str, db: Session):
     if not usuario:
         logger.warning("Usuario no encontrado al eliminar", extra={"dni": dni})
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    repo.delete(usuario)
-    logger.info("Usuario eliminado", extra={"user_id": usuario.id, "dni": dni})
+    repo.delete(usuario)  # Soft delete: cambia estado a 3
+    logger.info("Usuario eliminado (soft delete)", extra={"user_id": usuario.id, "dni": dni, "status": usuario.status})
     return {
         "dni": usuario.dni,
         "name": usuario.name,
         "email": usuario.email,
-        "status": usuario.status,
+        "status": usuario.status,  # Ahora será 3
         "phone": usuario.phone,
         "message": "Usuario eliminado correctamente",
     }

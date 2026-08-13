@@ -49,7 +49,7 @@ def get_current_user(token: str, db: Session) -> UserDB:
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        dni: str = payload.get("sub")
+        dni: str = payload.get("sub") # pyright: ignore[reportAssignmentType]
         if dni is None:
             raise credentials_exception
     except ExpiredSignatureError as exc:
@@ -72,12 +72,14 @@ def get_current_user(token: str, db: Session) -> UserDB:
 def login_user(form_data: OAuth2PasswordRequestForm, db: Session):
     logger.debug("Variables de entorno para autenticación: %s, %s, %s", SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES)
     logger.info("Intento de login con username=%s", form_data.username)
-    user = db.query(UserDB).filter(UserDB.email == form_data.username).first()
+    user = db.query(UserDB).filter(UserDB.email == form_data.username,
+                                    UserDB.status == 1
+                                   ).first()
     if not user:
         logger.warning("Usuario %s no encontrado en BD", form_data.username)
-        raise HTTPException(status_code=400, detail="Credenciales inválidas")
+        raise HTTPException(status_code=400, detail="Credenciales inválidas o usuario inactivo")
 
-    if not verify_password(form_data.password, user.password):
+    if not verify_password(form_data.password, user.password): # pyright: ignore[reportArgumentType]
         logger.warning("Password inválido para usuario %s", form_data.username)
         raise HTTPException(status_code=400, detail="Credenciales inválidas")
 
@@ -92,7 +94,7 @@ def validate_token(token: str, db: Session):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
         logger.debug("Payload decodificado: %s", payload)
         exp = payload.get("exp")
-        user_dni: str = payload.get("sub")
+        user_dni: str = payload.get("sub") # pyright: ignore[reportAssignmentType]
         if user_dni is None:
             logger.error("❌ Token inválido: no contiene 'sub'")
             raise HTTPException(status_code=401, detail="Token inválido")

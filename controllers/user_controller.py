@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from UsersAPI.models.user import UserDB
+from ..models.user import UserDB
 
 from ..schemas import UserCreate, UserUpdate
 from ..services.user_service import create_user, delete_user, get_user, list_users, update_user
@@ -10,7 +10,7 @@ def crear_usuario(user: UserCreate, db: Session, current_user: UserDB | None = N
     return create_user(user, db, current_user)
 
 
-def listar_usuarios(db: Session, status: bool | None = None):
+def listar_usuarios(db: Session, status: int | None = None):
     return list_users(db, status)
 
 

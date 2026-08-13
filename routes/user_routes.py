@@ -40,12 +40,12 @@ async def crear_usuario(
     summary="Listar usuarios",
 )
 async def listar_usuarios(
-    status: bool | None = Query(
+    status: int | None = Query(
         None,
-        description="Filtra usuarios por estado activo (true) o inactivo (false)",
+        description="Filtra usuarios por estado (0=inactivo, 1=activo)",
         examples={  # type: ignore
-            "activos": {"summary": "Usuarios activos", "value": True},
-            "inactivos": {"summary": "Usuarios inactivos", "value": False},
+            "activos": {"summary": "Usuarios activos", "value": 1},
+            "inactivos": {"summary": "Usuarios inactivos", "value": 0},
         },
     ),
     db: Session = Depends(get_db),
