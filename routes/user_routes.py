@@ -130,7 +130,7 @@ async def crear_usuario_inicial(
 ):
     return user_controller.crear_usuario(user_obj, db)
 
-@user_routes.get(
+@user_routes.post(
     "/activate/{dni}/{token}/",
     response_model=UserActivateResponse,
     status_code=status.HTTP_200_OK,

@@ -46,7 +46,9 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
                 send_email(
                     recipient=actualizado.email, # pyright: ignore[reportArgumentType]
                     subject="Bienvenido nuevamente a UsersAPI",
-                    message=f"Hola {actualizado.name}, tu cuenta ha sido reactivada exitosamente."
+                    message=f"Hola {actualizado.name}, tu cuenta ha sido reactivada exitosamente.",
+                    dni=actualizado.dni, # pyright: ignore[reportArgumentType]
+                    token=actualizado.activation_token # pyright: ignore[reportArgumentType]
                 )
             except Exception as e:
                 logger.warning("Usuario reactivado pero fallo al enviar correo: %s", e)
@@ -89,7 +91,9 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
             send_email(
                 recipient=creado.email, # pyright: ignore[reportArgumentType]
                 subject="Bienvenido a UsersAPI",
-                message=f"Hola {creado.name}, tu cuenta ha sido creada exitosamente."
+                message=f"Hola {creado.name}, tu cuenta ha sido creada exitosamente.",
+                dni=creado.dni, # pyright: ignore[reportArgumentType]
+                token=creado.activation_token # pyright: ignore[reportArgumentType]
             )
         except Exception as e:
             logger.warning("Usuario creado pero fallo al enviar correo: %s", e)
@@ -169,7 +173,9 @@ def update_user(dni: str, datos: UserUpdate, db: Session, current_user: UserDB |
             send_email(
                 recipient=actualizado.email, # pyright: ignore[reportArgumentType]
                 subject="Tu cuenta en UsersAPI fue actualizada",
-                message=f"Hola {actualizado.name}, la información de tu cuenta ha sido actualizada."
+                message=f"Hola {actualizado.name}, la información de tu cuenta ha sido actualizada.",
+                dni=actualizado.dni, # pyright: ignore[reportArgumentType]
+                token=actualizado.activation_token # pyright: ignore[reportArgumentType]
             )
         except Exception as e:
             logger.warning("Usuario actualizado pero fallo al enviar correo: %s", e)

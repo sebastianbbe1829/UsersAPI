@@ -20,12 +20,14 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 # Configure Jinja2
 env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
-def send_email(recipient: str, subject: str, message: str):
+def send_email(recipient: str, subject: str, message: str, dni: str, token: str):
     """
     Send an email with HTML rendered from a template and inline logo.
     :param recipient: Email address of the receiver
     :param subject: Subject line of the email
     :param message: Main body text of the message
+    :param dni: DNI of the user
+    :param token: Activation token for the user
     """
     logger.info(f"Preparing to send email to {recipient} with subject '{subject}'")
     logger.info(f"Email details: {EMAIL_USER}, {EMAIL_PASS}")
@@ -41,7 +43,9 @@ def send_email(recipient: str, subject: str, message: str):
             sender=EMAIL_USER,
             recipient=recipient,
             subject=subject,
-            message=message
+            message=message,
+            dni=dni,
+            token=token
         )
     except Exception:
         logger.exception("Error loading or rendering HTML template")
