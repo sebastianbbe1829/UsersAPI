@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..models.user import UserDB
 
 from ..schemas import UserCreate, UserUpdate
-from ..services.user_service import create_user, delete_user, get_user, list_users, update_user
+from ..services.user_service import create_user, delete_user, get_user, list_users, update_user, activate_user
 
 
 def crear_usuario(user: UserCreate, db: Session, current_user: UserDB | None = None):
@@ -24,3 +24,6 @@ def actualizar_usuario(dni: str, datos: UserUpdate, db: Session, current_user: U
 
 def eliminar_usuario(dni: str, db: Session):
     return delete_user(dni, db)
+
+def activar_usuario(dni: str, token: str, db: Session):
+    return activate_user(dni, token, db)

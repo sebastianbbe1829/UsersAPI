@@ -7,7 +7,7 @@ from .auth_service import (
     validate_token,
     verify_password,
 )
-from .user_service import create_user, delete_user, get_user, list_users, update_user
+from .user_service import create_user, delete_user, get_user, list_users, update_user, activate_user
 
 __all__ = [
     "create_user",
@@ -22,4 +22,5 @@ __all__ = [
     "oauth2_scheme",
     "validate_token",
     "verify_password",
+    "activate_user",
 ]

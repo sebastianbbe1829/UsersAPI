@@ -9,7 +9,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    status: int = Field(default=1, description="Estado del usuario: 0=inactivo, 1=activo, 3=eliminado lógicamente")
+    status: int = Field(default=0, description="Estado del usuario: 0=inactivo, 1=activo, 3=eliminado lógicamente")
     password: str = Field(min_length=6, description="Contraseña del usuario")
 
 
@@ -28,4 +28,7 @@ class UserRead(UserBase):
 
 class UserDeleteResponse(UserBase):
     message: str = Field(description="Mensaje de confirmación de eliminación")
+
+class UserActivateResponse(UserBase):
+    message: str = Field(description="Mensaje de confirmación de activación")
 

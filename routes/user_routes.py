@@ -1,13 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Body, Depends, Path, Query, Request, status, HTTPException
 from sqlalchemy.orm import Session
-
 from ..controllers import user_controller
 from ..controllers.auth_controller import get_password_hash
 from ..models import UserDB
 from ..database import get_db
 from ..controllers import get_current_user
-from ..schemas import UserCreate, UserDeleteResponse, UserRead, UserUpdate
+from ..schemas import UserCreate, UserDeleteResponse, UserRead, UserUpdate, UserActivateResponse
 
 user_routes = APIRouter(
     prefix="/users",
@@ -130,3 +129,17 @@ async def crear_usuario_inicial(
     db: Session = Depends(get_db),
 ):
     return user_controller.crear_usuario(user_obj, db)
+
+@user_routes.get(
+    "/activate/{dni}/{token}/",
+    response_model=UserActivateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Activar usuario por token",
+)
+async def activate_user(
+    dni: str = Path(..., description="DNI del usuario a activar"),
+    token: str = Path(..., description="Token de activación enviado por correo"),
+    db: Session = Depends(get_db),
+):
+    """Activar usuario validando token de activación."""
+    return user_controller.activar_usuario(dni, token, db)

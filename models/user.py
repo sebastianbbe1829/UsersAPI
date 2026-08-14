@@ -13,7 +13,7 @@ class UserDB(Base):
     dni = Column(String(20), nullable=False, unique=True, index=True)
     name = Column(String(100), index=True)
     email = Column(String(255), unique=True, index=True)
-    status = Column(Integer, default=1)  # 0=inactivo, 1=activo, 3=eliminado lógicamente
+    status = Column(Integer, default=0)  # 0=inactivo, 1=activo, 3=eliminado lógicamente
     phone = Column(String(20), nullable=True)
     password = Column(String(200), nullable=False)
     created_at = Column(DateTime, nullable=False)
@@ -31,3 +31,4 @@ class UserDB(Base):
         nullable=True,
         server_default=text("USER")  # default de Oracle
     )
+    activation_token = Column(String(200), unique=True, index=True)

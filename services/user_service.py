@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -18,13 +20,14 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
 
     # Buscar si ya existe por email o dni (incluyendo eliminados)
     existente = repo.get_by_email_or_dni(user.email, user.dni)
-
+    token = str(uuid.uuid4())  # genera token único
     if existente:
         if existente.status == 3:  # eliminado lógico → reactivar
             existente.name = user.name
             existente.phone = user.phone
             existente.password = get_password_hash(user.password)
-            existente.status = 1
+            existente.status = 0
+            existente.activation_token = token
             existente.updated_by = current_user.email if current_user else "bootstrap"
             existente.updated_at = datetime.now()
 
@@ -72,6 +75,7 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
         email=user.email,
         status=user.status,
         phone=user.phone,
+        activation_token=token,
         password=get_password_hash(user.password),
         created_by=(current_user.email if current_user else "bootstrap"),
         created_at=datetime.now(),
@@ -206,4 +210,31 @@ def delete_user(dni: str, db: Session):
         "status": usuario.status,
         "phone": usuario.phone,
         "message": "Usuario eliminado correctamente",
+    }
+
+def activate_user(dni: str, token: str, db: Session):
+    repo = UserRepository(db)
+    usuario = repo.get_by_dni(dni)
+    if not usuario:
+        logger.warning("Usuario no encontrado al activar", extra={"dni": dni})
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    
+    if usuario.activation_token != token:
+        logger.warning("Token de activación inválido", extra={"dni": dni, "token": token})
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token de activación inválido")
+    
+    usuario.status = 1  # Activar el usuario
+    usuario.activation_token = None  # Limpiar el token de activación
+    usuario.updated_at = datetime.now()
+    repo.update(usuario)
+    
+    logger.info("Usuario activado", extra={"user_id": usuario.id, "dni": dni})
+    
+    return {
+        "dni": usuario.dni,
+        "name": usuario.name,
+        "email": usuario.email,
+        "status": usuario.status,
+        "phone": usuario.phone,
+        "message": "Usuario activado correctamente",
     }
