@@ -3,9 +3,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
 
-from database import Base, engine
-from routes import user_routes, auth_routers
-from logging_config import logger
+from .database import Base, engine
+from .routes import user_routes, auth_routers
+from .logging_config import logger
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
