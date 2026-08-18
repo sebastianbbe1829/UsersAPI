@@ -16,7 +16,43 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 # ============================================================
-# APLICACIÓN
+# RUTAS DEL PROYECTO
+# ============================================================
+
+CURRENT_FILE = os.path.abspath(__file__)
+
+# /repo/UsersAPI/UsersAPI
+PACKAGE_DIR = os.path.dirname(CURRENT_FILE)
+
+# /repo/UsersAPI
+PROJECT_DIR = os.path.dirname(PACKAGE_DIR)
+
+# /repo/UsersAPI/static
+STATIC_DIR = os.path.join(PROJECT_DIR, "static")
+
+# /repo/UsersAPI/static/logo.png
+LOGO_PATH = os.path.join(STATIC_DIR, "logo.png")
+
+
+# ============================================================
+# LOG DE CONFIGURACIÓN
+# ============================================================
+
+logger.info("==========================================")
+logger.info("CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS")
+logger.info("==========================================")
+logger.info(f"CURRENT_FILE: {CURRENT_FILE}")
+logger.info(f"PACKAGE_DIR: {PACKAGE_DIR}")
+logger.info(f"PROJECT_DIR: {PROJECT_DIR}")
+logger.info(f"STATIC_DIR: {STATIC_DIR}")
+logger.info(f"LOGO_PATH: {LOGO_PATH}")
+logger.info(f"STATIC_EXISTS: {os.path.isdir(STATIC_DIR)}")
+logger.info(f"LOGO_EXISTS: {os.path.isfile(LOGO_PATH)}")
+logger.info("==========================================")
+
+
+# ============================================================
+# FASTAPI
 # ============================================================
 
 app = FastAPI(
@@ -48,122 +84,10 @@ app = FastAPI(
         },
         {
             "name": "Auth",
-            "description": (
-                "Autenticación y generación de tokens JWT"
-            ),
+            "description": "Autenticación y generación de tokens JWT",
         },
     ],
 )
-
-
-# ============================================================
-# ARCHIVOS ESTÁTICOS
-# ============================================================
-#
-# Estructura:
-#
-# repo/
-# └── UsersAPI/
-#     ├── static/
-#     │   └── logo.png
-#     │
-#     └── UsersAPI/
-#         └── main.py
-#
-# Desde main.py:
-#
-# __file__
-#     /.../UsersAPI/UsersAPI/main.py
-#
-# Un nivel arriba:
-#     /.../UsersAPI/UsersAPI
-#
-# Dos niveles arriba:
-#     /.../UsersAPI
-#
-# Por lo tanto static está en:
-#     /.../UsersAPI/static
-# ============================================================
-
-CURRENT_FILE = os.path.abspath(__file__)
-
-PACKAGE_DIR = os.path.dirname(CURRENT_FILE)
-
-PROJECT_DIR = os.path.dirname(PACKAGE_DIR)
-
-STATIC_DIR = os.path.join(
-    PROJECT_DIR,
-    "static",
-)
-
-LOGO_PATH = os.path.join(
-    STATIC_DIR,
-    "logo.png",
-)
-
-
-logger.info("==========================================")
-logger.info("CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS")
-logger.info("==========================================")
-
-logger.info(
-    "CURRENT_FILE: %s",
-    CURRENT_FILE,
-)
-
-logger.info(
-    "PACKAGE_DIR: %s",
-    PACKAGE_DIR,
-)
-
-logger.info(
-    "PROJECT_DIR: %s",
-    PROJECT_DIR,
-)
-
-logger.info(
-    "STATIC_DIR: %s",
-    STATIC_DIR,
-)
-
-logger.info(
-    "LOGO_PATH: %s",
-    LOGO_PATH,
-)
-
-logger.info(
-    "STATIC_EXISTS: %s",
-    os.path.exists(STATIC_DIR),
-)
-
-logger.info(
-    "LOGO_EXISTS: %s",
-    os.path.exists(LOGO_PATH),
-)
-
-logger.info("==========================================")
-
-
-if os.path.isdir(STATIC_DIR):
-
-    app.mount(
-        "/static",
-        StaticFiles(
-            directory=STATIC_DIR,
-        ),
-        name="static",
-    )
-
-    logger.info(
-        "Directorio /static montado correctamente"
-    )
-
-else:
-
-    logger.error(
-        "NO SE ENCONTRÓ EL DIRECTORIO STATIC: %s",
-        STATIC_DIR,
-    )
 
 
 # ============================================================
@@ -185,26 +109,42 @@ app.add_middleware(
 
 
 # ============================================================
-# INICIO DE LA APLICACIÓN
+# ARCHIVOS ESTÁTICOS
 # ============================================================
 
-logger.info(
-    "Iniciando aplicación UsersAPI"
-)
+if os.path.isdir(STATIC_DIR):
+
+    app.mount(
+        "/static",
+        StaticFiles(directory=STATIC_DIR),
+        name="static",
+    )
+
+    logger.info(
+        f"Directorio /static montado correctamente: {STATIC_DIR}"
+    )
+
+else:
+
+    logger.error(
+        f"NO SE ENCONTRÓ EL DIRECTORIO STATIC: {STATIC_DIR}"
+    )
+
+
+# ============================================================
+# INICIO
+# ============================================================
+
+logger.info("Iniciando aplicación UsersAPI")
 
 
 # ============================================================
 # BASE DE DATOS
 # ============================================================
 
-logger.debug(
-    "URL BD: %s",
-    engine.url,
-)
+logger.debug("URL BD: %s", engine.url)
 
-Base.metadata.create_all(
-    bind=engine
-)
+Base.metadata.create_all(bind=engine)
 
 logger.info(
     "Tablas de base de datos creadas y esquema verificado"
@@ -212,25 +152,17 @@ logger.info(
 
 
 # ============================================================
-# RUTAS DE USUARIOS
+# RUTAS
 # ============================================================
 
-app.include_router(
-    user_routes
-)
+app.include_router(user_routes)
 
 logger.info(
     "Rutas de usuarios registradas"
 )
 
 
-# ============================================================
-# RUTAS DE AUTENTICACIÓN
-# ============================================================
-
-app.include_router(
-    auth_routers
-)
+app.include_router(auth_routers)
 
 logger.info(
     "Rutas de autenticación registradas"
@@ -238,7 +170,7 @@ logger.info(
 
 
 # ============================================================
-# MANEJO DE ERRORES DE VALIDACIÓN
+# VALIDACIÓN 422
 # ============================================================
 
 @app.exception_handler(RequestValidationError)
@@ -262,7 +194,7 @@ async def validation_exception_handler(
 
 
 # ============================================================
-# MANEJO DE ERRORES GENERALES
+# ERROR GENERAL 500
 # ============================================================
 
 @app.exception_handler(Exception)
