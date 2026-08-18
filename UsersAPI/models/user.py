@@ -5,6 +5,9 @@ from ..database import Base
 
 class UserDB(Base):
     __tablename__ = "app_users"
+    __table_args__ = {
+        "schema": "users_api"
+    }
     id = Column(
         Integer,
         Identity(start=1, increment=1),
