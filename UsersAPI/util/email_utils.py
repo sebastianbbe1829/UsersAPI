@@ -1,8 +1,6 @@
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
+import requests
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
 
@@ -12,20 +10,10 @@ from ..logging_config import logger
 load_dotenv()
 
 
-# ============================================================
-# CONFIGURACIÓN SMTP MAILERSEND
-# ============================================================
-
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.mailersend.net")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+MAILERSEND_API_KEY = os.getenv("MAILERSEND_API_KEY")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "UsersAPI")
 
-
-# ============================================================
-# TEMPLATES
-# ============================================================
 
 # Build absolute paths from project root
 BASE_DIR = os.path.dirname(
@@ -43,10 +31,6 @@ env = Environment(
 )
 
 
-# ============================================================
-# ENVÍO DE CORREO
-# ============================================================
-
 def send_email(
     recipient: str,
     subject: str,
@@ -55,14 +39,8 @@ def send_email(
     token: str
 ):
     """
-    Envía un correo utilizando SMTP de MailerSend
-    y el template HTML email_base.html.
-
-    :param recipient: Email del destinatario
-    :param subject: Asunto del correo
-    :param message: Mensaje principal
-    :param dni: DNI del usuario
-    :param token: Token de activación
+    Send an email using MailerSend API
+    with HTML rendered from a Jinja2 template.
     """
 
     logger.info(
@@ -70,25 +48,21 @@ def send_email(
         f"with subject '{subject}'"
     )
 
-    # ========================================================
-    # VALIDACIONES
-    # ========================================================
-
-    if not SMTP_USERNAME:
-        logger.error("SMTP_USERNAME is not configured")
-        raise RuntimeError("SMTP_USERNAME is not configured")
-
-    if not SMTP_PASSWORD:
-        logger.error("SMTP_PASSWORD is not configured")
-        raise RuntimeError("SMTP_PASSWORD is not configured")
+    if not MAILERSEND_API_KEY:
+        logger.error("MAILERSEND_API_KEY is not configured")
+        raise RuntimeError(
+            "MAILERSEND_API_KEY is not configured"
+        )
 
     if not EMAIL_FROM:
         logger.error("EMAIL_FROM is not configured")
-        raise RuntimeError("EMAIL_FROM is not configured")
+        raise RuntimeError(
+            "EMAIL_FROM is not configured"
+        )
 
-    # ========================================================
-    # RENDERIZAR TEMPLATE HTML
-    # ========================================================
+    # -------------------------------------------------
+    # Render HTML template
+    # -------------------------------------------------
 
     try:
 
@@ -104,90 +78,72 @@ def send_email(
         )
 
     except Exception:
-
         logger.exception(
             "Error loading or rendering HTML email template"
         )
-
         raise
 
-    # ========================================================
-    # CREAR MENSAJE
-    # ========================================================
+    # -------------------------------------------------
+    # Send through MailerSend API
+    # -------------------------------------------------
 
     try:
 
-        msg = MIMEMultipart("alternative")
+        payload = {
+            "from": {
+                "email": EMAIL_FROM,
+                "name": EMAIL_FROM_NAME
+            },
+            "to": [
+                {
+                    "email": recipient
+                }
+            ],
+            "subject": subject,
+            "html": html_content
+        }
 
-        msg["Subject"] = subject
-        msg["From"] = EMAIL_FROM
-        msg["To"] = recipient
+        headers = {
+            "Authorization": f"Bearer {MAILERSEND_API_KEY}",
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+        }
 
-        # Versión texto
-        text_content = message
-
-        # Versión HTML
-        msg.attach(
-            MIMEText(text_content, "plain", "utf-8")
-        )
-
-        msg.attach(
-            MIMEText(html_content, "html", "utf-8")
-        )
-
-    except Exception:
-
-        logger.exception(
-            "Error creating email message"
-        )
-
-        raise
-
-    # ========================================================
-    # ENVIAR MEDIANTE MAILERSEND SMTP
-    # ========================================================
-
-    try:
-
-        logger.info(
-            f"Connecting to SMTP server "
-            f"{SMTP_SERVER}:{SMTP_PORT}"
-        )
-
-        with smtplib.SMTP(
-            SMTP_SERVER,
-            SMTP_PORT,
+        response = requests.post(
+            "https://api.mailersend.com/v1/email",
+            headers=headers,
+            json=payload,
             timeout=30
-        ) as server:
+        )
 
-            # TLS
-            server.starttls()
+        # MailerSend returns 202 when the email
+        # has been accepted for processing.
+        if response.status_code != 202:
 
-            # Autenticación
-            server.login(
-                SMTP_USERNAME,
-                SMTP_PASSWORD
+            logger.error(
+                f"MailerSend error "
+                f"{response.status_code}: {response.text}"
             )
 
-            # Envío
-            server.sendmail(
-                EMAIL_FROM,
-                recipient,
-                msg.as_string()
-            )
+            response.raise_for_status()
+
+        message_id = response.headers.get(
+            "x-message-id"
+        )
 
         logger.info(
-            f"Email sent to {recipient} "
-            f"with subject '{subject}' "
-            f"via MailerSend SMTP"
+            f"Email accepted by MailerSend | "
+            f"to={recipient} | "
+            f"message_id={message_id}"
         )
 
-        return True
+        return {
+            "status": "accepted",
+            "message_id": message_id
+        }
 
-    except Exception:
-
+    except requests.RequestException:
         logger.exception(
-            "Error sending email through MailerSend SMTP"
+            "Error sending email through MailerSend API"
         )
-
         raise
