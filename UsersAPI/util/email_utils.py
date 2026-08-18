@@ -13,8 +13,8 @@ EMAIL_USER = os.getenv("EMAIL_USER", "correo@malo.com")
 EMAIL_PASS = os.getenv("EMAIL_PASS", "contraseñamala")
 
 
-# Build absolute path to templates folder
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Build absolute paths from project root
+BASE_DIR = os.path.dirname( os.path.dirname( os.path.dirname(os.path.abspath(__file__)) ))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 
 # Configure Jinja2
