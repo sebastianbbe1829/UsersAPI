@@ -15,10 +15,11 @@ def format_number(number: str) -> str:
     else:
         return f"57{number}"
 
-def send_whatsapp(to_number: str, message: str, template_name: str = "hello_world"):
+def send_whatsapp(to_number: str, message: str, template_name: str = "hello_world", parameters: list = None):
     """
     Envía un mensaje de WhatsApp. Según WHATSAPP_MODE:
     - "template": usa el template indicado (por defecto hello_world).
+      Puede incluir parámetros dinámicos ({{1}}, {{2}}, etc.).
     - "text": envía mensaje libre.
     """
     normalized_number = format_number(to_number)
@@ -38,16 +39,32 @@ def send_whatsapp(to_number: str, message: str, template_name: str = "hello_worl
             "text": {"body": message}
         }
     else:
-        # Prueba: template (ej. hello_world, bienvenida, actualizar, eliminar)
+        # Plantilla con variables dinámicas
+        components = []
+        if parameters:
+            components.append({
+                "type": "body",
+                "parameters": [{"type": "text", "text": p} for p in parameters]
+            })
+        elif message:
+            # fallback: un solo parámetro con el mensaje
+            components.append({
+                "type": "body",
+                "parameters": [{"type": "text", "text": message}]
+            })
+
         data = {
             "messaging_product": "whatsapp",
             "to": normalized_number,
             "type": "template",
             "template": {
                 "name": template_name,
-                "language": {"code": "en_US"}
+                "language": {"code": "en_US"},
+                "components": components
             }
         }
+
+        logger.debug(f"Payload enviado a WhatsApp: {data}")
 
     try:
         response = requests.post(url, headers=headers, json=data)

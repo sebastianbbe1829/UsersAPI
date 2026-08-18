@@ -33,6 +33,17 @@ async def crear_usuario(
         raise HTTPException(status_code=500, detail="Error interno al crear usuario") from e
 
 @user_routes.get(
+        "/export", response_description="Exportar usuarios a Excel"
+)
+async def export_users_route(
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    """Exportar todos los usuarios a un archivo Excel."""
+    return user_controller.exportar_usuarios(db,current_user)
+
+
+@user_routes.get(
     "",
     response_model=List[UserRead],
     status_code=status.HTTP_200_OK,

@@ -7,9 +7,18 @@ from .auth_service import (
     validate_token,
     verify_password,
 )
-from .user_service import create_user, delete_user, get_user, list_users, update_user, activate_user
+from .user_service import (
+    export_users, 
+    create_user, 
+    delete_user, 
+    get_user, 
+    list_users, 
+    update_user, 
+    activate_user,
+    )
 
 __all__ = [
+    "export_users",
     "create_user",
     "list_users",
     "get_user",

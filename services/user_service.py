@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from datetime import datetime
 
+from UsersAPI.util.excel_utils import export_to_excel
 from UsersAPI.util.whatsapp_utils import send_whatsapp
 
 from ..logging_config import logger
@@ -12,7 +13,7 @@ from ..models import UserDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
 from .auth_service import get_password_hash
-from ..util.email_utils import send_email
+from ..util import send_email
 
 
 def create_user(user: UserCreate, db: Session, current_user: UserDB | None = None) -> UserDB:
@@ -55,11 +56,11 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
 
             # Enviar whatsapp de bienvenida
             try:
-                send_whatsapp(
-                    to_number=user.phone, # pyright: ignore[reportArgumentType]
-                    message=f"Hola {user.name}, tu cuenta ha sido reactivada exitosamente.",
-                    template_name="hello_world"  # Puedes cambiar el nombre del template según tu configuración
-                )
+                send_whatsapp(to_number=user.phone, # pyright: ignore[reportArgumentType]
+                              message= None,  # pyright: ignore[reportArgumentType]
+                              template_name="hello_world", 
+                              parameters=None # pyright: ignore[reportArgumentType]
+                             )
             except Exception as e:
                         logger.warning("Usuario reactivado pero fallo al enviar mensaje de whatsapp: %s", e)
 
@@ -100,11 +101,11 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
 
         # Enviar whatsapp de bienvenida
         try:
-            send_whatsapp(
-                to_number=creado.phone, # pyright: ignore[reportArgumentType]
-                message=f"Hola {creado.name}, tu cuenta ha sido creada exitosamente.",
-                template_name="hello_world"  # Puedes cambiar el nombre del template según tu configuración
-            )
+            send_whatsapp(to_number=creado.phone, # pyright: ignore[reportArgumentType]
+                          message= None,  # pyright: ignore[reportArgumentType]
+                          template_name="hello_world", 
+                          parameters=None # pyright: ignore[reportArgumentType]
+                         )
         except Exception as e:
                     logger.warning("Usuario creado pero fallo al enviar mensaje de whatsapp: %s", e)
 
@@ -244,3 +245,17 @@ def activate_user(dni: str, token: str, db: Session):
         "phone": usuario.phone,
         "message": "Usuario activado correctamente",
     }
+
+def export_users(db: Session, current_user: UserDB | None = None):
+    repo = UserRepository(db)
+    usuarios = repo.get_all()   # <- aquí debe devolver lista, no lanzar excepción
+
+    data = [{
+        "DNI": u.dni,
+        "Nombre": u.name,
+        "Email": u.email,
+        "Teléfono": u.phone,
+        "Estado": "Activo" if u.status == 1 else "Inactivo"
+    } for u in usuarios]
+
+    return export_to_excel(data, filename="Usuarios.xlsx", current_user=current_user)
