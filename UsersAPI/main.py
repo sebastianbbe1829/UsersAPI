@@ -10,7 +10,13 @@ from starlette.status import (
 )
 
 from .database import engine
-from .routes import user_routes, auth_routers
+from .routes import (
+    user_routes,
+    auth_routers,
+    tenant_routes,
+    user_tenant_routes,
+)
+
 from .logging_config import logger
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -164,6 +170,18 @@ app.include_router(auth_routers)
 
 logger.info(
     "Rutas de autenticación registradas"
+)
+
+app.include_router(tenant_routes)
+
+logger.info(
+"Rutas de tenants registradas"
+)
+
+app.include_router(user_tenant_routes)
+
+logger.info(
+    "Rutas de relaciones usuario-tenant registradas"
 )
 
 

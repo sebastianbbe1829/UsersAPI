@@ -13,6 +13,14 @@ from .auth_controller import (
     get_password_hash,
 )
 
+from .tenant_controller import (
+    crear_tenant,
+    listar_tenants,
+    obtener_tenant,
+    actualizar_tenant,
+    eliminar_tenant,
+)
+
 __all__ = [
     "crear_usuario",
     "listar_usuarios",
@@ -23,4 +31,9 @@ __all__ = [
     "get_password_hash",
     "activar_usuario",
     "exportar_usuarios",
+    "crear_tenant",
+    "listar_tenants",
+    "obtener_tenant",
+    "actualizar_tenant",
+    "eliminar_tenant",
 ]

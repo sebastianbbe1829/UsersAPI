@@ -1,17 +1,31 @@
-from sqlalchemy import Column, DateTime, Integer, String, text
-from sqlalchemy import Identity
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    String,
+    text,
+    Identity,
+    UniqueConstraint,
+)
+
 from sqlalchemy.orm import relationship
 
 from ..database import Base
 
 
-class UserDB(Base):
+class TenantDB(Base):
 
-    __tablename__ = "app_users"
+    __tablename__ = "tenants"
 
-    __table_args__ = {
-        "schema": "users_api"
-    }
+    __table_args__ = (
+        UniqueConstraint(
+            "slug",
+            name="uq_tenants_slug",
+        ),
+        {
+            "schema": "users_api"
+        },
+    )
 
     id = Column(
         Integer,
@@ -19,42 +33,30 @@ class UserDB(Base):
         primary_key=True,
     )
 
-    dni = Column(
-        String(20),
-        nullable=False,
-        unique=True,
-        index=True,
-    )
-
     name = Column(
-        String(100),
+        String(150),
+        nullable=False,
         index=True,
     )
 
-    email = Column(
-        String(255),
+    slug = Column(
+        String(100),
+        nullable=False,
         unique=True,
         index=True,
     )
 
     status = Column(
         Integer,
-        default=0,
-    )
-
-    phone = Column(
-        String(20),
-        nullable=True,
-    )
-
-    password = Column(
-        String(200),
         nullable=False,
+        default=1,
+        server_default=text("1"),
     )
 
     created_at = Column(
         DateTime,
         nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
     )
 
     created_by = Column(
@@ -84,14 +86,8 @@ class UserDB(Base):
         server_default=text("USER"),
     )
 
-    activation_token = Column(
-        String(200),
-        unique=True,
-        index=True,
-    )
-
-    tenants = relationship(
+    users = relationship(
         "UserTenantDB",
-        back_populates="user",
+        back_populates="tenant",
         cascade="all, delete-orphan",
     )

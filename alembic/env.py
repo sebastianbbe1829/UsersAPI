@@ -55,13 +55,10 @@ def include_name(
     """
 
     if type_ == "schema":
-
         return name == DB_SCHEMA
 
     if type_ == "table":
-
-        schema = parent_names.get("schema")
-
+        schema = parent_names.get("schema_name")
         return schema == DB_SCHEMA
 
     return True
