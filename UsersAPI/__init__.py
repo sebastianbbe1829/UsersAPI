@@ -15,5 +15,3 @@ warnings.filterwarnings(
     category=DeprecationWarning,
     message=".*starlette.testclient.*deprecated.*",
 )
-
-from .main import app

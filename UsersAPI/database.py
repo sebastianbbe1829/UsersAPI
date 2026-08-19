@@ -1,33 +1,68 @@
 import os
-from pathlib import Path
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+
+# ============================================================
+# VARIABLES DE ENTORNO
+# ============================================================
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).resolve().parent
-# DATABASE_URL = f"sqlite:///{BASE_DIR / 'usuarios.db'}"
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "oracle+oracledb://USER_MAL:ClaveMala@192.168.1.73:1521/?service_name=xepdb1",
-)
+
+# ============================================================
+# DATABASE URL
+# ============================================================
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL no está configurada."
+    )
 
 
-# engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# ============================================================
+# ENGINE
+# ============================================================
+
 engine = create_engine(
     DATABASE_URL,
     echo=True,
     pool_pre_ping=True,
     pool_recycle=300,
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+# ============================================================
+# SESSION
+# ============================================================
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
+
+# ============================================================
+# BASE
+# ============================================================
+
 Base = declarative_base()
 
 
+# ============================================================
+# DATABASE DEPENDENCY
+# ============================================================
+
 def get_db():
     db = SessionLocal()
+
     try:
         yield db
+
     finally:
         db.close()

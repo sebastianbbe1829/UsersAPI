@@ -9,9 +9,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from sqlalchemy import text
-
-from .database import Base, engine
+from .database import engine
 from .routes import user_routes, auth_routers
 from .logging_config import logger
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,13 +32,6 @@ STATIC_DIR = os.path.join(PROJECT_DIR, "static")
 
 # /repo/UsersAPI/static/logo.png
 LOGO_PATH = os.path.join(STATIC_DIR, "logo.png")
-
-
-# ============================================================
-# CONFIGURACIÓN BASE DE DATOS
-# ============================================================
-
-DB_SCHEMA = "users_api"
 
 
 # ============================================================
@@ -148,62 +139,14 @@ logger.info("==========================================")
 logger.info("INICIANDO USERSAPI")
 logger.info("==========================================")
 
+logger.info(
+    "Base de datos administrada mediante Alembic"
+)
 
-# ============================================================
-# BASE DE DATOS
-# ============================================================
-
-logger.info("Verificando conexión con la base de datos...")
-logger.debug("URL BD: %s", engine.url)
-
-
-try:
-
-    # --------------------------------------------------------
-    # CREAR ESQUEMA SI NO EXISTE
-    # --------------------------------------------------------
-
-    logger.info(
-        f"Verificando esquema PostgreSQL: {DB_SCHEMA}"
-    )
-
-    with engine.begin() as connection:
-
-        connection.execute(
-            text(
-                f'CREATE SCHEMA IF NOT EXISTS "{DB_SCHEMA}"'
-            )
-        )
-
-    logger.info(
-        f"Esquema PostgreSQL '{DB_SCHEMA}' verificado correctamente"
-    )
-
-
-    # --------------------------------------------------------
-    # CREAR TABLAS
-    # --------------------------------------------------------
-
-    logger.info(
-        f"Verificando tablas dentro del esquema '{DB_SCHEMA}'"
-    )
-
-    Base.metadata.create_all(
-        bind=engine
-    )
-
-    logger.info(
-        "Tablas de base de datos creadas y esquema verificado"
-    )
-
-
-except Exception:
-
-    logger.exception(
-        "ERROR configurando el esquema o las tablas de la base de datos"
-    )
-
-    raise
+logger.debug(
+    "URL BD: %s",
+    engine.url,
+)
 
 
 # ============================================================
