@@ -1,19 +1,45 @@
 import os
+
 import requests
 
 from ..logging_config import logger
 
 
+# ============================================================
+# CONFIGURACIÓN
+# ============================================================
+
 ACCESS_TOKEN = os.getenv("WHATSAPP_TOKEN")
 WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
-WHATSAPP_MODE = os.getenv("WHATSAPP_MODE", "template")
+WHATSAPP_MODE = os.getenv(
+    "WHATSAPP_MODE",
+    "template",
+)
 
+
+# ============================================================
+# FORMATEAR NÚMERO
+# ============================================================
 
 def format_number(number: str) -> str:
+    """
+    Normaliza números de Colombia.
+
+    Ejemplos:
+
+        3246865765
+        +573246865765
+        573246865765
+
+    Todos terminan como:
+
+        573246865765
+    """
+
     number = str(number).strip()
 
     if number.startswith("+"):
-        return number.replace("+", "")
+        return number[1:]
 
     if number.startswith("57"):
         return number
@@ -21,33 +47,103 @@ def format_number(number: str) -> str:
     return f"57{number}"
 
 
+# ============================================================
+# ENVIAR WHATSAPP
+# ============================================================
+
 def send_whatsapp(
     to_number: str,
-    message: str,
+    message: str | None = None,
     template_name: str = "hello_world",
-    parameters: list = None,
+    parameters: list | None = None,
 ):
+    """
+    Envía un mensaje mediante WhatsApp Cloud API.
+
+    IMPORTANTE:
+
+    - Si WhatsApp responde 2xx -> retorna la respuesta JSON.
+    - Si WhatsApp responde error -> retorna None.
+    - Nunca lanza una excepción por un error HTTP de WhatsApp.
+
+    Esto permite que la creación/actualización del usuario
+    NO falle solamente porque WhatsApp esté caído o tenga
+    un problema de autenticación.
+    """
+
+    # ========================================================
+    # VALIDAR TOKEN
+    # ========================================================
+
     if not ACCESS_TOKEN:
-        logger.error("WHATSAPP_TOKEN no está configurado")
+
+        logger.error(
+            "WHATSAPP_TOKEN no está configurado"
+        )
+
         return None
+
+    # ========================================================
+    # VALIDAR PHONE ID
+    # ========================================================
 
     if not WHATSAPP_PHONE_ID:
-        logger.error("WHATSAPP_PHONE_ID no está configurado")
+
+        logger.error(
+            "WHATSAPP_PHONE_ID no está configurado"
+        )
+
         return None
 
-    normalized_number = format_number(to_number)
+    # ========================================================
+    # VALIDAR DESTINATARIO
+    # ========================================================
+
+    if not to_number:
+
+        logger.error(
+            "No se puede enviar WhatsApp: "
+            "el número de teléfono está vacío"
+        )
+
+        return None
+
+    normalized_number = format_number(
+        to_number
+    )
+
+    # ========================================================
+    # URL GRAPH API
+    # ========================================================
 
     url = (
-        f"https://graph.facebook.com/v25.0/"
+        "https://graph.facebook.com/v25.0/"
         f"{WHATSAPP_PHONE_ID}/messages"
     )
+
+    # ========================================================
+    # HEADERS
+    # ========================================================
 
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json",
     }
 
+    # ========================================================
+    # MENSAJE DE TEXTO
+    # ========================================================
+
     if WHATSAPP_MODE.lower() == "text":
+
+        if not message:
+
+            logger.error(
+                "WHATSAPP_MODE=text pero no se recibió "
+                "ningún mensaje"
+            )
+
+            return None
 
         data = {
             "messaging_product": "whatsapp",
@@ -58,6 +154,10 @@ def send_whatsapp(
             },
         }
 
+    # ========================================================
+    # PLANTILLA
+    # ========================================================
+
     else:
 
         template = {
@@ -67,9 +167,12 @@ def send_whatsapp(
             },
         }
 
-        # Solo enviar componentes cuando la plantilla
-        # realmente tiene parámetros.
+        # ----------------------------------------------------
+        # PARÁMETROS DE LA PLANTILLA
+        # ----------------------------------------------------
+
         if parameters:
+
             template["components"] = [
                 {
                     "type": "body",
@@ -90,9 +193,18 @@ def send_whatsapp(
             "template": template,
         }
 
+    # ========================================================
+    # LOG PAYLOAD
+    # ========================================================
+
     logger.debug(
-        f"Payload enviado a WhatsApp: {data}"
+        "Payload enviado a WhatsApp: %s",
+        data,
     )
+
+    # ========================================================
+    # PETICIÓN
+    # ========================================================
 
     try:
 
@@ -103,55 +215,93 @@ def send_whatsapp(
             timeout=30,
         )
 
-        response.raise_for_status()
+        # ====================================================
+        # ÉXITO
+        # ====================================================
 
-        response_data = response.json()
+        if response.ok:
 
-        logger.info(
-            f"WhatsApp enviado correctamente | "
-            f"to={normalized_number} | "
-            f"mode={WHATSAPP_MODE} | "
-            f"template={template_name}"
-        )
+            try:
+                response_data = response.json()
+            except ValueError:
+                response_data = {
+                    "status_code": response.status_code,
+                    "text": response.text,
+                }
 
-        logger.debug(
-            f"Respuesta WhatsApp: {response_data}"
-        )
+            logger.info(
+                "WhatsApp enviado correctamente | "
+                "status=%s | "
+                "to=%s | "
+                "mode=%s | "
+                "template=%s",
+                response.status_code,
+                normalized_number,
+                WHATSAPP_MODE,
+                template_name,
+            )
 
-        return response_data
+            logger.debug(
+                "Respuesta WhatsApp: %s",
+                response_data,
+            )
 
-    except requests.exceptions.HTTPError:
+            return response_data
+
+        # ====================================================
+        # ERROR HTTP
+        # ====================================================
 
         logger.error(
-            f"Error HTTP WhatsApp | "
-            f"status={response.status_code} | "
-            f"response={response.text} | "
-            f"to={normalized_number} | "
-            f"mode={WHATSAPP_MODE} | "
-            f"template={template_name}"
+            "Error HTTP WhatsApp | "
+            "status=%s | "
+            "response=%s | "
+            "to=%s | "
+            "mode=%s | "
+            "template=%s",
+            response.status_code,
+            response.text,
+            normalized_number,
+            WHATSAPP_MODE,
+            template_name,
         )
 
         return None
 
-    except requests.exceptions.RequestException as e:
+    # ========================================================
+    # ERROR DE CONEXIÓN
+    # ========================================================
+
+    except requests.exceptions.RequestException as exc:
 
         logger.error(
-            f"Error de conexión WhatsApp | "
-            f"to={normalized_number} | "
-            f"mode={WHATSAPP_MODE} | "
-            f"template={template_name} | "
-            f"error={str(e)}"
+            "Error de conexión WhatsApp | "
+            "to=%s | "
+            "mode=%s | "
+            "template=%s | "
+            "error=%s",
+            normalized_number,
+            WHATSAPP_MODE,
+            template_name,
+            str(exc),
         )
 
         return None
+
+    # ========================================================
+    # ERROR INESPERADO
+    # ========================================================
 
     except Exception:
 
         logger.exception(
-            f"Error inesperado WhatsApp | "
-            f"to={normalized_number} | "
-            f"mode={WHATSAPP_MODE} | "
-            f"template={template_name}"
+            "Error inesperado WhatsApp | "
+            "to=%s | "
+            "mode=%s | "
+            "template=%s",
+            normalized_number,
+            WHATSAPP_MODE,
+            template_name,
         )
 
         return None

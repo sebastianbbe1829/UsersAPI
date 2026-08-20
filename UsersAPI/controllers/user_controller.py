@@ -1,15 +1,16 @@
 from sqlalchemy.orm import Session
 
-from ..schemas import UserCreate, UserUpdate
 from ..models import UserTenantDB
+from ..schemas import UserCreate, UserUpdate
 
 from ..services.user_service import (
     create_user,
+    delete_user,
     export_users,
     get_user,
     list_users,
     update_user,
-    delete_user,
+    activate_user,
 )
 
 
@@ -23,6 +24,7 @@ def crear_usuario(
     current_user: UserTenantDB | None = None,
     user_tenant: UserTenantDB | None = None,
 ):
+
     return create_user(
         user,
         db,
@@ -32,7 +34,7 @@ def crear_usuario(
 
 
 # ============================================================
-# LISTAR USUARIOS POR TENANT
+# LISTAR USUARIOS
 # ============================================================
 
 def listar_usuarios(
@@ -40,6 +42,7 @@ def listar_usuarios(
     tenant_id: int,
     status_filter: int | None = None,
 ):
+
     return list_users(
         db=db,
         tenant_id=tenant_id,
@@ -48,7 +51,7 @@ def listar_usuarios(
 
 
 # ============================================================
-# CONSULTAR USUARIO
+# OBTENER USUARIO
 # ============================================================
 
 def obtener_usuario(
@@ -56,6 +59,7 @@ def obtener_usuario(
     db: Session,
     user_tenant: UserTenantDB,
 ):
+
     return get_user(
         dni=dni,
         tenant_id=user_tenant.tenant_id,
@@ -74,6 +78,7 @@ def actualizar_usuario(
     current_user: UserTenantDB,
     user_tenant: UserTenantDB,
 ):
+
     return update_user(
         dni,
         datos,
@@ -92,6 +97,7 @@ def eliminar_usuario(
     db: Session,
     user_tenant: UserTenantDB,
 ):
+
     return delete_user(
         dni,
         db,
@@ -108,8 +114,24 @@ def exportar_usuarios(
     current_user: UserTenantDB,
     user_tenant: UserTenantDB,
 ):
+
     return export_users(
         db,
         current_user,
         user_tenant.tenant_id,
+    )
+
+# ============================================================
+# ACTIVAR USUARIO
+# ============================================================
+
+def activar_usuario(
+    dni: str,
+    token: str,
+    db: Session,
+):
+    return activate_user(
+        dni=dni,
+        token=token,
+        db=db,
     )

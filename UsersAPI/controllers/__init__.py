@@ -4,6 +4,7 @@ from .user_controller import (
     get_user,
     list_users,
     update_user,
+    activate_user,
 )
 
 from .auth_controller import (
@@ -40,6 +41,10 @@ from .role_permission_controller import (
     eliminar_permiso_rol,
 )
 
+from .bootstrap_controller import (
+    bootstrap_application,
+)
+
 __all__ = [
     "create_user",
     "list_users",
@@ -64,5 +69,7 @@ __all__ = [
     "asignar_rol_usuario",
     "asignar_permiso_rol",
     "listar_permisos_rol",
-    "eliminar_permiso_rol"
+    "eliminar_permiso_rol",
+    "activate_user",
+    "bootstrap_application",
 ]

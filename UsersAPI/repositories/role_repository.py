@@ -9,7 +9,7 @@ class RoleRepository:
     def add(self, role: RoleDB):
 
         self.db.add(role)
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(role)
 
         return role
@@ -85,9 +85,9 @@ class RoleRepository:
 
     def update(self, role: RoleDB):
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(role)
-
+        self.db.flush()
         return role
 
     def delete(self, role: RoleDB):
@@ -98,7 +98,8 @@ class RoleRepository:
             RoleDB.status: 3
         })
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(role)
+        self.db.flush()
 
         return role

@@ -15,6 +15,7 @@ from .user_service import (
     get_user,
     list_users,
     update_user,
+    activate_user
 )
 
 from .user_tenant_role_service import (
@@ -50,4 +51,5 @@ __all__ = [
     "assign_permission_to_role",
     "list_role_permissions",
     "remove_permission_from_role",
+    "activate_user",
 ]

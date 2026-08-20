@@ -8,7 +8,7 @@ class TenantRepository:
 
     def add(self, tenant: TenantDB):
         self.db.add(tenant)
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(tenant)
         return tenant
 
@@ -37,12 +37,14 @@ class TenantRepository:
         )
 
     def get_by_id_including_deleted(self, tenant_id: int):
+
         return (
             self.db.query(TenantDB)
             .filter(
-            TenantDB.id == tenant_id
-                ).first()
+                TenantDB.id == tenant_id
             )
+            .first()
+        )
 
     def get_by_slug(self, slug: str):
 
@@ -68,9 +70,9 @@ class TenantRepository:
 
     def update(self, tenant: TenantDB):
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(tenant)
-
+        self.db.flush()
         return tenant
 
     def delete(self, tenant: TenantDB):
@@ -81,8 +83,9 @@ class TenantRepository:
             TenantDB.status: 3
         })
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(tenant)
+        self.db.flush()
 
         return tenant
 
@@ -106,7 +109,7 @@ class TenantRepository:
 
         if status_filter is not None:
             query = query.filter(
-            TenantDB.status == status_filter
+                TenantDB.status == status_filter
             )
 
         return query.all()

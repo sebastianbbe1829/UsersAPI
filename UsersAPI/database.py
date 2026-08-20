@@ -34,7 +34,7 @@ if not DATABASE_URL:
 
 engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,
     pool_pre_ping=True,
     pool_recycle=300,
 )
@@ -67,6 +67,11 @@ def get_db():
 
     try:
         yield db
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()

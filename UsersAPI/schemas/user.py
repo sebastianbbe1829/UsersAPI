@@ -1,34 +1,162 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class UserBase(BaseModel):
-    dni: str = Field(min_length=5, max_length=20, description="DNI del usuario")
-    name: str = Field(min_length=2, max_length=100, description="Nombre del usuario")
-    email: EmailStr = Field(description="Correo electrónico del usuario")
-    phone: str | None = Field(default=None, min_length=7, max_length=20, description="Teléfono del usuario")
+# ============================================================
+# DATOS GLOBALES DEL USUARIO
+# ============================================================
 
+class UserBase(BaseModel):
+    dni: str = Field(
+        min_length=5,
+        max_length=20,
+        description="DNI del usuario",
+    )
+
+    name: str = Field(
+        min_length=2,
+        max_length=100,
+        description="Nombre del usuario",
+    )
+
+
+# ============================================================
+# CREAR USUARIO
+#
+# app_users:
+#   dni
+#   name
+#
+# user_tenants:
+#   email
+#   password
+#   phone
+#   status
+# ============================================================
 
 class UserCreate(UserBase):
-    status: int = Field(default=0, description="Estado del usuario: 0=inactivo, 1=activo, 3=eliminado lógicamente")
-    password: str = Field(min_length=6, description="Contraseña del usuario")
 
+    email: EmailStr = Field(
+        description="Correo electrónico del usuario dentro del tenant",
+    )
+
+    phone: str | None = Field(
+        default=None,
+        min_length=7,
+        max_length=20,
+        description="Teléfono del usuario dentro del tenant",
+    )
+
+    password: str = Field(
+        min_length=6,
+        description="Contraseña del usuario dentro del tenant",
+    )
+
+    status: int = Field(
+        default=0,
+        description=(
+            "Estado del usuario dentro del tenant: "
+            "0=inactivo, 1=activo, 3=eliminado lógicamente"
+        ),
+    )
+
+
+# ============================================================
+# ACTUALIZAR USUARIO
+#
+# Todos los campos son opcionales porque utilizamos PATCH.
+# ============================================================
 
 class UserUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=2, max_length=100)
-    email: EmailStr | None = None
-    status: int | None = Field(default=None, description="Estado: 0=inactivo, 1=activo, 3=eliminado lógicamente")
-    phone: str | None = Field(default=None, min_length=7, max_length=20)
-    password: str | None = Field(default=None, min_length=6)
 
+    name: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+        description="Nuevo nombre del usuario",
+    )
+
+    email: EmailStr | None = Field(
+        default=None,
+        description="Nuevo correo electrónico",
+    )
+
+    phone: str | None = Field(
+        default=None,
+        min_length=7,
+        max_length=20,
+        description="Nuevo teléfono",
+    )
+
+    password: str | None = Field(
+        default=None,
+        min_length=6,
+        description="Nueva contraseña",
+    )
+
+    status: int | None = Field(
+        default=None,
+        description=(
+            "Nuevo estado dentro del tenant: "
+            "0=inactivo, 1=activo, 3=eliminado lógicamente"
+        ),
+    )
+
+
+# ============================================================
+# RESPUESTA DE USUARIO
+#
+# La respuesta combina:
+#
+# app_users
+#   dni
+#   name
+#
+# user_tenants
+#   email
+#   phone
+#   status
+# ============================================================
 
 class UserRead(UserBase):
-    status: int = Field(description="Estado del usuario: 0=inactivo, 1=activo, 3=eliminado lógicamente")
-    model_config = ConfigDict(from_attributes=True)
+
+    email: EmailStr = Field(
+        description="Correo electrónico del usuario",
+    )
+
+    phone: str | None = Field(
+        default=None,
+        description="Teléfono del usuario",
+    )
+
+    status: int = Field(
+        description=(
+            "Estado del usuario dentro del tenant: "
+            "0=inactivo, 1=activo, 3=eliminado lógicamente"
+        ),
+    )
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
 
-class UserDeleteResponse(UserBase):
-    message: str = Field(description="Mensaje de confirmación de eliminación")
+# ============================================================
+# RESPUESTA ELIMINACIÓN
+# ============================================================
 
-class UserActivateResponse(UserBase):
-    message: str = Field(description="Mensaje de confirmación de activación")
+class UserDeleteResponse(UserRead):
 
+    message: str = Field(
+        description="Mensaje de confirmación de eliminación",
+    )
+
+
+# ============================================================
+# RESPUESTA ACTIVACIÓN
+# ============================================================
+
+class UserActivateResponse(UserRead):
+
+    message: str = Field(
+        description="Mensaje de confirmación de activación",
+    )

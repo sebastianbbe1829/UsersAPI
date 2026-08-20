@@ -9,7 +9,7 @@ class UserTenantRoleRepository:
     def add(self, user_tenant_role: UserTenantRoleDB):
 
         self.db.add(user_tenant_role)
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(user_tenant_role)
 
         return user_tenant_role
@@ -61,6 +61,6 @@ class UserTenantRoleRepository:
     ):
 
         self.db.delete(user_tenant_role)
-        self.db.commit()
+        self.db.flush()
 
         return user_tenant_role

@@ -11,6 +11,8 @@ from .tenant import (
     TenantDeleteResponse,
     TenantRead,
     TenantUpdate,
+    BootstrapRequest,
+    BootstrapResponse,
 )
 
 from .user_tenant import (
@@ -74,4 +76,6 @@ __all__ = [
     "TokenUserResponse",
     "TokenTenantResponse",
     "TokenValidationResponse",
+    "BootstrapRequest",
+    "BootstrapResponse",
 ]

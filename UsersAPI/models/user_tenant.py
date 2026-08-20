@@ -55,9 +55,8 @@ class UserTenantDB(Base):
         index=True,
     )
 
-
     # ============================================================
-    # DATOS DE LOGIN DENTRO DEL TENANT
+    # DATOS DEL USUARIO DENTRO DEL TENANT
     # ============================================================
 
     email = Column(
@@ -78,13 +77,17 @@ class UserTenantDB(Base):
 
     activation_token = Column(
         String(200),
+        nullable=True,
         unique=True,
         index=True,
     )
 
-
     # ============================================================
-    # ESTADO DE LA ASOCIACIÓN
+    # ESTADO
+    #
+    # 0 = inactivo
+    # 1 = activo
+    # 3 = eliminado
     # ============================================================
 
     status = Column(
@@ -93,7 +96,6 @@ class UserTenantDB(Base):
         default=1,
         server_default=text("1"),
     )
-
 
     # ============================================================
     # AUDITORÍA
@@ -132,7 +134,6 @@ class UserTenantDB(Base):
         server_default=text("USER"),
     )
 
-
     # ============================================================
     # RELACIONES
     # ============================================================
@@ -142,12 +143,10 @@ class UserTenantDB(Base):
         back_populates="tenants",
     )
 
-
     tenant = relationship(
         "TenantDB",
         back_populates="users",
     )
-
 
     roles = relationship(
         "UserTenantRoleDB",

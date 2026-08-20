@@ -37,7 +37,7 @@ class RolePermissionRepository:
     ) -> RolePermissionDB:
 
         self.db.add(role_permission)
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(role_permission)
 
         return role_permission
@@ -86,4 +86,4 @@ class RolePermissionRepository:
     ) -> None:
 
         self.db.delete(role_permission)
-        self.db.commit()
+        self.db.flush()

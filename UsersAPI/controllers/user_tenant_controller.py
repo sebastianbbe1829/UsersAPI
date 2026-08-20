@@ -11,6 +11,10 @@ from ..services.user_tenant_service import (
 )
 
 
+# ============================================================
+# CREAR ASOCIACIÓN USUARIO - TENANT
+# ============================================================
+
 def crear_user_tenant(
     datos: UserTenantCreate,
     db: Session,
@@ -28,6 +32,10 @@ def crear_user_tenant(
     )
 
 
+# ============================================================
+# LISTAR TENANTS DE USUARIO
+# ============================================================
+
 def listar_tenants_usuario(
     user_id: int,
     db: Session,
@@ -38,6 +46,10 @@ def listar_tenants_usuario(
         db=db,
     )
 
+
+# ============================================================
+# LISTAR USUARIOS DE TENANT
+# ============================================================
 
 def listar_usuarios_tenant(
     tenant_id: int,
@@ -50,6 +62,10 @@ def listar_usuarios_tenant(
     )
 
 
+# ============================================================
+# OBTENER ASOCIACIÓN
+# ============================================================
+
 def obtener_user_tenant(
     user_tenant_id: int,
     db: Session,
@@ -60,6 +76,10 @@ def obtener_user_tenant(
         db=db,
     )
 
+
+# ============================================================
+# ELIMINAR ASOCIACIÓN
+# ============================================================
 
 def eliminar_user_tenant(
     user_tenant_id: int,
