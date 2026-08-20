@@ -220,17 +220,20 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ):
+    errores = []
 
-    logger.warning(
-        "Error de validación en %s: %s",
-        request.url.path,
-        exc,
-    )
+    for error in exc.errors():
+        error = dict(error)
+
+        if "input" in error:
+            error["input"] = str(error["input"])
+
+        errores.append(error)
 
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_CONTENT,
         content={
-            "detail": exc.errors(),
+            "detail": errores,
         },
     )
 
