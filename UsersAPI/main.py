@@ -15,6 +15,9 @@ from .routes import (
     auth_routers,
     tenant_routes,
     user_tenant_routes,
+    role_routes,
+    user_tenant_role_routes,
+    role_permission_routes
 )
 
 from .logging_config import logger
@@ -165,7 +168,6 @@ logger.info(
     "Rutas de usuarios registradas"
 )
 
-
 app.include_router(auth_routers)
 
 logger.info(
@@ -184,6 +186,23 @@ logger.info(
     "Rutas de relaciones usuario-tenant registradas"
 )
 
+app.include_router(role_routes)
+
+logger.info(
+    "Rutas de roles registradas"
+)
+
+app.include_router(user_tenant_role_routes)
+
+logger.info(
+    "Rutas de usuarios-roles registradas"
+)
+
+app.include_router(role_permission_routes)
+
+logger.info(
+    "Rutas de roles-permisos registradas"
+)
 
 # ============================================================
 # VALIDACIÓN 422

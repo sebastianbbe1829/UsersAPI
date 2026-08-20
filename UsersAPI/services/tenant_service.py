@@ -286,3 +286,26 @@ def delete_tenant(
         "status": tenant.status,
         "message": "Tenant eliminado correctamente",
     }
+
+def list_my_tenants(
+    db: Session,
+    current_user: UserDB,
+):
+    repo = TenantRepository(db)
+
+    user_id = current_user.id
+
+    tenants = repo.get_by_user_id(
+         user_id=user_id,
+         status_filter=1,
+    )
+
+    logger.debug(
+        "Listando tenants del usuario",
+        extra={
+            "user_id": user_id,
+            "count": len(tenants),
+        },
+    )
+
+    return tenants

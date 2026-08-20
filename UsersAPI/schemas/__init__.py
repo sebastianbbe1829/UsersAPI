@@ -19,6 +19,29 @@ from .user_tenant import (
     UserTenantDeleteResponse,
 )
 
+from .role import (
+    RoleCreate,
+    RoleDeleteResponse,
+    RoleRead,
+    RoleUpdate,
+)
+
+from .user_tenant_role import (
+    UserTenantRoleCreate,
+    UserTenantRoleRead,
+    UserTenantRoleDeleteResponse,
+)
+
+from .role_permission import (
+    RolePermissionCreate,
+    RolePermissionRead,
+    RolePermissionDeleteResponse,
+)
+
+from .auth import (
+    LoginRequest,
+    LoginResponse,
+)
 
 __all__ = [
     "UserCreate",
@@ -33,4 +56,16 @@ __all__ = [
     "UserTenantCreate",
     "UserTenantRead",
     "UserTenantDeleteResponse",
+    "RoleCreate",
+    "RoleDeleteResponse",
+    "RoleRead",
+    "RoleUpdate",
+    "UserTenantRoleCreate",
+    "UserTenantRoleRead",
+    "UserTenantRoleDeleteResponse",
+    "RolePermissionCreate",
+    "RolePermissionRead",
+    "RolePermissionDeleteResponse",
+    "LoginRequest",
+    "LoginResponse",
 ]

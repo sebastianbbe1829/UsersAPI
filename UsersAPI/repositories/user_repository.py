@@ -1,4 +1,4 @@
-from ..models import UserDB
+from ..models import UserDB, UserTenantDB
 
 
 class UserRepository:
@@ -93,3 +93,28 @@ class UserRepository:
         self.db.refresh(user)
 
         return user
+
+    def get_all_by_tenant(
+    self,
+    tenant_id: int,
+    status_filter: int | None = None,
+    ):
+        query = (
+            self.db.query(UserDB)
+            .join(
+                UserTenantDB,
+                UserTenantDB.user_id == UserDB.id,
+            )
+            .filter(
+                UserTenantDB.tenant_id == tenant_id,
+                UserTenantDB.status == 1,
+                UserDB.status != 3,
+            )
+        )
+
+        if status_filter is not None:
+            query = query.filter(
+                UserDB.status == status_filter
+            )
+
+        return query.all()

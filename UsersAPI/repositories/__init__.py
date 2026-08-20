@@ -1,0 +1,1 @@
+from .role_permission_repository import RolePermissionRepository

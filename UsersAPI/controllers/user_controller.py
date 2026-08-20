@@ -10,8 +10,16 @@ def crear_usuario(user: UserCreate, db: Session, current_user: UserDB | None = N
     return create_user(user, db, current_user)
 
 
-def listar_usuarios(db: Session, status: int | None = None):
-    return list_users(db, status)
+def listar_usuarios(
+    db: Session,
+    tenant_id: int,
+    status_filter: int | None = None,
+):
+    return list_users(
+        db=db,
+        tenant_id=tenant_id,
+        status_filter=status_filter,
+    )
 
 
 def obtener_usuario(dni: str, db: Session):

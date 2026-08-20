@@ -13,14 +13,14 @@ from sqlalchemy.orm import relationship
 from ..database import Base
 
 
-class TenantDB(Base):
+class PermissionDB(Base):
 
-    __tablename__ = "tenants"
+    __tablename__ = "permissions"
 
     __table_args__ = (
         UniqueConstraint(
-            "slug",
-            name="uq_tenants_slug",
+            "code",
+            name="uq_permissions_code",
         ),
         {
             "schema": "users_api"
@@ -33,17 +33,21 @@ class TenantDB(Base):
         primary_key=True,
     )
 
-    name = Column(
-        String(150),
-        nullable=False,
-        index=True,
-    )
-
-    slug = Column(
+    code = Column(
         String(100),
         nullable=False,
         unique=True,
         index=True,
+    )
+
+    name = Column(
+        String(150),
+        nullable=False,
+    )
+
+    description = Column(
+        String(255),
+        nullable=True,
     )
 
     status = Column(
@@ -86,14 +90,8 @@ class TenantDB(Base):
         server_default=text("USER"),
     )
 
-    users = relationship(
-        "UserTenantDB",
-        back_populates="tenant",
-        cascade="all, delete-orphan",
-    )
-
     roles = relationship(
-        "RoleDB",
-        back_populates="tenant",
+        "RolePermissionDB",
+        back_populates="permission",
         cascade="all, delete-orphan",
     )

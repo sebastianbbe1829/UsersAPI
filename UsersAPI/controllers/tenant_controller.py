@@ -6,6 +6,7 @@ from ..services.tenant_service import (
     create_tenant,
     delete_tenant,
     get_tenant,
+    list_my_tenants,
     list_tenants,
     update_tenant,
 )
@@ -31,6 +32,16 @@ def listar_tenants(
     return list_tenants(
         db=db,
         status_filter=status,
+    )
+
+
+def listar_mis_tenants(
+    db: Session,
+    current_user: UserDB,
+):
+    return list_my_tenants(
+        db=db,
+        current_user=current_user,
     )
 
 

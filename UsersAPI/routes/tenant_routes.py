@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from ..controllers import (
     crear_tenant,
     listar_tenants,
+    listar_mis_tenants,
     obtener_tenant,
     actualizar_tenant,
     eliminar_tenant,
@@ -64,6 +65,20 @@ async def listar_tenants_route(
         status,
     )
 
+@tenant_routes.get(
+    "/my",
+    response_model=List[TenantRead],
+    status_code=status.HTTP_200_OK,
+    summary="Listar mis tenants",
+)
+async def listar_mis_tenants_route(
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user),
+):
+    return listar_mis_tenants(
+        db=db,
+        current_user=current_user,
+    )
 
 @tenant_routes.get(
     "/{tenant_id}",

@@ -4,130 +4,369 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from ..database import get_db
 from ..logging_config import logger
-from ..models import UserDB
+from ..models import UserTenantDB, TenantDB
+from ..schemas import LoginRequest
 from ..settings import settings
+
+
+# ============================================================
+# CONFIGURACIÓN
+# ============================================================
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+pwd_context = CryptContext(
+    schemes=["argon2"],
+    deprecated="auto",
+)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="auth/login",
+)
+
+
+# ============================================================
+# PASSWORD
+# ============================================================
+
+
+def verify_password(
+    plain_password: str,
+    hashed_password: str,
+) -> bool:
+
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        return pwd_context.verify(
+            plain_password,
+            hashed_password,
+        )
+
     except Exception as exc:
-        logger.error("Error al verificar password: %s", exc)
+        logger.error(
+            "Error validando password: %s",
+            exc,
+        )
+
         return False
 
 
-def get_password_hash(password: str) -> str:
+def get_password_hash(
+    password: str,
+) -> str:
+
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+# ============================================================
+# JWT
+# ============================================================
+
+
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+    expire = datetime.now(timezone.utc) + (
+        expires_delta
+        or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+
+    to_encode.update(
+        {
+            "exp": expire,
+        }
+    )
+
+    return jwt.encode(
+        to_encode,
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
 
 
-def get_current_user(token: str, db: Session) -> UserDB:
+# ============================================================
+# LOGIN MULTI-TENANT
+# ============================================================
+
+
+def login_user(
+    datos: LoginRequest,
+    db: Session,
+):
+
+    logger.info(
+        "Intento login usuario=%s tenant=%s",
+        datos.username,
+        datos.tenant,
+    )
+
+    user_tenant = (
+        db.query(UserTenantDB)
+        .join(
+            TenantDB,
+            UserTenantDB.tenant_id == TenantDB.id,
+        )
+        .filter(
+            UserTenantDB.email == datos.username,
+            TenantDB.slug == datos.tenant,
+            UserTenantDB.status == 1,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
+
+    if user_tenant is None:
+
+        logger.warning(
+            "Usuario no encontrado en tenant",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credenciales inválidas o usuario inactivo",
+        )
+
+    if not verify_password(
+        datos.password,
+        user_tenant.password,
+    ):
+
+        logger.warning(
+            "Password inválido usuario=%s",
+            datos.username,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credenciales inválidas",
+        )
+
+    tenant = user_tenant.tenant
+    usuario = user_tenant.user
+
+    access_token = create_access_token(
+        {
+            "sub": usuario.dni,
+            "tenant_id": tenant.id,
+            "tenant_slug": tenant.slug,
+            "user_tenant_id": user_tenant.id,
+        }
+    )
+
+    logger.info(
+        "Login exitoso usuario=%s tenant=%s",
+        datos.username,
+        tenant.slug,
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "tenant_id": tenant.id,
+        "tenant_slug": tenant.slug,
+        "user_tenant_id": user_tenant.id,
+    }
+
+
+# ============================================================
+# CURRENT USER
+# ============================================================
+
+
+def get_current_user(
+    token: str,
+    db: Session,
+) -> UserTenantDB:
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar el token",
-        headers={"WWW-Authenticate": "Bearer"},
+        headers={
+            "WWW-Authenticate": "Bearer",
+        },
     )
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        dni: str = payload.get("sub") # pyright: ignore[reportAssignmentType]
-        if dni is None:
+
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+
+        user_tenant_id = payload.get(
+            "user_tenant_id"
+        )
+
+        if user_tenant_id is None:
             raise credentials_exception
+
     except ExpiredSignatureError as exc:
-        logger.warning("Token expirado: %s", exc)
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expirado",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
         ) from exc
+
     except JWTError as exc:
-        logger.warning("Token inválido: %s", exc)
+
         raise credentials_exception from exc
 
-    # Validar que el usuario exista y esté activo
-    user = db.query(UserDB).filter(UserDB.dni == dni, UserDB.status == 1).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado o inactivo")
-    return user
+    user_tenant = (
+        db.query(UserTenantDB)
+        .join(
+            TenantDB,
+            UserTenantDB.tenant_id == TenantDB.id,
+        )
+        .filter(
+            UserTenantDB.id == user_tenant_id,
+            UserTenantDB.status == 1,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
+
+    if user_tenant is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no pertenece al tenant",
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
+        )
+
+    return user_tenant
 
 
-def login_user(form_data: OAuth2PasswordRequestForm, db: Session):
-    logger.debug("Variables de entorno para autenticación: %s, %s, %s", SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES)
-    logger.info("Intento de login con username=%s", form_data.username)
-    user = db.query(UserDB).filter(UserDB.email == form_data.username,
-                                    UserDB.status == 1
-                                   ).first()
-    if not user:
-        logger.warning("Usuario %s no encontrado en BD", form_data.username)
-        raise HTTPException(status_code=400, detail="Credenciales inválidas o usuario inactivo")
-
-    if not verify_password(form_data.password, user.password): # pyright: ignore[reportArgumentType]
-        logger.warning("Password inválido para usuario %s", form_data.username)
-        raise HTTPException(status_code=400, detail="Credenciales inválidas")
-
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={"sub": user.dni}, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+# ============================================================
+# CURRENT USER TENANT
+# ============================================================
 
 
-def validate_token(token: str, db: Session):
+def get_current_user_tenant(
+    token: str,
+    db: Session,
+) -> UserTenantDB:
+
+    return get_current_user(
+        token,
+        db,
+    )
+
+
+# ============================================================
+# VALIDATE TOKEN
+# ============================================================
+
+
+def validate_token(
+    token: str,
+    db: Session,
+):
+
     try:
-        logger.debug("Variables de entorno para autenticación: %s, %s, %s", SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES)
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
-        logger.debug("Payload decodificado: %s", payload)
+
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={
+                "verify_exp": False,
+            },
+        )
+
         exp = payload.get("exp")
-        user_dni: str = payload.get("sub") # pyright: ignore[reportAssignmentType]
-        if user_dni is None:
-            logger.error("❌ Token inválido: no contiene 'sub'")
-            raise HTTPException(status_code=401, detail="Token inválido")
 
-        user = db.query(UserDB).filter(UserDB.dni == user_dni, UserDB.status == 1).first()
-        if not user:
-            logger.warning("Usuario con dni=%s no encontrado en BD", user_dni)
-            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        user_tenant_id = payload.get(
+            "user_tenant_id"
+        )
 
-        now = int(datetime.now(timezone.utc).timestamp())
-        logger.debug("Tiempo actual=%s, expiración=%s", now, exp)
-        if exp is not None and exp < now:
-            logger.warning("⏰ Token expirado para usuario dni=%s, email=%s", user_dni, user.email)
-            raise HTTPException(status_code=401, detail="Token expirado")
+        if user_tenant_id is None:
 
-        # Calcular tiempo restante
-        remaining_seconds = exp - now if exp else None
-        remaining_minutes_exact = (remaining_seconds / 60) if remaining_seconds else None
-        remaining_minutes_rounded = math.ceil(remaining_minutes_exact) if remaining_minutes_exact else None
-        logger.info("✅ Token válido para usuario dni=%s, email=%s", user_dni, user.email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido",
+            )
+
+        user_tenant = (
+            db.query(UserTenantDB)
+            .join(
+                TenantDB,
+                UserTenantDB.tenant_id == TenantDB.id,
+            )
+            .filter(
+                UserTenantDB.id == user_tenant_id,
+                UserTenantDB.status == 1,
+                TenantDB.status == 1,
+            )
+            .first()
+        )
+
+        if user_tenant is None:
+
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado",
+            )
+
+        now = int(
+            datetime.now(
+                timezone.utc
+            ).timestamp()
+        )
+
+        remaining_seconds = (
+            exp - now
+            if exp
+            else None
+        )
+
         return {
             "valid": True,
             "expiration": exp,
             "now": now,
             "remaining_seconds": remaining_seconds,
-            "remaining_minutes_exact": remaining_minutes_exact,
-            "remaining_minutes_rounded": remaining_minutes_rounded,
+            "remaining_minutes_rounded": (
+                math.ceil(
+                    remaining_seconds / 60
+                )
+                if remaining_seconds is not None
+                else None
+            ),
             "user": {
-                "dni": user.dni,
-                "email": user.email
-            }
+                "dni": user_tenant.user.dni,
+                "email": user_tenant.email,
+            },
+            "tenant": {
+                "id": user_tenant.tenant.id,
+                "slug": user_tenant.tenant.slug,
+            },
+            "user_tenant_id": user_tenant.id,
         }
+
+    except HTTPException:
+        raise
+
     except JWTError as exc:
-        logger.error("❌ Error al decodificar token: %s", exc)
-        raise HTTPException(status_code=401, detail="Token inválido") from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido",
+        ) from exc

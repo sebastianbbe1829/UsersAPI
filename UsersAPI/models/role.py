@@ -14,15 +14,15 @@ from sqlalchemy.orm import relationship
 from ..database import Base
 
 
-class UserTenantDB(Base):
+class RoleDB(Base):
 
-    __tablename__ = "user_tenants"
+    __tablename__ = "roles"
 
     __table_args__ = (
         UniqueConstraint(
-            "user_id",
             "tenant_id",
-            name="uq_user_tenants_user_tenant",
+            "code",
+            name="uq_roles_tenant_code",
         ),
         {
             "schema": "users_api"
@@ -35,57 +35,31 @@ class UserTenantDB(Base):
         primary_key=True,
     )
 
-    user_id = Column(
-        Integer,
-        ForeignKey(
-            "users_api.app_users.id",
-            ondelete="CASCADE",
-        ),
-        nullable=False,
-        index=True,
-    )
-
     tenant_id = Column(
         Integer,
         ForeignKey(
             "users_api.tenants.id",
             ondelete="CASCADE",
         ),
+        nullable=True,
+        index=True,
+    )
+
+    code = Column(
+        String(50),
         nullable=False,
         index=True,
     )
 
+    name = Column(
+        String(100),
+        nullable=False,
+    )
 
-    # ============================================================
-    # DATOS DE LOGIN DENTRO DEL TENANT
-    # ============================================================
-
-    email = Column(
+    description = Column(
         String(255),
-        nullable=False,
-        index=True,
-    )
-
-    password = Column(
-        String(200),
-        nullable=False,
-    )
-
-    phone = Column(
-        String(20),
         nullable=True,
     )
-
-    activation_token = Column(
-        String(200),
-        unique=True,
-        index=True,
-    )
-
-
-    # ============================================================
-    # ESTADO DE LA ASOCIACIÓN
-    # ============================================================
 
     status = Column(
         Integer,
@@ -93,11 +67,6 @@ class UserTenantDB(Base):
         default=1,
         server_default=text("1"),
     )
-
-
-    # ============================================================
-    # AUDITORÍA
-    # ============================================================
 
     created_at = Column(
         DateTime,
@@ -132,25 +101,19 @@ class UserTenantDB(Base):
         server_default=text("USER"),
     )
 
-
-    # ============================================================
-    # RELACIONES
-    # ============================================================
-
-    user = relationship(
-        "UserDB",
-        back_populates="tenants",
-    )
-
-
     tenant = relationship(
         "TenantDB",
-        back_populates="users",
+        back_populates="roles",
     )
 
+    permissions = relationship(
+        "RolePermissionDB",
+        back_populates="role",
+        cascade="all, delete-orphan",
+    )
 
-    roles = relationship(
+    user_tenant_roles = relationship(
         "UserTenantRoleDB",
-        back_populates="user_tenant",
+        back_populates="role",
         cascade="all, delete-orphan",
     )

@@ -9,12 +9,11 @@ from UsersAPI.util.excel_utils import export_to_excel
 from UsersAPI.util.whatsapp_utils import send_whatsapp
 
 from ..logging_config import logger
-from ..models import UserDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
 from .auth_service import get_password_hash
 from ..util import send_email
-
+from ..models import UserDB, UserTenantDB
 
 def create_user(user: UserCreate, db: Session, current_user: UserDB | None = None) -> UserDB:
     repo = UserRepository(db)
@@ -127,10 +126,27 @@ def create_user(user: UserCreate, db: Session, current_user: UserDB | None = Non
         ) from exc
 
 
-def list_users(db: Session, status_filter: int | None = None):
+def list_users(
+    db: Session,
+    tenant_id: int,
+    status_filter: int | None = None,
+):
     repo = UserRepository(db)
-    usuarios = repo.get_all(status_filter)
-    logger.debug("Listando usuarios", extra={"count": len(usuarios), "status_filter": status_filter})
+
+    usuarios = repo.get_all_by_tenant(
+        tenant_id=tenant_id,
+        status_filter=status_filter,
+    )
+
+    logger.debug(
+        "Listando usuarios por tenant",
+        extra={
+            "tenant_id": tenant_id,
+            "count": len(usuarios),
+            "status_filter": status_filter,
+        },
+    )
+
     return usuarios
 
 

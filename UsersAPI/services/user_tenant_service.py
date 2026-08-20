@@ -9,11 +9,15 @@ from ..models import UserDB, TenantDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.tenant_repository import TenantRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
+from .auth_service import get_password_hash
 
 
 def create_user_tenant(
     user_id: int,
     tenant_id: int,
+    email: str,
+    password: str,
+    phone: str | None,
     db: Session,
     current_user: UserDB | None = None,
 ) -> UserTenantDB:
@@ -37,13 +41,7 @@ def create_user_tenant(
     if usuario.status == 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario está eliminado. Debe gestionarse primero el usuario.",
-        )
-
-    if usuario.status != 1:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario está inactivo. Debe activarse primero el usuario.",
+            detail="El usuario está eliminado.",
         )
 
     # ============================================================
@@ -61,20 +59,20 @@ def create_user_tenant(
     if tenant.status == 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El tenant está eliminado. Debe gestionarse primero el tenant.",
+            detail="El tenant está eliminado.",
         )
 
     if tenant.status != 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El tenant está inactivo. Debe activarse primero el tenant.",
+            detail="El tenant está inactivo.",
         )
 
     # ============================================================
     # VALIDAR ASOCIACIÓN EXISTENTE
     # ============================================================
 
-    existente: UserTenantDB | None = (
+    existente = (
         db.query(UserTenantDB)
         .filter(
             UserTenantDB.user_id == user_id,
@@ -83,22 +81,37 @@ def create_user_tenant(
         .first()
     )
 
-    if existente is not None:
+    if existente:
 
-        # --------------------------------------------------------
-        # Asociación eliminada -> reactivar
-        # --------------------------------------------------------
+        # ========================================================
+        # REACTIVAR ASOCIACIÓN ELIMINADA
+        # ========================================================
 
-        if existente.status == 3:
-
-            existente.status = 1
-            existente.updated_at = datetime.now()
-            existente.updated_by = (
+        if existente.status is not None:
+            setattr(existente, "status", 1)
+            setattr(existente, "email", email)
+            setattr(
+                existente,
+                "password",
+                get_password_hash(password)
+            )
+            setattr(
+                existente,
+                "phone",
+                phone
+            )
+            setattr(
+                existente,
+                "updated_at",
+                datetime.now()
+            )
+            setattr(
+                existente,
+                "updated_by",
                 current_user.email
                 if current_user
                 else "bootstrap"
             )
-
             try:
 
                 actualizado = repo.update(existente)
@@ -125,44 +138,47 @@ def create_user_tenant(
 
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error interno al reactivar la asociación",
+                    detail="Error interno al reactivar asociación",
                 ) from exc
 
-        # --------------------------------------------------------
-        # Asociación ya activa
-        # --------------------------------------------------------
 
-        if existente.status == 1:
-
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El usuario ya está asociado a este tenant",
-            )
-
-        # --------------------------------------------------------
-        # Otro estado
-        # --------------------------------------------------------
+        # ========================================================
+        # YA EXISTE ACTIVA
+        # ========================================================
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La asociación usuario-tenant no puede ser creada en su estado actual",
+            detail="El usuario ya está asociado a este tenant",
         )
 
+
     # ============================================================
-    # CREAR ASOCIACIÓN
+    # CREAR NUEVA ASOCIACIÓN
     # ============================================================
 
     nueva_asociacion = UserTenantDB(
+
         user_id=user_id,
+
         tenant_id=tenant_id,
+
+        email=email,
+
+        password=get_password_hash(password),
+
+        phone=phone,
+
         status=1,
+
         created_at=datetime.now(),
+
         created_by=(
             current_user.email
             if current_user
             else "bootstrap"
         ),
     )
+
 
     try:
 
@@ -178,6 +194,7 @@ def create_user_tenant(
         )
 
         return creada
+
 
     except IntegrityError:
 
@@ -196,19 +213,21 @@ def create_user_tenant(
             detail="El usuario ya está asociado a este tenant",
         ) from None
 
+
     except Exception as exc:
 
         db.rollback()
 
         logger.error(
-            "Error inesperado al crear asociación usuario-tenant: %s",
+            "Error inesperado creando asociación usuario-tenant: %s",
             exc,
         )
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno al crear la asociación",
+            detail="Error interno creando asociación",
         ) from exc
+
 
 
 def get_user_tenant(
@@ -230,6 +249,7 @@ def get_user_tenant(
     return asociacion
 
 
+
 def list_user_tenants(
     user_id: int,
     db: Session,
@@ -247,21 +267,8 @@ def list_user_tenants(
             detail="El usuario no existe",
         )
 
-    if usuario.status == 3:
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario está eliminado. Debe gestionarse primero el usuario.",
-        )
-
-    if usuario.status != 1:
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario está inactivo. Debe activarse primero el usuario.",
-        )
-
     return repo.get_by_user(user_id)
+
 
 
 def list_tenant_users(
@@ -281,21 +288,8 @@ def list_tenant_users(
             detail="El tenant no existe",
         )
 
-    if tenant.status == 3:
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El tenant está eliminado. Debe gestionarse primero el tenant.",
-        )
-
-    if tenant.status != 1:
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El tenant está inactivo. Debe activarse primero el tenant.",
-        )
-
     return repo.get_by_tenant(tenant_id)
+
 
 
 def delete_user_tenant(
@@ -314,7 +308,9 @@ def delete_user_tenant(
             detail="Asociación usuario-tenant no encontrada",
         )
 
+
     repo.delete(asociacion)
+
 
     logger.info(
         "Asociación usuario-tenant eliminada",
@@ -324,6 +320,7 @@ def delete_user_tenant(
             "tenant_id": asociacion.tenant_id,
         },
     )
+
 
     return {
         "id": asociacion.id,
