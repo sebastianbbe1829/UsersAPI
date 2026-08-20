@@ -5,11 +5,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..logging_config import logger
-from ..models import UserDB, TenantDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.tenant_repository import TenantRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
 from .auth_service import get_password_hash
+from ..models import UserTenantDB, UserDB
 
 
 def create_user_tenant(

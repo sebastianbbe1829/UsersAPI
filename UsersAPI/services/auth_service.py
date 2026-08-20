@@ -225,22 +225,22 @@ def get_current_user(
         ) from exc
 
     except JWTError as exc:
-
         raise credentials_exception from exc
 
     user_tenant = (
-        db.query(UserTenantDB)
-        .join(
-            TenantDB,
-            UserTenantDB.tenant_id == TenantDB.id,
+            db.query(UserTenantDB)
+            .join(
+                TenantDB,
+                UserTenantDB.tenant_id == TenantDB.id,
+            )
+            .filter(
+                UserTenantDB.id == user_tenant_id,
+                UserTenantDB.status == 1,
+                TenantDB.status == 1,
+            )
+            .first()
         )
-        .filter(
-            UserTenantDB.id == user_tenant_id,
-            UserTenantDB.status == 1,
-            TenantDB.status == 1,
-        )
-        .first()
-    )
+
 
     if user_tenant is None:
 
@@ -252,9 +252,44 @@ def get_current_user(
             },
         )
 
+
+        # ============================================================
+        # VALIDAR COHERENCIA DEL TENANT DEL TOKEN
+        # ============================================================
+
+    token_tenant_id = payload.get(
+            "tenant_id"
+            )
+
+
+    if token_tenant_id is None:
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token sin tenant asociado",
+                headers={
+                    "WWW-Authenticate": "Bearer",
+                },
+            )
+
+
+    if user_tenant.tenant_id != token_tenant_id:
+
+            logger.warning(
+                "Inconsistencia tenant JWT usuario_tenant=%s token_tenant=%s",
+                user_tenant.tenant_id,
+                token_tenant_id,
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="El tenant del token no coincide con el usuario",
+                headers={
+                    "WWW-Authenticate": "Bearer",
+                },
+            )
+    
     return user_tenant
-
-
 # ============================================================
 # CURRENT USER TENANT
 # ============================================================

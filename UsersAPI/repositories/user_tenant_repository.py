@@ -1,4 +1,5 @@
-from ..models import UserTenantDB
+from ..models import UserTenantDB, UserDB
+
 
 
 class UserTenantRepository:
@@ -73,3 +74,4 @@ class UserTenantRepository:
         self.db.refresh(user_tenant)
 
         return user_tenant
+

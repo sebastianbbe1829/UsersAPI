@@ -1,128 +1,96 @@
-import uuid
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from datetime import datetime
 
 from UsersAPI.util.excel_utils import export_to_excel
-from UsersAPI.util.whatsapp_utils import send_whatsapp
 
 from ..logging_config import logger
+from ..models import TenantDB, UserDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..schemas import UserCreate, UserUpdate
 from .auth_service import get_password_hash
-from ..util import send_email
-from ..models import UserDB, UserTenantDB
 
-def create_user(user: UserCreate, db: Session, current_user: UserDB | None = None) -> UserDB:
+
+def _actor_dni(current_user: UserTenantDB | None) -> str:
+    return current_user.user.dni if current_user else "bootstrap"
+
+
+def _user_payload(user: UserDB, link: UserTenantDB, message: str | None = None):
+    payload = {
+        "dni": user.dni,
+        "name": user.name,
+        "email": link.email,
+        "phone": link.phone,
+        "status": link.status,
+    }
+    if message is not None:
+        payload["message"] = message
+    return payload
+
+
+def create_user(
+    user: UserCreate,
+    db: Session,
+    current_user: UserTenantDB | None = None,
+    user_tenant: UserTenantDB | None = None,
+):
     repo = UserRepository(db)
+    if repo.get_by_dni(user.dni):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario ya existe",
+        )
 
-    # Buscar si ya existe por email o dni (incluyendo eliminados)
-    existente = repo.get_by_email_or_dni(user.email, user.dni)
-    token = str(uuid.uuid4())  # genera token único
-    if existente:
-        if existente.status == 3:  # eliminado lógico → reactivar
-            existente.name = user.name
-            existente.phone = user.phone
-            existente.password = get_password_hash(user.password)
-            existente.status = 0
-            existente.activation_token = token
-            existente.updated_by = current_user.email if current_user else "bootstrap"
-            existente.updated_at = datetime.now()
-
-            try:
-                actualizado = repo.update(existente)
-                logger.info("Usuario reactivado", extra={"user_id": actualizado.id, "dni": actualizado.dni})
-            except Exception as exc:
-                    db.rollback()
-                    logger.error("Error inesperado al reactivar usuario: %s", exc)
-                    raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error interno al reactivar usuario",
-            ) from exc
-
-            try:
-                send_email(
-                    recipient=actualizado.email, # pyright: ignore[reportArgumentType]
-                    subject="Bienvenido nuevamente a UsersAPI",
-                    message=f"Hola {actualizado.name}, tu cuenta ha sido reactivada exitosamente.",
-                    dni=actualizado.dni, # pyright: ignore[reportArgumentType]
-                    token=actualizado.activation_token # pyright: ignore[reportArgumentType]
-                )
-            except Exception as e:
-                logger.warning("Usuario reactivado pero fallo al enviar correo: %s", e)
-
-            # Enviar whatsapp de bienvenida
-            try:
-                send_whatsapp(to_number=user.phone, # pyright: ignore[reportArgumentType]
-                              message= None,  # pyright: ignore[reportArgumentType]
-                              template_name="hello_world", 
-                              parameters=None # pyright: ignore[reportArgumentType]
-                             )
-            except Exception as e:
-                        logger.warning("Usuario reactivado pero fallo al enviar mensaje de whatsapp: %s", e)
-
-            return actualizado
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El usuario ya existe o el email ya está registrado",
-            )
-
-    # Si no existe → crear nuevo
+    ahora = datetime.now()
     nuevo_usuario = UserDB(
         dni=user.dni,
         name=user.name,
-        email=user.email,
-        status=user.status,
-        phone=user.phone,
-        activation_token=token,
-        password=get_password_hash(user.password),
-        created_by=(current_user.email if current_user else "bootstrap"),
-        created_at=datetime.now(),
+        created_at=ahora,
+        created_by=_actor_dni(current_user),
     )
+
     try:
-        creado = repo.add(nuevo_usuario)
-        logger.info("Usuario creado", extra={"user_id": creado.id, "dni": creado.dni})
+        db.add(nuevo_usuario)
+        db.flush()
 
-        # Enviar correo de bienvenida
-        try:
-            send_email(
-                recipient=creado.email, # pyright: ignore[reportArgumentType]
-                subject="Bienvenido a UsersAPI",
-                message=f"Hola {creado.name}, tu cuenta ha sido creada exitosamente.",
-                dni=creado.dni, # pyright: ignore[reportArgumentType]
-                token=creado.activation_token # pyright: ignore[reportArgumentType]
+        tenant_id = user_tenant.tenant_id if user_tenant else None
+        if tenant_id is None:
+            tenant_id = (
+                db.query(TenantDB.id)
+                .filter(TenantDB.status == 1)
+                .order_by(TenantDB.id)
+                .scalar()
             )
-        except Exception as e:
-            logger.warning("Usuario creado pero fallo al enviar correo: %s", e)
+        if tenant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No existe un tenant activo",
+            )
 
-        # Enviar whatsapp de bienvenida
-        try:
-            send_whatsapp(to_number=creado.phone, # pyright: ignore[reportArgumentType]
-                          message= None,  # pyright: ignore[reportArgumentType]
-                          template_name="hello_world", 
-                          parameters=None # pyright: ignore[reportArgumentType]
-                         )
-        except Exception as e:
-                    logger.warning("Usuario creado pero fallo al enviar mensaje de whatsapp: %s", e)
-
-        return creado
-
-    except IntegrityError:
+        db.add(UserTenantDB(
+            user_id=nuevo_usuario.id,
+            tenant_id=tenant_id,
+            email=user.email,
+            password=get_password_hash(user.password),
+            phone=user.phone,
+            status=user.status,
+            created_at=ahora,
+            created_by=_actor_dni(current_user),
+        ))
+        db.commit()
+        db.refresh(nuevo_usuario)
+        link = _tenant_link(nuevo_usuario, tenant_id, db)
+        return _user_payload(nuevo_usuario, link)
+    except HTTPException:
         db.rollback()
-        logger.warning("Error al crear usuario: email o dni duplicado", extra={"email": user.email, "dni": user.dni})
+        raise
+    except IntegrityError as exc:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario ya existe o el email ya está registrado",
-        ) from None
-    except Exception as exc:
-        db.rollback()
-        logger.error("Error inesperado al crear usuario: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno al crear usuario",
+            detail="El usuario ya existe",
         ) from exc
 
 
@@ -131,147 +99,104 @@ def list_users(
     tenant_id: int,
     status_filter: int | None = None,
 ):
-    repo = UserRepository(db)
-
-    usuarios = repo.get_all_by_tenant(
-        tenant_id=tenant_id,
-        status_filter=status_filter,
-    )
-
+    users = UserRepository(db).get_all_by_tenant(tenant_id, status_filter)
     logger.debug(
-        "Listando usuarios por tenant",
-        extra={
-            "tenant_id": tenant_id,
-            "count": len(usuarios),
-            "status_filter": status_filter,
-        },
+        "Usuarios consultados por tenant",
+        extra={"tenant_id": tenant_id, "cantidad": len(users)},
     )
+    return [
+        _user_payload(user, _tenant_link(user, tenant_id, db))
+        for user in users
+    ]
 
-    return usuarios
 
-
-def get_user(dni: str, db: Session):
-    repo = UserRepository(db)
-    usuario = repo.get_by_dni(dni)
+def _get_user_entity(dni: str, db: Session, tenant_id: int) -> UserDB:
+    usuario = (
+        db.query(UserDB)
+        .join(UserTenantDB, UserTenantDB.user_id == UserDB.id)
+        .filter(
+            UserDB.dni == dni,
+            UserTenantDB.tenant_id == tenant_id,
+            UserTenantDB.status != 3,
+        )
+        .first()
+    )
     if not usuario:
-        logger.warning("Usuario no encontrado al obtener", extra={"dni": dni})
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    logger.debug("Usuario obtenido", extra={"dni": dni})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
     return usuario
 
 
-def update_user(dni: str, datos: UserUpdate, db: Session, current_user: UserDB | None = None) -> UserDB:
-    repo = UserRepository(db)
-    usuario = repo.get_by_dni(dni)
-    if not usuario:
-        logger.warning("Usuario no encontrado al actualizar", extra={"dni": dni})
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+def get_user(dni: str, db: Session, tenant_id: int):
+    usuario = _get_user_entity(dni, db, tenant_id)
+    return _user_payload(usuario, _tenant_link(usuario, tenant_id, db))
 
-    if datos.name is not None:
-        usuario.name = datos.name
-    if datos.email is not None:
-        usuario.email = datos.email
-    if datos.status is not None:
-        usuario.status = datos.status
-    if datos.phone is not None:
-        usuario.phone = datos.phone
-    if datos.password is not None:
-        usuario.password = get_password_hash(datos.password)
 
-    usuario.updated_by = (current_user.email if current_user else "bootstrap")
-    usuario.updated_at = datetime.now()
-
-    try:
-        actualizado = repo.update(usuario)
-        logger.info("Usuario actualizado", extra={"user_id": actualizado.id, "dni": actualizado.dni, "email": actualizado.email})
-
-        # Enviar correo de actualización
-        try:
-            send_email(
-                recipient=actualizado.email, # pyright: ignore[reportArgumentType]
-                subject="Tu cuenta en UsersAPI fue actualizada",
-                message=f"Hola {actualizado.name}, la información de tu cuenta ha sido actualizada.",
-                dni=actualizado.dni, # pyright: ignore[reportArgumentType]
-                token=actualizado.activation_token # pyright: ignore[reportArgumentType]
-            )
-        except Exception as e:
-            logger.warning("Usuario actualizado pero fallo al enviar correo: %s", e)
-
-         # Enviar whatsapp de bienvenida
-        try:
-            send_whatsapp(
-                            to_number=actualizado.phone, # pyright: ignore[reportArgumentType]
-                            message=f"Hola {actualizado.name}, tu cuenta ha sido actualizada exitosamente.",
-                            template_name="hello_world"  # Puedes cambiar el nombre del template según tu configuración
-                        )
-        except Exception as e:
-            logger.warning("Usuario actualizado pero fallo al enviar mensaje de whatsapp: %s", e)
-
-        return actualizado
-
-    except IntegrityError:
-        db.rollback()
-        logger.warning("Error al actualizar usuario: email duplicado", extra={"dni": dni, "email": datos.email})
+def _tenant_link(user: UserDB, tenant_id: int, db: Session) -> UserTenantDB:
+    link = (
+        db.query(UserTenantDB)
+        .filter(
+            UserTenantDB.user_id == user.id,
+            UserTenantDB.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if link is None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario ya existe o el email ya está registrado",
-        ) from None
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no pertenece al tenant",
+        )
+    return link
 
 
-def delete_user(dni: str, db: Session):
-    repo = UserRepository(db)
-    usuario = repo.get_by_dni(dni)
-    if not usuario:
-        logger.warning("Usuario no encontrado al eliminar", extra={"dni": dni})
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    repo.delete(usuario)
-    logger.info("Usuario eliminado (soft delete)", extra={"user_id": usuario.id, "dni": dni, "status": usuario.status})
-    return {
-        "dni": usuario.dni,
-        "name": usuario.name,
-        "email": usuario.email,
-        "status": usuario.status,
-        "phone": usuario.phone,
-        "message": "Usuario eliminado correctamente",
-    }
-
-def activate_user(dni: str, token: str, db: Session):
-    repo = UserRepository(db)
-    usuario = repo.get_by_dni(dni)
-    if not usuario:
-        logger.warning("Usuario no encontrado al activar", extra={"dni": dni})
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
-    
-    if usuario.activation_token != token:
-        logger.warning("Token de activación inválido", extra={"dni": dni, "token": token})
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token de activación inválido")
-    
-    usuario.status = 1  # Activar el usuario
-    usuario.activation_token = None  # Limpiar el token de activación
+def update_user(
+    dni: str,
+    datos: UserUpdate,
+    db: Session,
+    current_user: UserTenantDB,
+    user_tenant: UserTenantDB,
+):
+    usuario = _get_user_entity(dni, db, user_tenant.tenant_id)
+    link = _tenant_link(usuario, user_tenant.tenant_id, db)
+    cambios = datos.model_dump(exclude_unset=True)
+    if "name" in cambios:
+        usuario.name = cambios["name"]
+    for campo in ("email", "phone", "status"):
+        if campo in cambios:
+            setattr(link, campo, cambios[campo])
+    if cambios.get("password") is not None:
+        link.password = get_password_hash(cambios["password"])
     usuario.updated_at = datetime.now()
-    repo.update(usuario)
-    
-    logger.info("Usuario activado", extra={"user_id": usuario.id, "dni": dni})
-    
-    return {
-        "dni": usuario.dni,
-        "name": usuario.name,
-        "email": usuario.email,
-        "status": usuario.status,
-        "phone": usuario.phone,
-        "message": "Usuario activado correctamente",
-    }
+    usuario.updated_by = current_user.user.dni
+    db.commit()
+    db.refresh(usuario)
+    return _user_payload(usuario, link)
 
-def export_users(db: Session, current_user: UserDB | None = None):
-    repo = UserRepository(db)
-    usuarios = repo.get_all()   # <- aquí debe devolver lista, no lanzar excepción
 
-    data = [{
-        "DNI": u.dni,
-        "Nombre": u.name,
-        "Email": u.email,
-        "Teléfono": u.phone,
-        "Estado": "Activo" if u.status == 1 else "Inactivo"
-    } for u in usuarios]
+def delete_user(dni: str, db: Session, tenant_id: int):
+    usuario = _get_user_entity(dni, db, tenant_id)
+    link = _tenant_link(usuario, tenant_id, db)
+    link.status = 3
+    db.commit()
+    return _user_payload(
+        usuario,
+        link,
+        message="Usuario eliminado correctamente",
+    )
 
-    return export_to_excel(data, filename="Usuarios.xlsx", current_user=current_user)
+
+def export_users(db: Session, current_user: UserTenantDB, tenant_id: int):
+    users = list_users(db, tenant_id)
+    data = []
+    for user in users:
+        link = _tenant_link(user, tenant_id, db)
+        data.append({
+            "DNI": user.dni,
+            "Nombre": user.name,
+            "Email": link.email,
+            "Teléfono": link.phone or "",
+            "Estado": "Activo" if link.status == 1 else "Inactivo",
+        })
+    return export_to_excel(data, "usuarios.xlsx", current_user.user)

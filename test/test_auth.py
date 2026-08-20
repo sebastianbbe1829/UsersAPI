@@ -13,7 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from UsersAPI.controllers.auth_controller import create_access_token, pwd_context, verify_password
 from UsersAPI.database import SessionLocal
 from UsersAPI.main import app
-from UsersAPI.models.user import UserDB
+from test.fixtures.multitenant import create_user_context
 
 
 @pytest.fixture
@@ -34,22 +34,7 @@ def test_password_verification_in_memory():
 
 
 def test_password_update_is_stored_once_and_can_be_verified(db_session: Session):
-    dni = f"{uuid4().int % 100000000:08d}"
-    email = f"{uuid4().hex[:8]}@example.com"
-
-    user = UserDB(
-        dni=dni,
-        name="Test User",
-        email=email,
-        status=True,
-        phone="1111111",
-        password=pwd_context.hash("oldpass"),
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    token = create_access_token({"sub": user.dni})
+    user, tenant, user_tenant, token = create_user_context(db_session)
     client = TestClient(app)
     response = client.patch(
         f"/users/{user.dni}",
@@ -60,32 +45,14 @@ def test_password_update_is_stored_once_and_can_be_verified(db_session: Session)
     assert response.status_code == 200
 
     db_session.expire_all()
-    updated_user = db_session.query(UserDB).filter(UserDB.dni == user.dni).first()
-    assert updated_user is not None
-    assert verify_password("newpass", updated_user.password) is True
-    assert verify_password("oldpass", updated_user.password) is False
+    db_session.refresh(user_tenant)
+    assert verify_password("newpass", user_tenant.password) is True
+    assert verify_password("oldpass", user_tenant.password) is False
 
-    db_session.delete(updated_user)
-    db_session.commit()
 
 
 def test_invalid_user_payload_returns_validation_error(db_session: Session):
-    dni = f"{uuid4().int % 100000000:08d}"
-    email = f"{uuid4().hex[:8]}@example.com"
-
-    user = UserDB(
-        dni=dni,
-        name="Test User",
-        email=email,
-        status=True,
-        phone="1111111",
-        password=pwd_context.hash("oldpass"),
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    token = create_access_token({"sub": user.dni})
+    user, tenant, user_tenant, token = create_user_context(db_session)
     client = TestClient(app)
     response = client.post(
         "/users",
@@ -97,27 +64,19 @@ def test_invalid_user_payload_returns_validation_error(db_session: Session):
     body = response.json()
     assert "detail" in body
 
-    db_session.delete(user)
-    db_session.commit()
 
 
 def test_expired_token_returns_expired_message(db_session: Session):
-    dni = f"{uuid4().int % 100000000:08d}"
-    email = f"{uuid4().hex[:8]}@example.com"
-
-    user = UserDB(
-        dni=dni,
-        name="Test User",
-        email=email,
-        status=True,
-        phone="1111111",
-        password=pwd_context.hash("oldpass"),
+    user, tenant, user_tenant, _ = create_user_context(db_session)
+    token = create_access_token(
+        {
+            "sub": user.dni,
+            "tenant_id": tenant.id,
+            "tenant_slug": tenant.slug,
+            "user_tenant_id": user_tenant.id,
+        },
+        expires_delta=timedelta(minutes=-5),
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    token = create_access_token({"sub": user.dni}, expires_delta=timedelta(minutes=-5))
     client = TestClient(app)
     response = client.get(
         "/users",
@@ -127,5 +86,3 @@ def test_expired_token_returns_expired_message(db_session: Session):
     assert response.status_code == 401
     assert response.json()["detail"] == "Token expirado"
 
-    db_session.delete(user)
-    db_session.commit()

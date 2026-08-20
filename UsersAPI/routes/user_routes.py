@@ -6,7 +6,6 @@ from fastapi import (
     Depends,
     Path,
     Query,
-    Request,
     status,
     HTTPException,
 )
@@ -25,7 +24,7 @@ from ..schemas import (
 )
 from ..security.dependencies import get_current_tenant
 from ..security.permissions import require_permission
-from ..models import UserDB, UserTenantDB
+from ..models import UserTenantDB
 
 
 user_routes = APIRouter(
@@ -52,7 +51,7 @@ user_routes = APIRouter(
 async def crear_usuario(
     user_obj: UserCreate,
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Crear un nuevo usuario con DNI único y contraseña cifrada."""
@@ -62,6 +61,7 @@ async def crear_usuario(
             user_obj,
             db,
             current_user,
+            user_tenant,
         )
 
     except HTTPException:
@@ -90,7 +90,7 @@ async def crear_usuario(
 )
 async def export_users_route(
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Exportar usuarios del tenant seleccionado a Excel."""
@@ -98,6 +98,7 @@ async def export_users_route(
     return user_controller.exportar_usuarios(
         db,
         current_user,
+        user_tenant,
     )
 
 
@@ -171,7 +172,7 @@ async def obtener_usuario(
         ],
     ),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Obtener los datos de un usuario usando su DNI."""
@@ -179,6 +180,7 @@ async def obtener_usuario(
     return user_controller.obtener_usuario(
         dni,
         db,
+        user_tenant,
     )
 
 
@@ -239,7 +241,7 @@ async def actualizar_usuario(
         },
     ),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Actualizar los datos de un usuario identificado por DNI."""
@@ -249,6 +251,7 @@ async def actualizar_usuario(
         datos,
         db,
         current_user,
+        user_tenant,
     )
 
 
@@ -280,7 +283,7 @@ async def eliminar_usuario(
         ],
     ),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Eliminar un usuario usando su DNI."""
@@ -288,6 +291,7 @@ async def eliminar_usuario(
     return user_controller.eliminar_usuario(
         dni,
         db,
+        user_tenant,
     )
 
 

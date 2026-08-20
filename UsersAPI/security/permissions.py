@@ -24,7 +24,7 @@ def require_permission(permission_code: str):
 
         if permission is None:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"El permiso '{permission_code}' no existe",
             )
 

@@ -19,6 +19,7 @@ class UserDB(Base):
         primary_key=True,
     )
 
+    # Información del usuario
     dni = Column(
         String(20),
         nullable=False,
@@ -28,30 +29,12 @@ class UserDB(Base):
 
     name = Column(
         String(100),
-        index=True,
-    )
-
-    email = Column(
-        String(255),
-        unique=True,
-        index=True,
-    )
-
-    status = Column(
-        Integer,
-        default=0,
-    )
-
-    phone = Column(
-        String(20),
-        nullable=True,
-    )
-
-    password = Column(
-        String(200),
         nullable=False,
+        index=True,
     )
 
+
+    # Auditoría creación
     created_at = Column(
         DateTime,
         nullable=False,
@@ -68,6 +51,8 @@ class UserDB(Base):
         server_default=text("USER"),
     )
 
+
+    # Auditoría actualización
     updated_at = Column(
         DateTime,
         nullable=True,
@@ -84,11 +69,6 @@ class UserDB(Base):
         server_default=text("USER"),
     )
 
-    activation_token = Column(
-        String(200),
-        unique=True,
-        index=True,
-    )
 
     tenants = relationship(
         "UserTenantDB",
