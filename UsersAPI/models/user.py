@@ -23,7 +23,6 @@ class UserDB(Base):
     dni = Column(
         String(20),
         nullable=False,
-        unique=True,
         index=True,
     )
 

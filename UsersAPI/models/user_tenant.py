@@ -19,11 +19,44 @@ class UserTenantDB(Base):
     __tablename__ = "user_tenants"
 
     __table_args__ = (
+        # ========================================================
+        # UNICIDAD USUARIO + TENANT
+        #
+        # Un mismo usuario no puede tener dos asociaciones
+        # con el mismo tenant.
+        # ========================================================
+
         UniqueConstraint(
             "user_id",
             "tenant_id",
             name="uq_user_tenants_user_tenant",
         ),
+
+        # ========================================================
+        # UNICIDAD EMAIL + TENANT
+        #
+        # El email:
+        #
+        #   - NO es globalmente único.
+        #   - Sí debe ser único dentro de cada tenant.
+        #
+        # Ejemplo válido:
+        #
+        # tenant A -> juan@gmail.com
+        # tenant B -> juan@gmail.com
+        #
+        # Ejemplo NO válido:
+        #
+        # tenant A -> juan@gmail.com
+        # tenant A -> juan@gmail.com
+        # ========================================================
+
+        UniqueConstraint(
+            "tenant_id",
+            "email",
+            name="uq_user_tenants_tenant_email",
+        ),
+
         {
             "schema": "users_api"
         },
@@ -35,6 +68,10 @@ class UserTenantDB(Base):
         primary_key=True,
     )
 
+    # ============================================================
+    # RELACIÓN CON USUARIO GLOBAL
+    # ============================================================
+
     user_id = Column(
         Integer,
         ForeignKey(
@@ -44,6 +81,10 @@ class UserTenantDB(Base):
         nullable=False,
         index=True,
     )
+
+    # ============================================================
+    # RELACIÓN CON TENANT
+    # ============================================================
 
     tenant_id = Column(
         Integer,

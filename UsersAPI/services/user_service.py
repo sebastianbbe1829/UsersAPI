@@ -121,14 +121,39 @@ def _get_user_entity(
 
 
 # ============================================================
-# CREAR USUARIO
+# CREAR / REACTIVAR USUARIO
 #
 # POST /users
 #
-# CREA:
+# REGLAS MULTITENANT:
 #
-#   1. app_users
-#   2. user_tenants
+#   1. El DNI puede existir en diferentes tenants.
+#   2. Dentro del mismo tenant, el DNI solo puede existir una vez.
+#   3. El email puede existir en diferentes tenants.
+#   4. Dentro del mismo tenant, el email solo puede existir una vez.
+#
+# COMPORTAMIENTO:
+#
+#   DNI NO existe globalmente:
+#       -> crea UserDB
+#       -> crea UserTenantDB
+#
+#   DNI existe globalmente y NO pertenece al tenant:
+#       -> reutiliza UserDB
+#       -> crea UserTenantDB
+#
+#   DNI existe globalmente y pertenece al tenant:
+#
+#       status 0 o 1:
+#           -> ERROR 409
+#
+#       status 3:
+#           -> REACTIVA la relación existente
+#           -> NO crea otro UserTenantDB
+#           -> genera nuevo activation_token
+#           -> actualiza email/password/phone
+#           -> envía nuevamente correo de bienvenida
+#           -> envía nuevamente WhatsApp
 #
 # IMPORTANTE:
 #
@@ -168,57 +193,381 @@ def create_user(
     actor = _actor_dni(current_user)
 
     # ========================================================
-    # VALIDAR DNI GLOBAL
+    # BUSCAR DNI GLOBAL
     # ========================================================
 
     existente = user_repository.get_by_dni(
         user.dni
     )
 
+    nuevo_usuario: UserDB
+
+    # ========================================================
+    # CASO 1:
+    #
+    # EL USUARIO GLOBAL YA EXISTE
+    # ========================================================
+
     if existente is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario ya existe",
-        )
 
-    # ========================================================
-    # GENERAR TOKEN DE ACTIVACIÓN
-    #
-    # El token pertenece a user_tenants porque:
-    #
-    # email
-    # password
-    # phone
-    # activation_token
-    #
-    # pertenecen a la relación usuario-tenant.
-    # ========================================================
+        nuevo_usuario = existente
 
-    activation_token = str(
-        uuid.uuid4()
-    )
+        # ====================================================
+        # BUSCAR RELACIÓN INCLUYENDO ELIMINADOS
+        #
+        # IMPORTANTE:
+        #
+        # get_by_user_and_tenant() excluye status=3.
+        #
+        # Aquí necesitamos saber si la relación eliminada
+        # ya existe físicamente para poder REUTILIZARLA.
+        # ====================================================
 
-    ahora = datetime.now()
-
-    # ========================================================
-    # CREAR USERDB
-    # ========================================================
-
-    nuevo_usuario = UserDB(
-        dni=user.dni,
-        name=user.name,
-        created_at=ahora,
-        created_by=actor,
-    )
-
-    try:
-
-        nuevo_usuario = user_repository.add(
-            nuevo_usuario
+        link_existente = (
+            user_tenant_repository
+            .get_by_user_and_tenant_including_deleted(
+                existente.id,
+                tenant_id,
+            )
         )
 
         # ====================================================
-        # CREAR USER_TENANT
+        # CASO 1A:
+        #
+        # NO EXISTE RELACIÓN CON ESTE TENANT
+        #
+        # El usuario existe globalmente pero pertenece
+        # únicamente a otro tenant.
+        #
+        # Creamos una NUEVA relación.
+        # ====================================================
+
+        if link_existente is None:
+
+            logger.info(
+                "Usuario global existente será asociado "
+                "a un nuevo tenant",
+                extra={
+                    "user_id": nuevo_usuario.id,
+                    "dni": nuevo_usuario.dni,
+                    "tenant_id": tenant_id,
+                },
+            )
+
+            # ------------------------------------------------
+            # Generar token
+            # ------------------------------------------------
+
+            activation_token = str(
+                uuid.uuid4()
+            )
+
+            ahora = datetime.now()
+
+            nuevo_user_tenant = UserTenantDB(
+                user_id=nuevo_usuario.id,
+                tenant_id=tenant_id,
+                email=user.email,
+                password=get_password_hash(
+                    user.password
+                ),
+                phone=user.phone,
+                activation_token=activation_token,
+                status=user.status,
+                created_at=ahora,
+                created_by=actor,
+            )
+
+            try:
+
+                nuevo_user_tenant = (
+                    user_tenant_repository.add(
+                        nuevo_user_tenant
+                    )
+                )
+
+            except IntegrityError as exc:
+
+                logger.exception(
+                    "Error de integridad al crear "
+                    "relación usuario-tenant",
+                    extra={
+                        "user_id": nuevo_usuario.id,
+                        "dni": nuevo_usuario.dni,
+                        "tenant_id": tenant_id,
+                        "email": user.email,
+                    },
+                )
+
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "El DNI o el email ya están "
+                        "registrados en este tenant"
+                    ),
+                ) from exc
+
+            except Exception as exc:
+
+                logger.exception(
+                    "Error inesperado al crear "
+                    "relación usuario-tenant",
+                    extra={
+                        "user_id": nuevo_usuario.id,
+                        "dni": nuevo_usuario.dni,
+                        "tenant_id": tenant_id,
+                    },
+                )
+
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Error interno al crear usuario",
+                ) from exc
+
+        # ====================================================
+        # CASO 1B:
+        #
+        # YA EXISTE RELACIÓN CON ESTE TENANT
+        # ====================================================
+
+        else:
+
+            # =================================================
+            # SI ESTÁ ELIMINADO:
+            #
+            # REACTIVAR.
+            #
+            # NO INSERTAR OTRO USER_TENANT.
+            # =================================================
+
+            if link_existente.status == 3:
+
+                logger.info(
+                    "Usuario eliminado será reactivado "
+                    "en el tenant",
+                    extra={
+                        "user_id": nuevo_usuario.id,
+                        "dni": nuevo_usuario.dni,
+                        "tenant_id": tenant_id,
+                        "user_tenant_id": link_existente.id,
+                    },
+                )
+
+                # ---------------------------------------------
+                # Actualizar usuario global
+                #
+                # El nombre pertenece a app_users.
+                # ---------------------------------------------
+
+                nuevo_usuario.name = user.name
+
+                # ---------------------------------------------
+                # Nuevo token de activación
+                # ---------------------------------------------
+
+                activation_token = str(
+                    uuid.uuid4()
+                )
+
+                ahora = datetime.now()
+
+                # ---------------------------------------------
+                # REACTIVAR RELACIÓN EXISTENTE
+                # ---------------------------------------------
+
+                link_existente.email = user.email
+
+                link_existente.password = get_password_hash(
+                    user.password
+                )
+
+                link_existente.phone = user.phone
+
+                link_existente.activation_token = (
+                    activation_token
+                )
+
+                # Volvemos al estado inicial.
+                #
+                # Normalmente:
+                #   0 = pendiente de activación
+                #
+                # Esto permite que el usuario reciba
+                # nuevamente el correo de bienvenida.
+                link_existente.status = user.status
+
+                link_existente.updated_at = ahora
+                link_existente.updated_by = actor
+
+                nuevo_usuario.updated_at = ahora
+                nuevo_usuario.updated_by = actor
+
+                try:
+
+                    user_repository.update(
+                        nuevo_usuario
+                    )
+
+                    user_tenant_repository.update(
+                        link_existente
+                    )
+
+                except IntegrityError as exc:
+
+                    logger.exception(
+                        "Error de integridad al reactivar "
+                        "usuario",
+                        extra={
+                            "dni": nuevo_usuario.dni,
+                            "tenant_id": tenant_id,
+                            "user_tenant_id": (
+                                link_existente.id
+                            ),
+                            "email": link_existente.email,
+                            "error": str(exc),
+                            "orig": str(exc.orig),
+                        },
+                    )
+
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            "El DNI o el email ya están "
+                            "registrados en este tenant"
+                        ),
+                    ) from exc
+
+                except Exception as exc:
+
+                    logger.exception(
+                        "Error inesperado al reactivar usuario",
+                        extra={
+                            "dni": nuevo_usuario.dni,
+                            "tenant_id": tenant_id,
+                            "user_tenant_id": (
+                                link_existente.id
+                            ),
+                        },
+                    )
+
+                    raise HTTPException(
+                        status_code=(
+                            status.HTTP_500_INTERNAL_SERVER_ERROR
+                        ),
+                        detail="Error interno al reactivar usuario",
+                    ) from exc
+
+                # ---------------------------------------------
+                # La relación reutilizada pasa a ser la
+                # relación actual.
+                # ---------------------------------------------
+
+                nuevo_user_tenant = link_existente
+
+                logger.info(
+                    "Usuario reactivado correctamente",
+                    extra={
+                        "user_id": nuevo_usuario.id,
+                        "dni": nuevo_usuario.dni,
+                        "tenant_id": tenant_id,
+                        "user_tenant_id": (
+                            nuevo_user_tenant.id
+                        ),
+                    },
+                )
+
+            # =================================================
+            # YA EXISTE Y NO ESTÁ ELIMINADO
+            # =================================================
+
+            else:
+
+                logger.warning(
+                    "Intento de crear usuario que "
+                    "ya pertenece al tenant",
+                    extra={
+                        "user_id": existente.id,
+                        "dni": existente.dni,
+                        "tenant_id": tenant_id,
+                        "user_tenant_id": (
+                            link_existente.id
+                        ),
+                        "status": link_existente.status,
+                    },
+                )
+
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="El usuario ya pertenece al tenant",
+                )
+
+    # ========================================================
+    # CASO 2:
+    #
+    # EL DNI NO EXISTE GLOBALMENTE
+    #
+    # CREAMOS USERDB + USER_TENANT.
+    # ========================================================
+
+    else:
+
+        ahora = datetime.now()
+
+        nuevo_usuario = UserDB(
+            dni=user.dni,
+            name=user.name,
+            created_at=ahora,
+            created_by=actor,
+        )
+
+        try:
+
+            nuevo_usuario = user_repository.add(
+                nuevo_usuario
+            )
+
+        except IntegrityError as exc:
+
+            logger.exception(
+                "Error de integridad al crear usuario global",
+                extra={
+                    "dni": user.dni,
+                    "tenant_id": tenant_id,
+                },
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fue posible crear el usuario",
+            ) from exc
+
+        except Exception as exc:
+
+            logger.exception(
+                "Error inesperado al crear usuario global",
+                extra={
+                    "dni": user.dni,
+                    "tenant_id": tenant_id,
+                },
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al crear usuario",
+            ) from exc
+
+        # ====================================================
+        # GENERAR TOKEN
+        # ====================================================
+
+        activation_token = str(
+            uuid.uuid4()
+        )
+
+        ahora = datetime.now()
+
+        # ====================================================
+        # CREAR RELACIÓN USER_TENANT
         # ====================================================
 
         nuevo_user_tenant = UserTenantDB(
@@ -235,80 +584,76 @@ def create_user(
             created_by=actor,
         )
 
-        nuevo_user_tenant = (
-            user_tenant_repository.add(
-                nuevo_user_tenant
+        try:
+
+            nuevo_user_tenant = (
+                user_tenant_repository.add(
+                    nuevo_user_tenant
+                )
             )
-        )
 
-    except IntegrityError as exc:
+        except IntegrityError as exc:
 
-        logger.warning(
-            "Error de integridad al crear usuario",
-            extra={
-                "dni": user.dni,
-                "tenant_id": tenant_id,
-            },
-        )
+            logger.exception(
+                "Error de integridad al crear "
+                "relación usuario-tenant",
+                extra={
+                    "user_id": nuevo_usuario.id,
+                    "dni": nuevo_usuario.dni,
+                    "tenant_id": tenant_id,
+                    "email": user.email,
+                },
+            )
 
-        # IMPORTANTE:
-        #
-        # NO hacemos db.rollback() aquí.
-        #
-        # database.py será responsable del rollback.
-        #
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "El DNI o el email ya están "
+                    "registrados en este tenant"
+                ),
+            ) from exc
 
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El usuario ya existe",
-        ) from exc
+        except Exception as exc:
 
-    except HTTPException:
-        raise
+            logger.exception(
+                "Error inesperado al crear "
+                "relación usuario-tenant",
+                extra={
+                    "user_id": nuevo_usuario.id,
+                    "dni": nuevo_usuario.dni,
+                    "tenant_id": tenant_id,
+                },
+            )
 
-    except Exception as exc:
-
-        logger.exception(
-            "Error inesperado al crear usuario",
-            extra={
-                "dni": user.dni,
-                "tenant_id": tenant_id,
-            },
-        )
-
-        # NO rollback aquí.
-        # database.py controla la transacción.
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno al crear usuario",
-        ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al crear usuario",
+            ) from exc
 
     # ========================================================
     # LOG
     # ========================================================
 
     logger.info(
-        "Usuario creado correctamente en la sesión",
+        "Usuario asociado correctamente al tenant",
         extra={
             "user_id": nuevo_usuario.id,
             "dni": nuevo_usuario.dni,
             "tenant_id": tenant_id,
+            "user_tenant_id": nuevo_user_tenant.id,
         },
     )
 
     # ========================================================
-    # EMAIL
+    # EMAIL DE BIENVENIDA
     #
-    # IMPORTANTE:
+    # Funciona tanto para:
     #
-    # El envío NO debe impedir la creación del usuario.
+    #   - usuario nuevo
+    #   - usuario agregado a otro tenant
+    #   - usuario eliminado que fue reactivado
     #
-    # Si el correo falla:
-    #   - se registra warning
-    #   - la operación continúa
-    #
-    # NO hacemos rollback por fallo de correo.
+    # En los tres casos existe un NUEVO activation_token.
     # ========================================================
 
     try:
@@ -329,13 +674,15 @@ def create_user(
             extra={
                 "dni": nuevo_usuario.dni,
                 "email": nuevo_user_tenant.email,
+                "tenant_id": tenant_id,
             },
         )
 
     except Exception as exc:
 
         logger.warning(
-            "Usuario creado pero falló el envío de correo: %s",
+            "Usuario creado/reactivado pero falló "
+            "el envío de correo: %s",
             exc,
         )
 
@@ -361,27 +708,30 @@ def create_user(
                     extra={
                         "dni": nuevo_usuario.dni,
                         "phone": nuevo_user_tenant.phone,
+                        "tenant_id": tenant_id,
                     },
                 )
 
             else:
 
                 logger.warning(
-                    "Usuario creado correctamente, "
+                    "Usuario creado/reactivado correctamente, "
                     "pero WhatsApp no pudo ser enviado",
                     extra={
                         "dni": nuevo_usuario.dni,
                         "phone": nuevo_user_tenant.phone,
+                        "tenant_id": tenant_id,
                     },
                 )
 
         else:
 
             logger.warning(
-                "Usuario creado correctamente, "
+                "Usuario creado/reactivado correctamente, "
                 "pero no tiene teléfono para enviar WhatsApp",
                 extra={
                     "dni": nuevo_usuario.dni,
+                    "tenant_id": tenant_id,
                 },
             )
 
@@ -392,8 +742,9 @@ def create_user(
             extra={
                 "dni": nuevo_usuario.dni,
                 "phone": nuevo_user_tenant.phone,
+                "tenant_id": tenant_id,
             },
-    )
+        )
 
     # ========================================================
     # RESPUESTA
@@ -403,6 +754,7 @@ def create_user(
         nuevo_usuario,
         nuevo_user_tenant,
     )
+
 
 # ============================================================
 # LISTAR USUARIOS POR TENANT
@@ -581,10 +933,6 @@ def update_user(
 
     # ========================================================
     # PERSISTIR EN LA SESIÓN
-    #
-    # Los repositories hacen flush.
-    #
-    # NO COMMIT.
     # ========================================================
 
     try:
@@ -599,11 +947,14 @@ def update_user(
 
     except IntegrityError as exc:
 
-        logger.warning(
+        logger.exception(
             "Error de integridad al actualizar usuario",
             extra={
                 "dni": dni,
                 "tenant_id": tenant_id,
+                "email": link.email,
+                "error": str(exc),
+                "orig": str(exc.orig),
             },
         )
 
@@ -829,23 +1180,11 @@ def export_users(
         current_user.user,
     )
 
+
 # ============================================================
 # ACTIVAR USUARIO
 #
 # POST /users/activate/{dni}/{token}
-#
-# La activación:
-#
-#   1. Valida el DNI.
-#   2. Valida el activation_token.
-#   3. Verifica que el token pertenece al usuario.
-#   4. Cambia status: 0 -> 1.
-#   5. Invalida el activation_token.
-#
-# NO COMMIT
-# NO ROLLBACK
-#
-# La transacción es responsabilidad de database.py.
 # ============================================================
 
 def activate_user(
@@ -859,9 +1198,6 @@ def activate_user(
 
     # ========================================================
     # BUSCAR USUARIO POR DNI
-    #
-    # Aquí usamos get_by_dni(), porque el usuario todavía
-    # puede estar inactivo.
     # ========================================================
 
     usuario = user_repository.get_by_dni(dni)
@@ -969,19 +1305,12 @@ def activate_user(
 
     # ========================================================
     # INVALIDAR TOKEN
-    #
-    # Esto es MUY importante.
-    #
-    # El enlace de activación debe ser de un solo uso.
     # ========================================================
 
     link.activation_token = None
 
     # ========================================================
     # AUDITORÍA
-    #
-    # La activación viene desde un enlace de correo,
-    # por lo tanto no existe current_user autenticado.
     # ========================================================
 
     ahora = datetime.now()
@@ -1008,11 +1337,13 @@ def activate_user(
 
     except IntegrityError as exc:
 
-        logger.warning(
+        logger.exception(
             "Error de integridad al activar usuario",
             extra={
                 "dni": dni,
                 "user_tenant_id": link.id,
+                "error": str(exc),
+                "orig": str(exc.orig),
             },
         )
 

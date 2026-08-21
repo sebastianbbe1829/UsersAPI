@@ -7,6 +7,7 @@ from alembic import context
 
 from UsersAPI.database import Base, engine
 from UsersAPI.models.user import UserDB
+from UsersAPI.models.user_tenant import UserTenantDB
 
 
 # ============================================================
