@@ -19,6 +19,7 @@ from .routes import (
     user_tenant_role_routes,
     role_permission_routes,
     bootstrap_routes,
+    permission_routes,
 )
 
 from .logging_config import logger
@@ -209,6 +210,12 @@ app.include_router(bootstrap_routes)
 
 logger.info(
     "Rutas de bootstrap_routes registradas"
+)
+
+app.include_router(permission_routes)
+
+logger.info(
+    "Rutas de permission_routes registradas"
 )
 
 # ============================================================

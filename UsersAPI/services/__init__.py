@@ -30,8 +30,15 @@ from .role_permission_service import (
     remove_permission_from_role,
 )
 
+from .permission_service import (
+    list_permission,
+    get_permission,
+)
+
 
 __all__ = [
+    "list_permission",
+    "get_permission",
     "create_access_token",
     "get_current_user",
     "get_current_user_tenant",

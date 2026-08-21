@@ -45,7 +45,14 @@ from .bootstrap_controller import (
     bootstrap_application,
 )
 
+from .permission_controller import (
+    listar_permisos,
+    obtener_permiso,
+)
+
 __all__ = [
+    "listar_permisos",
+    "obtener_permiso",
     "create_user",
     "list_users",
     "export_users",

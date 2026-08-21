@@ -48,7 +48,18 @@ from .auth import (
     TokenValidationResponse,
 )
 
+from .permission import (
+    PermissionCreate,
+    PermissionRead,
+    PermissionResponse,
+    PermissionUpdate,
+)
+
 __all__ = [
+    "PermissionCreate",
+    "PermissionRead",
+    "PermissionResponse",
+    "PermissionUpdate",
     "UserCreate",
     "UserDeleteResponse",
     "UserRead",

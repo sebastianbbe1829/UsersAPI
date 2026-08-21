@@ -25,3 +25,15 @@ class PermissionRepository:
             )
             .first()
         )
+
+    def get_all_by_permission(
+            self,
+        ) -> list[PermissionDB]:
+        
+            return (
+                self.db.query(PermissionDB)
+                .filter(
+                        PermissionDB.status == 1
+                        )
+                .all()
+        )
