@@ -85,6 +85,8 @@ def bootstrap(
             detail="El tenant ya existe.",
         )
 
+    
+
     # ========================================================
     # 2. VALIDAR USUARIO GLOBAL
     # ========================================================
@@ -317,6 +319,7 @@ def bootstrap(
             ),
             dni=user.dni,
             token=user_tenant.activation_token,
+            tenant_slug=tenant_slug
         )
 
         logger.info(
