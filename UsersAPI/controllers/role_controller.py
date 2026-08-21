@@ -65,6 +65,7 @@ def actualizar_rol(
         code=datos.code,
         name=datos.name,
         description=datos.description,
+        status = datos.status,
         db=db,
         current_user=current_user,
     )

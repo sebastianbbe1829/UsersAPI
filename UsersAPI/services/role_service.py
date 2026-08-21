@@ -171,6 +171,7 @@ def update_role(
     code: str | None,
     name: str | None,
     description: str | None,
+    status: int | None,
     db: Session,
     current_user=None,
 ):
@@ -207,6 +208,15 @@ def update_role(
             )
 
         role.code = code
+
+    if status is not None:
+        if status not in (0, 1):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El estado del rol debe ser 0 o 1",
+            )
+
+        role.status = status
 
     # Actualizar nombre
     if name is not None:

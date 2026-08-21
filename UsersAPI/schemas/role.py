@@ -15,6 +15,7 @@ class RoleUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
     description: str | None = None
+    status: int | None = None
 
 
 class RoleRead(BaseModel):
