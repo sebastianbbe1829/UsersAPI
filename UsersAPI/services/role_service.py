@@ -9,6 +9,10 @@ from ..models import RoleDB
 from ..repositories.role_repository import RoleRepository
 
 
+# ============================================================
+# CREAR ROL
+# ============================================================
+
 def create_role(
     tenant_id: int,
     code: str,
@@ -23,29 +27,155 @@ def create_role(
     code = code.strip().lower()
     name = name.strip()
 
-    # Validar código dentro del tenant
+
+    # ========================================================
+    # VALIDAR CÓDIGO ACTIVO
+    # ========================================================
+
     existente_code = repo.get_by_code(
         code=code,
         tenant_id=tenant_id,
     )
 
     if existente_code:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya existe un rol con ese código en el tenant",
         )
 
-    # Validar nombre dentro del tenant
+
+    # ========================================================
+    # BUSCAR CÓDIGO ELIMINADO
+    # ========================================================
+
+    rol_eliminado = (
+        repo.get_by_code_including_deleted(
+            code=code,
+            tenant_id=tenant_id,
+        )
+    )
+
+
+    # ========================================================
+    # SI EXISTE ELIMINADO → REACTIVAR
+    # ========================================================
+
+    if (
+        rol_eliminado
+        and rol_eliminado.status == 3
+    ):
+
+        # ----------------------------------------------------
+        # Validar que el nuevo nombre no pertenezca
+        # a otro rol activo
+        # ----------------------------------------------------
+
+        existente_name = repo.get_by_name(
+            name=name,
+            tenant_id=tenant_id,
+        )
+
+        if (
+            existente_name
+            and existente_name.id != rol_eliminado.id
+        ):
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ya existe un rol con ese nombre en el tenant",
+            )
+
+
+        # ----------------------------------------------------
+        # Reactivar
+        # ----------------------------------------------------
+
+        rol_eliminado.name = name
+
+        rol_eliminado.description = description
+
+        rol_eliminado.status = 1
+
+        rol_eliminado.updated_by = (
+            current_user.email
+            if current_user
+            else "bootstrap"
+        )
+
+        rol_eliminado.updated_at = datetime.now()
+
+
+        try:
+
+            reactivado = repo.update(
+                rol_eliminado
+            )
+
+            logger.info(
+                "Rol eliminado reactivado",
+                extra={
+                    "role_id": reactivado.id,
+                    "tenant_id": tenant_id,
+                    "role_code": reactivado.code,
+                    "role_name": reactivado.name,
+                },
+            )
+
+            return reactivado
+
+        except IntegrityError:
+
+            db.rollback()
+
+            logger.warning(
+                "Error al reactivar rol",
+                extra={
+                    "tenant_id": tenant_id,
+                    "role_code": code,
+                },
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fue posible reactivar el rol",
+            ) from None
+
+        except Exception as exc:
+
+            db.rollback()
+
+            logger.error(
+                "Error inesperado al reactivar rol: %s",
+                exc,
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error interno al reactivar rol",
+            ) from exc
+
+
+    # ========================================================
+    # VALIDAR NOMBRE ACTIVO
+    # ========================================================
+
     existente_name = repo.get_by_name(
         name=name,
         tenant_id=tenant_id,
     )
 
     if existente_name:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya existe un rol con ese nombre en el tenant",
         )
+
+
+    # ========================================================
+    # CREAR NUEVO ROL
+    # ========================================================
 
     nuevo_role = RoleDB(
         tenant_id=tenant_id,
@@ -61,9 +191,12 @@ def create_role(
         created_at=datetime.now(),
     )
 
+
     try:
 
-        creado = repo.add(nuevo_role)
+        creado = repo.add(
+            nuevo_role
+        )
 
         logger.info(
             "Rol creado",
@@ -109,6 +242,10 @@ def create_role(
         ) from exc
 
 
+# ============================================================
+# LISTAR ROLES
+# ============================================================
+
 def list_roles(
     tenant_id: int,
     db: Session,
@@ -133,6 +270,10 @@ def list_roles(
 
     return roles
 
+
+# ============================================================
+# OBTENER ROL
+# ============================================================
 
 def get_role(
     role_id: int,
@@ -165,6 +306,10 @@ def get_role(
     return role
 
 
+# ============================================================
+# ACTUALIZAR ROL
+# ============================================================
+
 def update_role(
     role_id: int,
     tenant_id: int,
@@ -190,7 +335,11 @@ def update_role(
             detail="Rol no encontrado",
         )
 
-    # Actualizar código
+
+    # ========================================================
+    # ACTUALIZAR CÓDIGO
+    # ========================================================
+
     if code is not None:
 
         code = code.strip().lower()
@@ -200,7 +349,10 @@ def update_role(
             tenant_id=tenant_id,
         )
 
-        if otro_role and otro_role.id != role.id:
+        if (
+            otro_role
+            and otro_role.id != role.id
+        ):
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -209,8 +361,15 @@ def update_role(
 
         role.code = code
 
+
+    # ========================================================
+    # ACTUALIZAR ESTADO
+    # ========================================================
+
     if status is not None:
+
         if status not in (0, 1):
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El estado del rol debe ser 0 o 1",
@@ -218,7 +377,11 @@ def update_role(
 
         role.status = status
 
-    # Actualizar nombre
+
+    # ========================================================
+    # ACTUALIZAR NOMBRE
+    # ========================================================
+
     if name is not None:
 
         name = name.strip()
@@ -228,7 +391,10 @@ def update_role(
             tenant_id=tenant_id,
         )
 
-        if otro_role and otro_role.id != role.id:
+        if (
+            otro_role
+            and otro_role.id != role.id
+        ):
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -237,8 +403,19 @@ def update_role(
 
         role.name = name
 
+
+    # ========================================================
+    # DESCRIPCIÓN
+    # ========================================================
+
     if description is not None:
+
         role.description = description
+
+
+    # ========================================================
+    # AUDITORÍA
+    # ========================================================
 
     role.updated_by = (
         current_user.email
@@ -248,9 +425,16 @@ def update_role(
 
     role.updated_at = datetime.now()
 
+
+    # ========================================================
+    # GUARDAR
+    # ========================================================
+
     try:
 
-        actualizado = repo.update(role)
+        actualizado = repo.update(
+            role
+        )
 
         logger.info(
             "Rol actualizado",
@@ -272,6 +456,10 @@ def update_role(
         ) from None
 
 
+# ============================================================
+# ELIMINAR ROL
+# ============================================================
+
 def delete_role(
     role_id: int,
     tenant_id: int,
@@ -292,7 +480,11 @@ def delete_role(
             detail="Rol no encontrado",
         )
 
-    repo.delete(role)
+
+    repo.delete(
+        role
+    )
+
 
     logger.info(
         "Rol eliminado (soft delete)",
@@ -302,6 +494,7 @@ def delete_role(
             "role_name": role.name,
         },
     )
+
 
     return {
         "id": role.id,
