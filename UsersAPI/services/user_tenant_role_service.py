@@ -14,6 +14,10 @@ from ..repositories.user_tenant_role_repository import (
 )
 
 
+# ============================================================
+# ASIGNAR ROL A USUARIO
+# ============================================================
+
 def assign_role_to_user(
     user_tenant_id: int,
     role_id: int,
@@ -45,14 +49,15 @@ def assign_role_to_user(
         )
 
     # ============================================================
-    # 2. VALIDAR QUE EL USUARIO ESTÉ ACTIVO
+    # 2. VALIDAR USUARIO GLOBAL
+    #
+    # UserDB NO tiene status.
     # ============================================================
 
     user = (
         db.query(UserDB)
         .filter(
             UserDB.id == user_tenant.user_id,
-            UserDB.status == 1,
         )
         .first()
     )
@@ -60,7 +65,7 @@ def assign_role_to_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="El usuario no existe o está eliminado",
+            detail="El usuario no existe",
         )
 
     # ============================================================
@@ -119,11 +124,6 @@ def assign_role_to_user(
                 "user_id": user.id,
                 "role_id": role_id,
                 "tenant_id": tenant_id,
-                "created_by": (
-                    current_user.email
-                    if current_user
-                    else "bootstrap"
-                ),
             },
         )
 
@@ -152,6 +152,9 @@ def assign_role_to_user(
             detail="Error interno al asignar rol",
         ) from exc
 
+# ============================================================
+# LISTAR ROLES DE UN USUARIO
+# ============================================================
 
 def list_user_roles(
     user_tenant_id: int,
@@ -180,14 +183,13 @@ def list_user_roles(
         )
 
     # ============================================================
-    # 2. VALIDAR QUE EL USUARIO ESTÉ ACTIVO
+    # 2. VALIDAR QUE EL USUARIO GLOBAL EXISTA
     # ============================================================
 
     user = (
         db.query(UserDB)
         .filter(
             UserDB.id == user_tenant.user_id,
-            UserDB.status == 1,
         )
         .first()
     )
@@ -208,6 +210,10 @@ def list_user_roles(
         user_tenant_id=user_tenant_id,
     )
 
+
+# ============================================================
+# ELIMINAR ROL DE USUARIO
+# ============================================================
 
 def delete_user_role(
     user_tenant_role_id: int,
@@ -252,14 +258,13 @@ def delete_user_role(
         )
 
     # ============================================================
-    # 3. VALIDAR QUE EL USUARIO ESTÉ ACTIVO
+    # 3. VALIDAR QUE EL USUARIO GLOBAL EXISTA
     # ============================================================
 
     user = (
         db.query(UserDB)
         .filter(
             UserDB.id == user_tenant.user_id,
-            UserDB.status == 1,
         )
         .first()
     )

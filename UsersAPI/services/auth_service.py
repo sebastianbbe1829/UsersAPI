@@ -10,7 +10,14 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from ..logging_config import logger
-from ..models import UserTenantDB, TenantDB
+from ..models import (
+    UserTenantDB,
+    TenantDB,
+    UserTenantRoleDB,
+    RoleDB,
+    RolePermissionDB,
+    PermissionDB,
+)
 from ..schemas import LoginRequest
 from ..settings import settings
 
@@ -98,6 +105,51 @@ def create_access_token(
 
 
 # ============================================================
+# VALIDAR PERMISO DE AUTENTICACIÓN
+# ============================================================
+
+
+def user_can_authenticate(
+    user_tenant: UserTenantDB,
+    db: Session,
+) -> bool:
+
+    permission = (
+        db.query(PermissionDB)
+        .join(
+            RolePermissionDB,
+            RolePermissionDB.permission_id == PermissionDB.id,
+        )
+        .join(
+            RoleDB,
+            RoleDB.id == RolePermissionDB.role_id,
+        )
+        .join(
+            UserTenantRoleDB,
+            UserTenantRoleDB.role_id == RoleDB.id,
+        )
+        .filter(
+            UserTenantRoleDB.user_tenant_id == user_tenant.id,
+
+            # El rol debe pertenecer al mismo tenant
+            RoleDB.tenant_id == user_tenant.tenant_id,
+
+            # El rol debe estar activo
+            RoleDB.status == 1,
+
+            # El permiso debe estar activo
+            PermissionDB.status == 1,
+
+            # Permiso requerido para generar JWT
+            PermissionDB.code == "AUTHENTICATE",
+        )
+        .first()
+    )
+
+    return permission is not None
+
+
+# ============================================================
 # LOGIN MULTI-TENANT
 # ============================================================
 
@@ -112,6 +164,10 @@ def login_user(
         datos.username,
         datos.tenant,
     )
+
+    # ========================================================
+    # BUSCAR USUARIO EN EL TENANT
+    # ========================================================
 
     user_tenant = (
         db.query(UserTenantDB)
@@ -139,6 +195,10 @@ def login_user(
             detail="Credenciales inválidas o usuario inactivo",
         )
 
+    # ========================================================
+    # VALIDAR PASSWORD
+    # ========================================================
+
     if not verify_password(
         datos.password,
         user_tenant.password,
@@ -154,8 +214,44 @@ def login_user(
             detail="Credenciales inválidas",
         )
 
+    # ========================================================
+    # VALIDAR PERMISO AUTHENTICATE
+    #
+    # El usuario debe tener al menos un rol activo dentro
+    # del tenant que tenga asignado el permiso AUTHENTICATE.
+    #
+    # Si no lo tiene:
+    #   - NO se genera JWT
+    #   - NO se permite iniciar sesión
+    # ========================================================
+
+    if not user_can_authenticate(
+        user_tenant=user_tenant,
+        db=db,
+    ):
+
+        logger.warning(
+            "Usuario sin permiso AUTHENTICATE "
+            "user_tenant_id=%s tenant_id=%s",
+            user_tenant.id,
+            user_tenant.tenant_id,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El usuario no tiene permiso para autenticarse",
+        )
+
+    # ========================================================
+    # DATOS DEL TENANT Y USUARIO
+    # ========================================================
+
     tenant = user_tenant.tenant
     usuario = user_tenant.user
+
+    # ========================================================
+    # CREAR JWT
+    # ========================================================
 
     access_token = create_access_token(
         {
@@ -225,22 +321,26 @@ def get_current_user(
         ) from exc
 
     except JWTError as exc:
+
         raise credentials_exception from exc
 
-    user_tenant = (
-            db.query(UserTenantDB)
-            .join(
-                TenantDB,
-                UserTenantDB.tenant_id == TenantDB.id,
-            )
-            .filter(
-                UserTenantDB.id == user_tenant_id,
-                UserTenantDB.status == 1,
-                TenantDB.status == 1,
-            )
-            .first()
-        )
+    # ========================================================
+    # BUSCAR USER TENANT ACTIVO
+    # ========================================================
 
+    user_tenant = (
+        db.query(UserTenantDB)
+        .join(
+            TenantDB,
+            UserTenantDB.tenant_id == TenantDB.id,
+        )
+        .filter(
+            UserTenantDB.id == user_tenant_id,
+            UserTenantDB.status == 1,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
 
     if user_tenant is None:
 
@@ -252,44 +352,44 @@ def get_current_user(
             },
         )
 
-
-        # ============================================================
-        # VALIDAR COHERENCIA DEL TENANT DEL TOKEN
-        # ============================================================
+    # ========================================================
+    # VALIDAR COHERENCIA DEL TENANT DEL TOKEN
+    # ========================================================
 
     token_tenant_id = payload.get(
-            "tenant_id"
-            )
-
+        "tenant_id"
+    )
 
     if token_tenant_id is None:
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token sin tenant asociado",
-                headers={
-                    "WWW-Authenticate": "Bearer",
-                },
-            )
-
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token sin tenant asociado",
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
+        )
 
     if user_tenant.tenant_id != token_tenant_id:
 
-            logger.warning(
-                "Inconsistencia tenant JWT usuario_tenant=%s token_tenant=%s",
-                user_tenant.tenant_id,
-                token_tenant_id,
-            )
+        logger.warning(
+            "Inconsistencia tenant JWT "
+            "usuario_tenant=%s token_tenant=%s",
+            user_tenant.tenant_id,
+            token_tenant_id,
+        )
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="El tenant del token no coincide con el usuario",
-                headers={
-                    "WWW-Authenticate": "Bearer",
-                },
-            )
-    
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El tenant del token no coincide con el usuario",
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
+        )
+
     return user_tenant
+
+
 # ============================================================
 # CURRENT USER TENANT
 # ============================================================

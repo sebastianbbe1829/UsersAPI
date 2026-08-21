@@ -16,6 +16,18 @@ auth_routers = APIRouter(
 )
 
 
+# ============================================================
+# LOGIN
+# POST /auth/login
+#
+# Endpoint público.
+#
+# IMPORTANTE:
+# El permiso AUTHENTICATE se valida dentro del proceso
+# de autenticación, después de validar las credenciales
+# y antes de generar el JWT.
+# ============================================================
+
 @auth_routers.post(
     "/login",
     response_model=LoginResponse,
@@ -31,6 +43,16 @@ def login(
         db,
     )
 
+
+# ============================================================
+# VALIDAR TOKEN
+# GET /auth/validate
+#
+# Requiere un JWT válido.
+#
+# No requiere AUTHENTICATE nuevamente porque el usuario
+# ya tuvo que poseer ese permiso para obtener el token.
+# ============================================================
 
 @auth_routers.get(
     "/validate",

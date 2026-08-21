@@ -17,6 +17,7 @@ from ..schemas import (
     RolePermissionDeleteResponse,
 )
 from ..security.dependencies import get_current_tenant
+from ..security.permissions import require_permission
 
 
 role_permission_routes = APIRouter(
@@ -27,6 +28,11 @@ role_permission_routes = APIRouter(
 
 # ============================================================
 # ASIGNAR PERMISO A ROL
+#
+# POST /role-permissions
+#
+# Permiso requerido:
+#   ROLE_UPDATE
 # ============================================================
 
 @role_permission_routes.post(
@@ -34,6 +40,9 @@ role_permission_routes = APIRouter(
     response_model=RolePermissionRead,
     status_code=status.HTTP_201_CREATED,
     summary="Asignar permiso a rol",
+    dependencies=[
+        Depends(require_permission("ROLE_UPDATE")),
+    ],
 )
 async def asignar_permiso_rol_route(
     datos: RolePermissionCreate,
@@ -53,6 +62,11 @@ async def asignar_permiso_rol_route(
 
 # ============================================================
 # LISTAR PERMISOS DE UN ROL
+#
+# GET /role-permissions/role/{role_id}
+#
+# Permiso requerido:
+#   ROLE_READ
 # ============================================================
 
 @role_permission_routes.get(
@@ -60,6 +74,9 @@ async def asignar_permiso_rol_route(
     response_model=List[RolePermissionRead],
     status_code=status.HTTP_200_OK,
     summary="Listar permisos de un rol",
+    dependencies=[
+        Depends(require_permission("ROLE_READ")),
+    ],
 )
 async def listar_permisos_rol_route(
     role_id: int = Path(
@@ -80,6 +97,11 @@ async def listar_permisos_rol_route(
 
 # ============================================================
 # ELIMINAR PERMISO DE UN ROL
+#
+# DELETE /role-permissions/{role_permission_id}
+#
+# Permiso requerido:
+#   ROLE_UPDATE
 # ============================================================
 
 @role_permission_routes.delete(
@@ -87,6 +109,9 @@ async def listar_permisos_rol_route(
     response_model=RolePermissionDeleteResponse,
     status_code=status.HTTP_200_OK,
     summary="Eliminar permiso de rol",
+    dependencies=[
+        Depends(require_permission("ROLE_UPDATE")),
+    ],
 )
 async def eliminar_permiso_rol_route(
     role_permission_id: int = Path(

@@ -33,8 +33,8 @@ from ..util.whatsapp_utils import send_whatsapp
 # ============================================================
 # PERMISOS DEL ADMINISTRADOR DEL TENANT
 # ============================================================
-
 ADMIN_PERMISSION_CODES = (
+    "AUTHENTICATE",
     "USER_CREATE",
     "USER_READ",
     "USER_UPDATE",

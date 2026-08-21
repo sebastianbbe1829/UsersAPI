@@ -17,6 +17,7 @@ from ..schemas import (
     UserTenantRoleDeleteResponse,
 )
 from ..security.dependencies import get_current_tenant
+from ..security.permissions import require_permission
 
 
 user_tenant_role_routes = APIRouter(
@@ -27,6 +28,12 @@ user_tenant_role_routes = APIRouter(
 
 # ============================================================
 # ASIGNAR ROL A USUARIO
+#
+# POST /user-tenant-roles
+#
+# Permiso requerido:
+#   ROLE_UPDATE
+#
 # ============================================================
 
 @user_tenant_role_routes.post(
@@ -34,6 +41,9 @@ user_tenant_role_routes = APIRouter(
     response_model=UserTenantRoleRead,
     status_code=status.HTTP_201_CREATED,
     summary="Asignar rol a usuario",
+    dependencies=[
+        Depends(require_permission("ROLE_UPDATE")),
+    ],
 )
 async def asignar_rol_usuario_route(
     datos: UserTenantRoleCreate,
@@ -44,7 +54,7 @@ async def asignar_rol_usuario_route(
     return asignar_rol_usuario(
         user_tenant_id=datos.user_tenant_id,
         role_id=datos.role_id,
-        tenant_id = cast(int, user_tenant.tenant_id),
+        tenant_id=cast(int, user_tenant.tenant_id),
         db=db,
         current_user=current_user,
     )
@@ -52,6 +62,12 @@ async def asignar_rol_usuario_route(
 
 # ============================================================
 # LISTAR ROLES DE UN USUARIO
+#
+# GET /user-tenant-roles/user/{user_tenant_id}
+#
+# Permiso requerido:
+#   ROLE_READ
+#
 # ============================================================
 
 @user_tenant_role_routes.get(
@@ -59,6 +75,9 @@ async def asignar_rol_usuario_route(
     response_model=List[UserTenantRoleRead],
     status_code=status.HTTP_200_OK,
     summary="Listar roles de usuario",
+    dependencies=[
+        Depends(require_permission("ROLE_READ")),
+    ],
 )
 async def listar_roles_usuario_route(
     user_tenant_id: int = Path(
@@ -71,13 +90,19 @@ async def listar_roles_usuario_route(
 ):
     return listar_roles_usuario(
         user_tenant_id=user_tenant_id,
-        tenant_id = cast(int, user_tenant.tenant_id),
+        tenant_id=cast(int, user_tenant.tenant_id),
         db=db,
     )
 
 
 # ============================================================
 # ELIMINAR ROL DE USUARIO
+#
+# DELETE /user-tenant-roles/{user_tenant_role_id}
+#
+# Permiso requerido:
+#   ROLE_UPDATE
+#
 # ============================================================
 
 @user_tenant_role_routes.delete(
@@ -85,6 +110,9 @@ async def listar_roles_usuario_route(
     response_model=UserTenantRoleDeleteResponse,
     status_code=status.HTTP_200_OK,
     summary="Eliminar rol de usuario",
+    dependencies=[
+        Depends(require_permission("ROLE_UPDATE")),
+    ],
 )
 async def eliminar_rol_usuario_route(
     user_tenant_role_id: int = Path(
@@ -97,6 +125,6 @@ async def eliminar_rol_usuario_route(
 ):
     return eliminar_rol_usuario(
         user_tenant_role_id=user_tenant_role_id,
-        tenant_id = cast(int, user_tenant.tenant_id),
+        tenant_id=cast(int, user_tenant.tenant_id),
         db=db,
     )

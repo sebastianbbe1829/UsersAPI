@@ -12,7 +12,6 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from ..controllers import user_controller
-from ..controllers.auth_controller import get_password_hash
 from ..database import get_db
 from ..controllers import get_current_user
 from ..schemas import (
@@ -24,7 +23,7 @@ from ..schemas import (
 )
 from ..security.dependencies import get_current_tenant
 from ..security.permissions import require_permission
-from ..models import UserTenantDB
+from ..models import UserDB, UserTenantDB
 
 
 user_routes = APIRouter(
@@ -36,7 +35,9 @@ user_routes = APIRouter(
 # ============================================================
 # CREAR USUARIO
 # POST /users
-# Permiso requerido: USER_CREATE
+#
+# Permiso requerido:
+#   USER_CREATE
 # ============================================================
 
 @user_routes.post(
@@ -51,7 +52,7 @@ user_routes = APIRouter(
 async def crear_usuario(
     user_obj: UserCreate,
     db: Session = Depends(get_db),
-    current_user: UserTenantDB = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Crear un nuevo usuario con DNI único y contraseña cifrada."""
@@ -77,7 +78,9 @@ async def crear_usuario(
 # ============================================================
 # EXPORTAR USUARIOS
 # GET /users/export
-# Permiso requerido: USER_EXPORT
+#
+# Permiso requerido:
+#   USER_EXPORT
 # ============================================================
 
 @user_routes.get(
@@ -90,7 +93,7 @@ async def crear_usuario(
 )
 async def export_users_route(
     db: Session = Depends(get_db),
-    current_user: UserTenantDB = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Exportar usuarios del tenant seleccionado a Excel."""
@@ -105,7 +108,9 @@ async def export_users_route(
 # ============================================================
 # LISTAR USUARIOS
 # GET /users
-# Permiso requerido: USER_READ
+#
+# Permiso requerido:
+#   USER_READ
 # ============================================================
 
 @user_routes.get(
@@ -147,7 +152,9 @@ async def listar_usuarios(
 # ============================================================
 # OBTENER USUARIO
 # GET /users/{dni}
-# Permiso requerido: USER_READ
+#
+# Permiso requerido:
+#   USER_READ
 # ============================================================
 
 @user_routes.get(
@@ -172,7 +179,7 @@ async def obtener_usuario(
         ],
     ),
     db: Session = Depends(get_db),
-    current_user: UserTenantDB = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Obtener los datos de un usuario usando su DNI."""
@@ -187,7 +194,9 @@ async def obtener_usuario(
 # ============================================================
 # ACTUALIZAR USUARIO
 # PATCH /users/{dni}
-# Permiso requerido: USER_UPDATE
+#
+# Permiso requerido:
+#   USER_UPDATE
 # ============================================================
 
 @user_routes.patch(
@@ -241,7 +250,7 @@ async def actualizar_usuario(
         },
     ),
     db: Session = Depends(get_db),
-    current_user: UserTenantDB = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Actualizar los datos de un usuario identificado por DNI."""
@@ -258,7 +267,9 @@ async def actualizar_usuario(
 # ============================================================
 # ELIMINAR USUARIO
 # DELETE /users/{dni}
-# Permiso requerido: USER_DELETE
+#
+# Permiso requerido:
+#   USER_DELETE
 # ============================================================
 
 @user_routes.delete(
@@ -283,7 +294,7 @@ async def eliminar_usuario(
         ],
     ),
     db: Session = Depends(get_db),
-    current_user: UserTenantDB = Depends(get_current_user),
+    current_user: UserDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Eliminar un usuario usando su DNI."""
@@ -300,7 +311,9 @@ async def eliminar_usuario(
 # POST /users/bootstrap
 #
 # Endpoint especial para crear el primer usuario.
-# NO requiere JWT ni permisos.
+# NO requiere JWT.
+# NO requiere tenant.
+# NO requiere permisos.
 # ============================================================
 
 @user_routes.post(
@@ -324,7 +337,9 @@ async def crear_usuario_inicial(
 # POST /users/activate/{dni}/{token}
 #
 # Endpoint público de activación.
-# NO requiere JWT ni permisos.
+# NO requiere JWT.
+# NO requiere tenant.
+# NO requiere permisos.
 # ============================================================
 
 @user_routes.post(
