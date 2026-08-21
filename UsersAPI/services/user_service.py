@@ -15,6 +15,7 @@ from ..schemas import UserCreate, UserUpdate
 from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
 from .auth_service import get_password_hash
+from ..repositories.tenant_repository import TenantRepository
 
 
 # ============================================================
@@ -173,6 +174,7 @@ def create_user(
 ):
     user_repository = UserRepository(db)
     user_tenant_repository = UserTenantRepository(db)
+    tenant_repository = TenantRepository(db)
 
     # ========================================================
     # VALIDAR CONTEXTO TENANT
@@ -185,6 +187,18 @@ def create_user(
         )
 
     tenant_id = user_tenant.tenant_id
+
+    tenant = tenant_repository.get_by_id(
+        tenant_id= tenant_id
+        )
+
+    if tenant is None:
+        raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Tenant no encontrado",
+        )
+
+    tenant_slug = tenant.slug
 
     # ========================================================
     # ACTOR
@@ -667,6 +681,7 @@ def create_user(
             ),
             dni=nuevo_usuario.dni,
             token=nuevo_user_tenant.activation_token,
+            tenant_slug=tenant_slug,
         )
 
         logger.info(
@@ -997,6 +1012,7 @@ def update_user(
             ),
             dni=usuario.dni,
             token=link.activation_token,
+            tenant_slug=tenant_slug,
         )
 
     except Exception as exc:

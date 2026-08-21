@@ -76,7 +76,8 @@ def send_email(
     subject: str,
     message: str,
     dni: str,
-    token: str
+    token: str,
+    tenant_slug: str,
 ):
     """
     Envía un correo electrónico utilizando MailerSend.
@@ -172,7 +173,6 @@ def send_email(
     # ========================================================
     # NORMALIZAR URLS
     # ========================================================
-
     frontend_url = FRONTEND_URL.rstrip("/")
     backend_url = BACKEND_URL.rstrip("/")
 
@@ -180,11 +180,11 @@ def send_email(
     # ========================================================
     # URL DE ACTIVACIÓN
     # ========================================================
-
     activation_url = (
         f"{frontend_url}"
+        f"/{tenant_slug}"
         f"/users/activate/{dni}/{token}"
-    )
+        )
 
 
     # ========================================================
