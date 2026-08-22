@@ -173,7 +173,6 @@ logger.info(
 # ============================================================
 # HEALTH CHECK
 # ============================================================
-
 @app.get("/", include_in_schema=False)
 def root():
     return {
@@ -182,12 +181,22 @@ def root():
     }
 
 
+@app.head("/", include_in_schema=False)
+def root_head():
+    return
+
+
 @app.get("/health", include_in_schema=False)
 def health():
     return {
         "status": "healthy",
         "service": "UsersAPI",
     }
+
+
+@app.head("/health", include_in_schema=False)
+def health_head():
+    return
 
 app.include_router(auth_routers)
 
