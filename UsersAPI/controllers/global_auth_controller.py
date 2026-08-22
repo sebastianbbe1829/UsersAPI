@@ -10,10 +10,12 @@ from ..services.global_auth_service import (
 
 def bootstrap_super_user(
     datos: SuperBootstrapRequest,
+    bootstrap_secret: str,
     db: Session,
 ):
     return bootstrap_super_user_service(
         datos,
+        bootstrap_secret,
         db,
     )
 
