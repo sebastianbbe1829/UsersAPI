@@ -13,6 +13,7 @@ from .database import engine
 from .routes import (
     user_routes,
     auth_routers,
+    global_auth_routes,
     tenant_routes,
     user_tenant_routes,
     role_routes,
@@ -26,28 +27,12 @@ from .logging_config import logger
 from fastapi.middleware.cors import CORSMiddleware
 
 
-# ============================================================
-# RUTAS DEL PROYECTO
-# ============================================================
-
 CURRENT_FILE = os.path.abspath(__file__)
-
-# /repo/UsersAPI/UsersAPI
 PACKAGE_DIR = os.path.dirname(CURRENT_FILE)
-
-# /repo/UsersAPI
 PROJECT_DIR = os.path.dirname(PACKAGE_DIR)
-
-# /repo/UsersAPI/static
 STATIC_DIR = os.path.join(PROJECT_DIR, "static")
-
-# /repo/UsersAPI/static/logo.png
 LOGO_PATH = os.path.join(STATIC_DIR, "logo.png")
 
-
-# ============================================================
-# LOG DE CONFIGURACIÓN
-# ============================================================
 
 logger.info("==========================================")
 logger.info("CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS")
@@ -61,10 +46,6 @@ logger.info(f"STATIC_EXISTS: {os.path.isdir(STATIC_DIR)}")
 logger.info(f"LOGO_EXISTS: {os.path.isfile(LOGO_PATH)}")
 logger.info("==========================================")
 
-
-# ============================================================
-# FASTAPI
-# ============================================================
 
 app = FastAPI(
     title="UsersAPI",
@@ -97,13 +78,13 @@ app = FastAPI(
             "name": "Auth",
             "description": "Autenticación y generación de tokens JWT",
         },
+        {
+            "name": "Auth SUPER",
+            "description": "Autenticación global del usuario SUPER con MFA",
+        },
     ],
 )
 
-
-# ============================================================
-# CORS
-# ============================================================
 
 origins = [
     "http://localhost:5173",
@@ -119,60 +100,32 @@ app.add_middleware(
 )
 
 
-# ============================================================
-# ARCHIVOS ESTÁTICOS
-# ============================================================
-
 if os.path.isdir(STATIC_DIR):
-
     app.mount(
         "/static",
         StaticFiles(directory=STATIC_DIR),
         name="static",
     )
-
     logger.info(
         f"Directorio /static montado correctamente: {STATIC_DIR}"
     )
-
 else:
-
     logger.error(
         f"NO SE ENCONTRÓ EL DIRECTORIO STATIC: {STATIC_DIR}"
     )
 
 
-# ============================================================
-# INICIO
-# ============================================================
-
 logger.info("==========================================")
 logger.info("INICIANDO USERSAPI")
 logger.info("==========================================")
+logger.info("Base de datos administrada mediante Alembic")
+logger.debug("URL BD: %s", engine.url)
 
-logger.info(
-    "Base de datos administrada mediante Alembic"
-)
-
-logger.debug(
-    "URL BD: %s",
-    engine.url,
-)
-
-
-# ============================================================
-# RUTAS
-# ============================================================
 
 app.include_router(user_routes)
+logger.info("Rutas de usuarios registradas")
 
-logger.info(
-    "Rutas de usuarios registradas"
-)
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
 @app.get("/", include_in_schema=False)
 def root():
     return {
@@ -198,57 +151,34 @@ def health():
 def health_head():
     return
 
-app.include_router(auth_routers)
 
-logger.info(
-    "Rutas de autenticación registradas"
-)
+app.include_router(auth_routers)
+logger.info("Rutas de autenticación registradas")
+
+app.include_router(global_auth_routes)
+logger.info("Rutas de autenticación SUPER registradas")
 
 app.include_router(tenant_routes)
-
-logger.info(
-"Rutas de tenants registradas"
-)
+logger.info("Rutas de tenants registradas")
 
 app.include_router(user_tenant_routes)
-
-logger.info(
-    "Rutas de relaciones usuario-tenant registradas"
-)
+logger.info("Rutas de relaciones usuario-tenant registradas")
 
 app.include_router(role_routes)
-
-logger.info(
-    "Rutas de roles registradas"
-)
+logger.info("Rutas de roles registradas")
 
 app.include_router(user_tenant_role_routes)
-
-logger.info(
-    "Rutas de usuarios-roles registradas"
-)
+logger.info("Rutas de usuarios-roles registradas")
 
 app.include_router(role_permission_routes)
-
-logger.info(
-    "Rutas de roles-permisos registradas"
-)
+logger.info("Rutas de roles-permisos registradas")
 
 app.include_router(bootstrap_routes)
-
-logger.info(
-    "Rutas de bootstrap_routes registradas"
-)
+logger.info("Rutas de bootstrap_routes registradas")
 
 app.include_router(permission_routes)
+logger.info("Rutas de permission_routes registradas")
 
-logger.info(
-    "Rutas de permission_routes registradas"
-)
-
-# ============================================================
-# VALIDACIÓN 422
-# ============================================================
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
@@ -267,22 +197,15 @@ async def validation_exception_handler(
 
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_CONTENT,
-        content={
-            "detail": errores,
-        },
+        content={"detail": errores},
     )
 
-
-# ============================================================
-# ERROR GENERAL 500
-# ============================================================
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(
     request: Request,
     exc: Exception,
 ):
-
     logger.exception(
         "Error no controlado en %s",
         request.url.path,
@@ -290,7 +213,5 @@ async def unhandled_exception_handler(
 
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Error interno del servidor",
-        },
+        content={"detail": "Error interno del servidor"},
     )
