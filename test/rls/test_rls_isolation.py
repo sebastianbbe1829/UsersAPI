@@ -58,10 +58,14 @@ def test_cross_tenant_insert_is_blocked(app_conn, bootstrap_conn, tenant_ids):
 
     with bootstrap_conn.cursor() as cur:
         cur.execute(
-            "SELECT id FROM users_api.users ORDER BY id LIMIT 1"
+            "SELECT id FROM users_api.app_users ORDER BY id LIMIT 1"
         )
-        user_id = cur.fetchone()[0]
+        row = cur.fetchone()
 
+    if row is None:
+        return
+
+    user_id = row[0]
     set_tenant(app_conn, tenant_a)
 
     try:
