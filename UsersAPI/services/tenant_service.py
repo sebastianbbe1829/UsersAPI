@@ -5,15 +5,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..logging_config import logger
-from ..models import TenantDB, UserDB
+from ..models import TenantDB, UserTenantDB
 from ..repositories.tenant_repository import TenantRepository
+
+
+def _actor_email(current_user: UserTenantDB | None) -> str:
+    """Obtiene el email del usuario autenticado desde UserTenantDB."""
+    return current_user.email if current_user else "bootstrap"
 
 
 def create_tenant(
     name: str,
     slug: str,
     db: Session,
-    current_user: UserDB | None = None,
+    current_user: UserTenantDB | None = None,
 ) -> TenantDB:
 
     repo = TenantRepository(db)
@@ -41,11 +46,7 @@ def create_tenant(
         name=name,
         slug=slug,
         status=1,
-        created_by=(
-            current_user.email
-            if current_user
-            else "bootstrap"
-        ),
+        created_by=_actor_email(current_user),
         created_at=datetime.now(),
     )
 
@@ -131,9 +132,7 @@ def get_tenant(
     current_tenant_id: int,
     db: Session,
 ):
-    """
-    Obtiene un tenant únicamente si pertenece al contexto actual.
-    """
+    """Obtiene un tenant únicamente si pertenece al contexto actual."""
 
     if tenant_id != current_tenant_id:
         raise HTTPException(
@@ -142,15 +141,12 @@ def get_tenant(
         )
 
     repo = TenantRepository(db)
-
     tenant = repo.get_by_id(current_tenant_id)
 
     if not tenant:
         logger.warning(
             "Tenant no encontrado",
-            extra={
-                "tenant_id": current_tenant_id,
-            },
+            extra={"tenant_id": current_tenant_id},
         )
 
         raise HTTPException(
@@ -167,11 +163,9 @@ def update_tenant(
     name: str | None,
     slug: str | None,
     db: Session,
-    current_user: UserDB | None = None,
+    current_user: UserTenantDB | None = None,
 ):
-    """
-    Actualiza únicamente el tenant del contexto actual.
-    """
+    """Actualiza únicamente el tenant del contexto actual."""
 
     if tenant_id != current_tenant_id:
         raise HTTPException(
@@ -180,17 +174,9 @@ def update_tenant(
         )
 
     repo = TenantRepository(db)
-
     tenant = repo.get_by_id(current_tenant_id)
 
     if not tenant:
-        logger.warning(
-            "Tenant no encontrado al actualizar",
-            extra={
-                "tenant_id": current_tenant_id,
-            },
-        )
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tenant no encontrado",
@@ -198,7 +184,6 @@ def update_tenant(
 
     if name is not None:
         name = name.strip()
-
         otro_tenant = repo.get_by_name(name)
 
         if otro_tenant and otro_tenant.id != tenant.id:
@@ -211,7 +196,6 @@ def update_tenant(
 
     if slug is not None:
         slug = slug.strip().lower()
-
         otro_tenant = repo.get_by_slug(slug)
 
         if otro_tenant and otro_tenant.id != tenant.id:
@@ -222,12 +206,7 @@ def update_tenant(
 
         tenant.slug = slug
 
-    tenant.updated_by = (
-        current_user.email
-        if current_user
-        else "bootstrap"
-    )
-
+    tenant.updated_by = _actor_email(current_user)
     tenant.updated_at = datetime.now()
 
     try:
@@ -249,9 +228,7 @@ def update_tenant(
 
         logger.warning(
             "Error al actualizar tenant",
-            extra={
-                "tenant_id": current_tenant_id,
-            },
+            extra={"tenant_id": current_tenant_id},
         )
 
         raise HTTPException(
@@ -265,9 +242,7 @@ def delete_tenant(
     current_tenant_id: int,
     db: Session,
 ):
-    """
-    Elimina lógicamente únicamente el tenant del contexto actual.
-    """
+    """Elimina lógicamente únicamente el tenant del contexto actual."""
 
     if tenant_id != current_tenant_id:
         raise HTTPException(
@@ -276,17 +251,9 @@ def delete_tenant(
         )
 
     repo = TenantRepository(db)
-
     tenant = repo.get_by_id(current_tenant_id)
 
     if not tenant:
-        logger.warning(
-            "Tenant no encontrado al eliminar",
-            extra={
-                "tenant_id": current_tenant_id,
-            },
-        )
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tenant no encontrado",
@@ -314,11 +281,13 @@ def delete_tenant(
 
 def list_my_tenants(
     db: Session,
-    current_user: UserDB,
+    current_user: UserTenantDB,
 ):
     repo = TenantRepository(db)
 
-    user_id = current_user.id
+    # get_current_user() devuelve UserTenantDB. El ID global del
+    # usuario está en user_id, no en id (que identifica la relación).
+    user_id = current_user.user_id
 
     tenants = repo.get_by_user_id(
         user_id=user_id,
