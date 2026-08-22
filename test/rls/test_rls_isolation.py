@@ -9,6 +9,21 @@ def set_tenant(conn, tenant_id):
         )
 
 
+def test_app_role_has_rls_enabled_on_user_tenants(app_conn):
+    with app_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT relrowsecurity, relforcerowsecurity
+            FROM pg_class
+            WHERE oid = 'users_api.user_tenants'::regclass
+            """
+        )
+        enabled, forced = cur.fetchone()
+
+    assert enabled is True
+    assert forced is True
+
+
 def test_app_role_does_not_bypass_rls(app_conn):
     with app_conn.cursor() as cur:
         cur.execute(
@@ -38,18 +53,16 @@ def test_tenant_isolation_on_user_tenants(app_conn, tenant_ids):
     assert visible_b == 0
 
 
-def test_cross_tenant_insert_is_blocked(app_conn, tenant_ids):
+def test_cross_tenant_insert_is_blocked(app_conn, bootstrap_conn, tenant_ids):
     tenant_a, tenant_b = tenant_ids
-    set_tenant(app_conn, tenant_a)
 
-    with app_conn.cursor() as cur:
+    with bootstrap_conn.cursor() as cur:
         cur.execute(
-            "SELECT id FROM users_api.users WHERE id IS NOT NULL LIMIT 1"
+            "SELECT id FROM users_api.users ORDER BY id LIMIT 1"
         )
-        row = cur.fetchone()
+        user_id = cur.fetchone()[0]
 
-    if row is None:
-        return
+    set_tenant(app_conn, tenant_a)
 
     try:
         with app_conn.cursor() as cur:
@@ -58,7 +71,7 @@ def test_cross_tenant_insert_is_blocked(app_conn, tenant_ids):
                 INSERT INTO users_api.user_tenants (user_id, tenant_id, status)
                 VALUES (%s, %s, 0)
                 """,
-                (row[0], tenant_b),
+                (user_id, tenant_b),
             )
     except psycopg.errors.InsufficientPrivilege as exc:
         assert exc.sqlstate == "42501"
