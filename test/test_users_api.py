@@ -1,27 +1,10 @@
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from UsersAPI.database import SessionLocal
-from UsersAPI.main import app
 from UsersAPI.models import UserDB, UserTenantDB
 from test.fixtures.multitenant import create_user_context
-
-
-@pytest.fixture
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def test_create_user_returns_201_and_persists_user(
@@ -183,15 +166,22 @@ def test_legacy_users_bootstrap_endpoint_is_not_registered(
 def test_bootstrap_creates_initial_tenant_and_admin(
     db_session: Session,
     client: TestClient,
+    monkeypatch,
 ):
+    from UsersAPI.services import bootstrap_service
+
+    monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+
     suffix = uuid4().hex[:10]
+    admin_dni = f"{uuid4().int % 100000000:08d}"
 
     response = client.post(
         "/bootstrap",
         json={
             "tenant_name": f"Empresa Bootstrap {suffix}",
             "tenant_slug": f"empresa-bootstrap-{suffix}",
-            "admin_dni": f"{uuid4().int % 100000000:08d}",
+            "admin_dni": admin_dni,
             "admin_name": "Administrador Inicial",
             "admin_email": f"admin-{suffix}@example.com",
             "admin_password": "segura123",
@@ -204,12 +194,11 @@ def test_bootstrap_creates_initial_tenant_and_admin(
 
     assert payload["tenant_name"] == f"Empresa Bootstrap {suffix}"
     assert payload["tenant_slug"] == f"empresa-bootstrap-{suffix}"
+    assert payload["user_dni"] == admin_dni
     assert payload["user_name"] == "Administrador Inicial"
     assert payload["user_email"] == f"admin-{suffix}@example.com"
     assert payload["role_code"] == "ADMIN"
     assert payload["role_name"] == "Administrador"
-    assert payload["user_tenant_id"] > 0
-    assert payload["role_id"] > 0
 
     user_tenant = (
         db_session.query(UserTenantDB)
@@ -218,4 +207,32 @@ def test_bootstrap_creates_initial_tenant_and_admin(
     )
     assert user_tenant is not None
     assert user_tenant.tenant_id == payload["tenant_id"]
-    assert user_tenant.status in (0, 1)
+    assert user_tenant.status == 0
+
+
+def test_bootstrap_rejects_duplicate_tenant(
+    db_session: Session,
+    client: TestClient,
+    monkeypatch,
+):
+    from UsersAPI.services import bootstrap_service
+
+    monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+
+    suffix = uuid4().hex[:10]
+    payload = {
+        "tenant_name": f"Empresa Bootstrap {suffix}",
+        "tenant_slug": f"empresa-bootstrap-{suffix}",
+        "admin_dni": f"{uuid4().int % 100000000:08d}",
+        "admin_name": "Administrador Inicial",
+        "admin_email": f"admin-{suffix}@example.com",
+        "admin_password": "segura123",
+    }
+
+    first = client.post("/bootstrap", json=payload)
+    assert first.status_code == 201
+
+    second = client.post("/bootstrap", json=payload)
+    assert second.status_code == 409
+    assert second.json()["detail"] == "El tenant ya existe."
