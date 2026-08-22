@@ -1,26 +1,14 @@
-import os
-from pathlib import Path
-
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-
-# ============================================================
-# VARIABLES DE ENTORNO
-# ============================================================
-
-load_dotenv(
-    Path(__file__).resolve().parents[1] / ".env",
-    override=True,
-)
+from .settings import settings
 
 
 # ============================================================
 # DATABASE URL - APLICACIÓN NORMAL
 # ============================================================
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = settings.database_url
 
 if not DATABASE_URL:
     raise RuntimeError(
@@ -32,9 +20,7 @@ if not DATABASE_URL:
 # DATABASE URL - BOOTSTRAP
 # ============================================================
 
-BOOTSTRAP_DATABASE_URL = os.getenv(
-    "BOOTSTRAP_DATABASE_URL"
-)
+BOOTSTRAP_DATABASE_URL = settings.bootstrap_database_url
 
 if not BOOTSTRAP_DATABASE_URL:
     raise RuntimeError(
