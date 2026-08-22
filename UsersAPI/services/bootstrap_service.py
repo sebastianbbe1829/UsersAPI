@@ -57,8 +57,18 @@ def bootstrap(
     ahora = datetime.now()
 
     # ========================================================
-    # 1. VALIDAR TENANT
+    # 1. VALIDAR BOOTSTRAP Y TENANT
+    #
+    # Este endpoint es exclusivamente para inicializar una BD
+    # sin tenants. Una vez creado el primer tenant, no puede ser
+    # utilizado para crear nuevos tenants sin autenticación.
     # ========================================================
+
+    if tenant_repository.get_all():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El sistema ya fue inicializado. El bootstrap no está disponible.",
+        )
 
     existing_tenant = tenant_repository.get_by_slug(tenant_slug)
 
@@ -104,14 +114,6 @@ def bootstrap(
 
         # ====================================================
         # 4. GARANTIZAR PERMISOS BASE DEL SISTEMA
-        #
-        # Bootstrap debe poder inicializar una BD limpia. Los
-        # permisos son datos de catálogo global y no pertenecen
-        # a ningún tenant.
-        #
-        # Si un permiso existe pero está inactivo, no lo
-        # reactivamos silenciosamente: es una configuración
-        # administrativa que debe resolverse explícitamente.
         # ====================================================
 
         permissions_by_code = {}
@@ -183,12 +185,12 @@ def bootstrap(
 
         authenticate_role = role_repository.add(authenticate_role)
 
-        authenticate_role_permission = RolePermissionDB(
-            role_id=authenticate_role.id,
-            permission_id=permissions_by_code["AUTHENTICATE"].id,
+        role_permission_repository.add(
+            RolePermissionDB(
+                role_id=authenticate_role.id,
+                permission_id=permissions_by_code["AUTHENTICATE"].id,
+            )
         )
-
-        role_permission_repository.add(authenticate_role_permission)
 
         # ====================================================
         # 8. CREAR ROL ADMIN DEL TENANT
@@ -210,12 +212,12 @@ def bootstrap(
         # 9. ASOCIAR USUARIO AL ROL ADMIN
         # ====================================================
 
-        user_tenant_role = UserTenantRoleDB(
-            user_tenant_id=user_tenant.id,
-            role_id=admin_role.id,
+        user_tenant_role_repository.add(
+            UserTenantRoleDB(
+                user_tenant_id=user_tenant.id,
+                role_id=admin_role.id,
+            )
         )
-
-        user_tenant_role_repository.add(user_tenant_role)
 
         # ====================================================
         # 10. ASOCIAR TODOS LOS PERMISOS AL ROL ADMIN
@@ -283,16 +285,6 @@ def bootstrap(
             tenant_slug=tenant_slug,
         )
 
-        logger.info(
-            "Correo de activación enviado durante bootstrap",
-            extra={
-                "tenant_id": tenant.id,
-                "user_id": user.id,
-                "dni": user.dni,
-                "email": user_tenant.email,
-            },
-        )
-
     except Exception as exc:
         logger.warning(
             "Bootstrap realizado pero falló el envío del correo de activación: %s",
@@ -311,33 +303,12 @@ def bootstrap(
 
     try:
         if user_tenant.phone:
-            whatsapp_response = send_whatsapp(
+            send_whatsapp(
                 to_number=user_tenant.phone,
                 message=None,
                 template_name="hello_world",
                 parameters=None,
             )
-
-            if whatsapp_response is not None:
-                logger.info(
-                    "WhatsApp de activación enviado durante bootstrap",
-                    extra={
-                        "tenant_id": tenant.id,
-                        "user_id": user.id,
-                        "dni": user.dni,
-                        "phone": user_tenant.phone,
-                    },
-                )
-            else:
-                logger.warning(
-                    "Bootstrap realizado correctamente, pero WhatsApp no pudo ser enviado",
-                    extra={
-                        "tenant_id": tenant.id,
-                        "user_id": user.id,
-                        "dni": user.dni,
-                        "phone": user_tenant.phone,
-                    },
-                )
 
     except Exception as exc:
         logger.warning(
