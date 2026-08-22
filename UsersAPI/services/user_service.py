@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from UsersAPI.util.excel_utils import export_to_excel
 
@@ -16,6 +17,8 @@ from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
 from .auth_service import get_password_hash
 from ..repositories.tenant_repository import TenantRepository
+from ..database import set_rls_tenant
+
 
 
 # ============================================================
@@ -1209,6 +1212,46 @@ def activate_user(
     token: str,
     db: Session,
 ):
+
+    # ========================================================
+    # RESOLVER TENANT DESDE EL ACTIVATION TOKEN
+    # ========================================================
+
+    tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id_by_activation_token(
+                :activation_token
+            )
+            """
+        ),
+        {
+            "activation_token": token,
+        },
+    ).scalar()
+
+    if tenant_id is None:
+
+        logger.warning(
+            "Intento de activación con token inválido",
+            extra={
+                "dni": dni,
+            },
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de activación inválido",
+        )
+
+    # ========================================================
+    # ESTABLECER CONTEXTO RLS DEL TENANT
+    # ========================================================
+
+    set_rls_tenant(
+        db,
+        tenant_id,
+    )
 
     user_repository = UserRepository(db)
     user_tenant_repository = UserTenantRepository(db)
