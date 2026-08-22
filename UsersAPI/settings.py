@@ -16,6 +16,9 @@ class Settings:
     algorithm: str = os.getenv("ALGORITHM", "HS256")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 
+    # URL administrativa utilizada por Alembic y tareas de infraestructura.
+    database_admin_url: str = os.getenv("DATABASE_ADMIN_URL", "")
+
     # Secret exclusivo para el endpoint de bootstrap de tenants.
     bootstrap_key: str = os.getenv("BOOTSTRAP_KEY", "")
 
