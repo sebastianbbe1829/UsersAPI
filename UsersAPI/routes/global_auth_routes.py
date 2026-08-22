@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from ..controllers import global_auth_controller
@@ -24,10 +24,12 @@ global_auth_routes = APIRouter(
 )
 def bootstrap_super_user(
     datos: SuperBootstrapRequest,
+    x_super_bootstrap_secret: str = Header(...),
     db: Session = Depends(get_db),
 ):
     return global_auth_controller.bootstrap_super_user(
         datos,
+        x_super_bootstrap_secret,
         db,
     )
 
