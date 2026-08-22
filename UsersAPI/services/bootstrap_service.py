@@ -74,10 +74,14 @@ def bootstrap(
             detail="El tenant ya existe.",
         )
 
-    
-
     # ========================================================
-    # 2. VALIDAR USUARIO GLOBAL
+    # 2. BUSCAR USUARIO GLOBAL
+    #
+    # Si el DNI ya existe, reutilizamos el usuario global.
+    #
+    # Una misma persona puede administrar múltiples tenants.
+    #
+    # Si el DNI no existe, se crea un nuevo usuario global.
     # ========================================================
 
     existing_user = user_repository.get_by_dni(
@@ -86,9 +90,15 @@ def bootstrap(
 
     if existing_user is not None:
 
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El DNI del administrador ya existe.",
+        user = existing_user
+
+    else:
+
+        user = UserDB(
+            dni=admin_dni,
+            name=admin_name,
+            created_at=ahora,
+            created_by=admin_dni,
         )
 
     # ========================================================
@@ -104,29 +114,15 @@ def bootstrap(
     )
 
     # ========================================================
-    # 4. CREAR USUARIO GLOBAL
-    # ========================================================
-    #
-    # IMPORTANTE:
-    #
-    # NO modificamos UserDB.
-    #
-    # El created_at se establece aquí explícitamente porque
-    # UserDB.created_at es NOT NULL y el modelo ya está estable.
-    #
-
-    user = UserDB(
-        dni=admin_dni,
-        name=admin_name,
-        created_at=ahora,
-        created_by=admin_dni,
-    )
-
-    # ========================================================
-    # 5. PERSISTIR TENANT Y USER
+    # 4. PERSISTIR TENANT Y USER
     #
     # Necesitamos los IDs generados por PostgreSQL.
     # Los repositories hacen flush().
+    #
+    # IMPORTANTE:
+    #
+    # Si el usuario ya existe, NO lo volvemos a insertar.
+    # Simplemente reutilizamos su UserDB.
     # ========================================================
 
     try:
@@ -135,12 +131,14 @@ def bootstrap(
             tenant
         )
 
-        user = user_repository.add(
-            user
-        )
+        if existing_user is None:
+
+            user = user_repository.add(
+                user
+            )
 
         # ====================================================
-        # 6. GENERAR TOKEN DE ACTIVACIÓN
+        # 5. GENERAR TOKEN DE ACTIVACIÓN
         # ====================================================
 
         activation_token = str(
@@ -148,7 +146,7 @@ def bootstrap(
         )
 
         # ====================================================
-        # 7. CREAR ASOCIACIÓN USUARIO - TENANT
+        # 6. CREAR ASOCIACIÓN USUARIO - TENANT
         #
         # El administrador queda INACTIVO.
         #
@@ -181,7 +179,7 @@ def bootstrap(
         )
 
         # ====================================================
-        # 8. CREAR ROL ADMIN DEL TENANT
+        # 7. CREAR ROL ADMIN DEL TENANT
         # ====================================================
 
         admin_role = RoleDB(
@@ -199,7 +197,7 @@ def bootstrap(
         )
 
         # ====================================================
-        # 9. ASOCIAR USUARIO AL ROL ADMIN
+        # 8. ASOCIAR USUARIO AL ROL ADMIN
         # ====================================================
 
         user_tenant_role = UserTenantRoleDB(
@@ -212,7 +210,7 @@ def bootstrap(
         )
 
         # ========================================================
-        # 10. ASOCIAR PERMISOS AL ROL ADMIN
+        # 9. ASOCIAR PERMISOS AL ROL ADMIN
         # ========================================================
 
         for permission_code, _, _ in PERMISSIONS:
@@ -280,7 +278,7 @@ def bootstrap(
         ) from exc
 
     # ========================================================
-    # 11. ENVIAR EMAIL DE ACTIVACIÓN
+    # 10. ENVIAR EMAIL DE ACTIVACIÓN
     # ========================================================
     #
     # IMPORTANTE:
@@ -336,7 +334,7 @@ def bootstrap(
         )
 
     # ========================================================
-    # 12. ENVIAR WHATSAPP
+    # 11. ENVIAR WHATSAPP
     # ========================================================
 
     try:
@@ -402,7 +400,7 @@ def bootstrap(
         )
 
     # ========================================================
-    # 13. LOG FINAL
+    # 12. LOG FINAL
     # ========================================================
 
     logger.info(
@@ -418,7 +416,7 @@ def bootstrap(
     )
 
     # ========================================================
-    # 14. RETORNAR RESULTADO
+    # 13. RETORNAR RESULTADO
     #
     # NO COMMIT
     # NO ROLLBACK
