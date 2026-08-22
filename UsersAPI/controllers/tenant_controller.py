@@ -26,10 +26,12 @@ def crear_tenant(
 
 
 def listar_tenants(
+    tenant_id: int,
     db: Session,
     status: int | None = None,
 ):
     return list_tenants(
+        tenant_id=tenant_id,
         db=db,
         status_filter=status,
     )
@@ -47,22 +49,26 @@ def listar_mis_tenants(
 
 def obtener_tenant(
     tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
     return get_tenant(
         tenant_id=tenant_id,
+        current_tenant_id=current_tenant_id,
         db=db,
     )
 
 
 def actualizar_tenant(
     tenant_id: int,
+    current_tenant_id: int,
     datos: TenantUpdate,
     db: Session,
     current_user: UserDB | None = None,
 ):
     return update_tenant(
         tenant_id=tenant_id,
+        current_tenant_id=current_tenant_id,
         name=datos.name,
         slug=datos.slug,
         db=db,
@@ -72,9 +78,11 @@ def actualizar_tenant(
 
 def eliminar_tenant(
     tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
     return delete_tenant(
         tenant_id=tenant_id,
+        current_tenant_id=current_tenant_id,
         db=db,
     )
