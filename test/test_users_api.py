@@ -142,7 +142,10 @@ def test_legacy_users_bootstrap_endpoint_is_not_registered(client: TestClient):
             "password": "segura123",
         },
     )
-    assert response.status_code == 404
+    # /users/bootstrap ya no existe como endpoint POST. FastAPI
+    # resuelve "bootstrap" como el parámetro {dni} de GET/PATCH/DELETE,
+    # por lo que un POST recibe 405 Method Not Allowed.
+    assert response.status_code == 405
 
 
 def _bootstrap_payload(suffix: str) -> dict:
