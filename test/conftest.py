@@ -1,34 +1,37 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from UsersAPI.database import SessionLocal, get_db
+from UsersAPI.database import engine, get_db
 from UsersAPI.main import app
 
 
 @pytest.fixture
 def db_session():
-    """Sesión compartida por la prueba y la aplicación.
-
-    La aplicación usa exactamente esta sesión mediante dependency override.
-    Al terminar cada prueba se hace rollback, por lo que pytest nunca deja
-    datos persistidos en la base de datos configurada para las pruebas.
-    """
-    db = SessionLocal()
-
-    def override_get_db():
-        yield db
-
-    app.dependency_overrides[get_db] = override_get_db
+    """Sesión aislada por prueba; nunca persiste datos en la BD configurada."""
+    connection = engine.connect()
+    transaction = connection.begin()
+    db = Session(bind=connection)
 
     try:
         yield db
     finally:
-        db.rollback()
-        app.dependency_overrides.pop(get_db, None)
         db.close()
+        transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture
-def client(db_session):
-    """Cliente HTTP que utiliza la misma sesión transaccional de la prueba."""
-    return TestClient(app)
+def client(db_session: Session):
+    """Cliente HTTP usando la misma transacción de db_session."""
+
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.pop(get_db, None)
