@@ -36,6 +36,7 @@ from ..security.permission_definitions import PERMISSIONS
 # BOOTSTRAP
 # ============================================================
 
+
 def bootstrap(
     db: Session,
     tenant_name: str,
@@ -46,6 +47,32 @@ def bootstrap(
     admin_password: str,
     admin_phone: str | None = None,
 ):
+    """
+    Provisiona una nueva empresa/tenant.
+
+    IMPORTANTE:
+    Este endpoint NO es un bootstrap de una sola ejecución para
+    toda la base de datos.
+
+    El producto es multi-tenant y puede venderse/provisionarse a
+    muchas empresas. Por lo tanto, cada nueva empresa debe poder
+    ejecutar este bootstrap para crear su propio:
+
+        Tenant
+        Usuario global administrador
+        UserTenant
+        Rol AUTHENTICATE
+        Rol ADMIN
+        Permisos del ADMIN
+
+    La unicidad se valida por tenant_slug y por las restricciones
+    propias de UserTenant. Un tenant existente no puede duplicarse,
+    pero la existencia de otros tenants NO bloquea el bootstrap.
+
+    La transacción (commit/rollback) pertenece a database.py.
+    Este service no hace commit ni rollback.
+    """
+
     tenant_repository = TenantRepository(db)
     user_repository = UserRepository(db)
     user_tenant_repository = UserTenantRepository(db)
@@ -57,19 +84,11 @@ def bootstrap(
     ahora = datetime.now()
 
     # ========================================================
-    # 1. VALIDAR BOOTSTRAP Y TENANT
-    #
-    # Este endpoint es exclusivamente para inicializar una BD
-    # sin tenants. Una vez creado el primer tenant, no puede ser
-    # utilizado para crear nuevos tenants sin autenticación.
+    # 1. VALIDAR TENANT
     # ========================================================
 
-    if tenant_repository.get_all():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El sistema ya fue inicializado. El bootstrap no está disponible.",
-        )
-
+    # Solo se bloquea el tenant que se está intentando crear.
+    # La existencia de otros tenants es completamente válida.
     existing_tenant = tenant_repository.get_by_slug(tenant_slug)
 
     if existing_tenant is not None:
@@ -111,6 +130,11 @@ def bootstrap(
 
         if existing_user is None:
             user = user_repository.add(user)
+        else:
+            # El usuario global puede existir porque ya pertenece a
+            # otra empresa. El nombre global se conserva; los datos
+            # propios del tenant viven en UserTenant.
+            user = existing_user
 
         # ====================================================
         # 4. GARANTIZAR PERMISOS BASE DEL SISTEMA
