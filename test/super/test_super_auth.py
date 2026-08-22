@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pyotp
 import pytest
@@ -29,7 +29,7 @@ def db():
 
 @pytest.fixture
 def temporary_super(db):
-    email = "pytest-super@example.invalid"
+    email = "pytest-super@example.com"
     secret = pyotp.random_base32()
 
     user = GlobalUserDB(
@@ -40,7 +40,7 @@ def temporary_super(db):
         mfa_enabled=True,
         mfa_secret_encrypted=_encrypt_mfa_secret(secret),
         session_id=None,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         created_by="pytest",
     )
 
