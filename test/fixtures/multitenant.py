@@ -28,7 +28,7 @@ TEST_PERMISSIONS = (
 
 
 def create_user_context(db, *, password="oldpass", name="Test User"):
-    """Crea un contexto completo y aislado para pruebas multi-tenant."""
+    """Crea un contexto multi-tenant dentro de la transacción de la prueba."""
     suffix = uuid4().hex[:10]
     now = datetime.now()
 
@@ -106,7 +106,7 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         )
     )
 
-    db.commit()
+    db.flush()
     db.refresh(user)
     db.refresh(user_tenant)
 
