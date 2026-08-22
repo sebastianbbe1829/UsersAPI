@@ -1,0 +1,37 @@
+CREATE ROLE users_api_bootstrap LOGIN PASSWORD 'C4MB14M3_2026';
+
+GRANT USAGE ON SCHEMA users_api TO users_api_bootstrap;
+
+GRANT INSERT, SELECT ON ALL TABLES IN SCHEMA users_api
+TO users_api_bootstrap;
+
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA users_api
+TO users_api_bootstrap;
+
+ALTER TABLE users_api.tenants FORCE ROW LEVEL SECURITY;
+
+ALTER ROLE users_api_bootstrap BYPASSRLS;
+
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA users_api
+TO users_api_bootstrap;
+
+
+GRANT USAGE, SELECT
+ON ALL SEQUENCES IN SCHEMA users_api
+TO users_api_bootstrap;
+
+
+ALTER DEFAULT PRIVILEGES
+IN SCHEMA users_api
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLES
+TO users_api_bootstrap;
+
+
+ALTER DEFAULT PRIVILEGES
+IN SCHEMA users_api
+GRANT USAGE, SELECT
+ON SEQUENCES
+TO users_api_bootstrap;
