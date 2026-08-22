@@ -1,27 +1,10 @@
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from UsersAPI.database import SessionLocal
-from UsersAPI.main import app
 from UsersAPI.models import PermissionDB, RolePermissionDB
 from test.fixtures.multitenant import create_user_context
-
-
-@pytest.fixture
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def grant_permissions(db: Session, user_tenant, *permission_codes: str):
@@ -57,7 +40,7 @@ def grant_permissions(db: Session, user_tenant, *permission_codes: str):
                 )
             )
 
-    db.commit()
+    db.flush()
     db.expire_all()
 
 
@@ -76,11 +59,7 @@ def test_tenant_cannot_read_another_tenant(
         name="Admin B",
     )
 
-    grant_permissions(
-        db_session,
-        user_tenant_a,
-        "TENANT_READ",
-    )
+    grant_permissions(db_session, user_tenant_a, "TENANT_READ")
 
     response = client.get(
         f"/tenants/{tenant_b.id}",
@@ -114,12 +93,7 @@ def test_tenant_cannot_update_another_tenant(
         name="Admin B",
     )
 
-    grant_permissions(
-        db_session,
-        user_tenant_a,
-        "TENANT_UPDATE",
-    )
-
+    grant_permissions(db_session, user_tenant_a, "TENANT_UPDATE")
     original_name = tenant_b.name
 
     response = client.patch(
@@ -151,11 +125,7 @@ def test_tenant_cannot_delete_another_tenant(
         name="Admin B",
     )
 
-    grant_permissions(
-        db_session,
-        user_tenant_a,
-        "TENANT_DELETE",
-    )
+    grant_permissions(db_session, user_tenant_a, "TENANT_DELETE")
 
     response = client.delete(
         f"/tenants/{tenant_b.id}",
@@ -184,11 +154,7 @@ def test_user_tenant_cannot_list_another_tenant(
         name="Admin B",
     )
 
-    grant_permissions(
-        db_session,
-        user_tenant_a,
-        "USER_READ",
-    )
+    grant_permissions(db_session, user_tenant_a, "USER_READ")
 
     response = client.get(
         f"/user-tenants/tenant/{tenant_b.id}",
@@ -214,12 +180,7 @@ def test_user_tenant_cannot_create_association_in_another_tenant(
         name="Admin B",
     )
 
-    grant_permissions(
-        db_session,
-        user_tenant_a,
-        "USER_UPDATE",
-    )
-
+    grant_permissions(db_session, user_tenant_a, "USER_UPDATE")
     email = f"{uuid4().hex[:8]}@example.com"
 
     response = client.post(
