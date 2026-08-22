@@ -79,6 +79,7 @@ def _create_super_token(user: GlobalUserDB) -> str:
 
 def bootstrap_super_user(
     datos: SuperBootstrapRequest,
+    bootstrap_secret: str,
     db: Session,
 ) -> SuperBootstrapResponse:
 
@@ -89,7 +90,7 @@ def bootstrap_super_user(
         )
 
     if not hmac.compare_digest(
-        datos.bootstrap_secret,
+        bootstrap_secret,
         settings.super_bootstrap_secret,
     ):
         raise HTTPException(
