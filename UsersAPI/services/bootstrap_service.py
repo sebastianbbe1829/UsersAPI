@@ -28,18 +28,7 @@ from ..repositories.role_permission_repository import (
 from ..repositories.permission_repository import PermissionRepository
 from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
-
-
-# ============================================================
-# PERMISOS DEL ADMINISTRADOR DEL TENANT
-# ============================================================
-ADMIN_PERMISSION_CODES = (
-    "AUTHENTICATE",
-    "USER_CREATE",
-    "USER_READ",
-    "USER_UPDATE",
-    "USER_DELETE",
-)
+from ..security.permission_definitions import PERMISSIONS
 
 
 # ============================================================
@@ -222,11 +211,11 @@ def bootstrap(
             user_tenant_role
         )
 
-        # ====================================================
+        # ========================================================
         # 10. ASOCIAR PERMISOS AL ROL ADMIN
-        # ====================================================
+        # ========================================================
 
-        for permission_code in ADMIN_PERMISSION_CODES:
+        for permission_code, _, _ in PERMISSIONS:
 
             permission = (
                 permission_repository.get_by_code(

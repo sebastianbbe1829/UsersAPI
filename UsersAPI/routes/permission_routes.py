@@ -23,7 +23,6 @@ from ..schemas import (
 
 from ..security.permissions import (
     require_permission,
-    require_global_role,
 )
 
 from ..models import UserTenantDB
@@ -112,11 +111,7 @@ async def obtener_permission_route(
     status_code=status.HTTP_201_CREATED,
     summary="Crear permiso",
     dependencies=[
-        Depends(
-            require_global_role(
-                "SUPER_ADMIN"
-            )
-        ),
+         Depends(require_permission("PERMISSION_CREATE")),
     ],
 )
 async def crear_permission_route(
