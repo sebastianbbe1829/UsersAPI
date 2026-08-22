@@ -13,7 +13,7 @@ from ..controllers import (
     get_current_user,
 )
 from ..database import get_db
-from ..models import UserDB, UserTenantDB
+from ..models import UserTenantDB
 from ..schemas import (
     TenantCreate,
     TenantDeleteResponse,
@@ -32,16 +32,6 @@ tenant_routes = APIRouter(
 
 # ============================================================
 # CREAR TENANT
-#
-# POST /tenants
-#
-# Permiso requerido:
-#   TENANT_CREATE
-#
-# NOTA:
-# La creación de tenants es una operación global y se mantiene
-# separada del tenant activo. La autorización global específica
-# deberá definirse posteriormente (por ejemplo, un rol global).
 # ============================================================
 
 @tenant_routes.post(
@@ -56,7 +46,7 @@ tenant_routes = APIRouter(
 async def crear_tenant_route(
     tenant: TenantCreate,
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
 ):
     return crear_tenant(
         tenant,
@@ -67,15 +57,6 @@ async def crear_tenant_route(
 
 # ============================================================
 # LISTAR TENANTS
-#
-# GET /tenants
-#
-# Devuelve únicamente el tenant del contexto autenticado.
-# Para consultar los tenants globales del usuario existe
-# GET /tenants/my.
-#
-# Permiso requerido:
-#   TENANT_READ
 # ============================================================
 
 @tenant_routes.get(
@@ -104,10 +85,6 @@ async def listar_tenants_route(
 
 # ============================================================
 # LISTAR MIS TENANTS
-#
-# GET /tenants/my
-#
-# Lista los tenants a los que pertenece el usuario global.
 # ============================================================
 
 @tenant_routes.get(
@@ -121,7 +98,7 @@ async def listar_tenants_route(
 )
 async def listar_mis_tenants_route(
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
 ):
     return listar_mis_tenants(
         db=db,
@@ -131,10 +108,6 @@ async def listar_mis_tenants_route(
 
 # ============================================================
 # OBTENER TENANT
-#
-# GET /tenants/{tenant_id}
-#
-# Solo permite consultar el tenant del contexto autenticado.
 # ============================================================
 
 @tenant_routes.get(
@@ -163,10 +136,6 @@ async def obtener_tenant_route(
 
 # ============================================================
 # ACTUALIZAR TENANT
-#
-# PATCH /tenants/{tenant_id}
-#
-# Solo permite actualizar el tenant del contexto autenticado.
 # ============================================================
 
 @tenant_routes.patch(
@@ -183,7 +152,7 @@ async def actualizar_tenant_route(
     datos: TenantUpdate,
     user_tenant: UserTenantDB = Depends(get_current_tenant),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
 ):
     return actualizar_tenant(
         tenant_id=tenant_id,
@@ -196,10 +165,6 @@ async def actualizar_tenant_route(
 
 # ============================================================
 # ELIMINAR TENANT
-#
-# DELETE /tenants/{tenant_id}
-#
-# Solo permite eliminar el tenant del contexto autenticado.
 # ============================================================
 
 @tenant_routes.delete(
