@@ -7,16 +7,8 @@ from UsersAPI.models import UserDB, UserTenantDB
 from test.fixtures.multitenant import create_user_context
 
 
-def test_create_user_returns_201_and_persists_user(
-    db_session: Session,
-    client: TestClient,
-):
-    creator, tenant, user_tenant, token = create_user_context(
-        db_session,
-        password="segura123",
-        name="Creator",
-    )
-
+def test_create_user_returns_201_and_persists_user(db_session: Session, client: TestClient):
+    _, tenant, _, token = create_user_context(db_session, password="segura123", name="Creator")
     new_dni = f"{uuid4().int % 100000000:08d}"
     new_email = f"{uuid4().hex[:8]}@example.com"
 
@@ -40,19 +32,12 @@ def test_create_user_returns_201_and_persists_user(
     assert "password" not in payload
     assert "activation_token" not in payload
 
-    stored = (
-        db_session.query(UserDB)
-        .filter(UserDB.dni == new_dni)
-        .first()
-    )
+    stored = db_session.query(UserDB).filter(UserDB.dni == new_dni).first()
     assert stored is not None
 
     link = (
         db_session.query(UserTenantDB)
-        .filter(
-            UserTenantDB.user_id == stored.id,
-            UserTenantDB.tenant_id == tenant.id,
-        )
+        .filter(UserTenantDB.user_id == stored.id, UserTenantDB.tenant_id == tenant.id)
         .first()
     )
     assert link is not None
@@ -60,29 +45,16 @@ def test_create_user_returns_201_and_persists_user(
     assert link.status == 0
 
 
-def test_user_tenant_cannot_create_association_in_another_tenant(
-    db_session: Session,
-    client: TestClient,
-):
-    user_a, tenant_a, _, token_a = create_user_context(
-        db_session,
-        password="segura123",
-        name="Admin A",
-    )
-    _, tenant_b, _, _ = create_user_context(
-        db_session,
-        password="segura123",
-        name="Admin B",
-    )
-
-    email_b = f"{uuid4().hex[:8]}@example.com"
+def test_user_tenant_cannot_create_association_in_another_tenant(db_session: Session, client: TestClient):
+    user_a, tenant_a, _, token_a = create_user_context(db_session, password="segura123", name="Admin A")
+    _, tenant_b, _, _ = create_user_context(db_session, password="segura123", name="Admin B")
 
     response = client.post(
         "/user-tenants",
         json={
             "user_id": user_a.id,
             "tenant_id": tenant_b.id,
-            "email": email_b,
+            "email": f"{uuid4().hex[:8]}@example.com",
             "password": "segura123",
             "phone": "3000000000",
         },
@@ -92,24 +64,13 @@ def test_user_tenant_cannot_create_association_in_another_tenant(
     assert response.status_code == 404
     assert response.json()["detail"] == "Tenant no encontrado"
 
-    links = (
-        db_session.query(UserTenantDB)
-        .filter(UserTenantDB.user_id == user_a.id)
-        .all()
-    )
+    links = db_session.query(UserTenantDB).filter(UserTenantDB.user_id == user_a.id).all()
     assert len(links) == 1
     assert links[0].tenant_id == tenant_a.id
 
 
-def test_delete_user_is_logical_and_scoped_to_current_tenant(
-    db_session: Session,
-    client: TestClient,
-):
-    user, tenant, user_tenant, token = create_user_context(
-        db_session,
-        password="segura123",
-        name="Usuario Borrar",
-    )
+def test_delete_user_is_logical_and_scoped_to_current_tenant(db_session: Session, client: TestClient):
+    user, tenant, user_tenant, token = create_user_context(db_session, password="segura123", name="Usuario Borrar")
 
     response = client.delete(
         f"/users/{user.dni}",
@@ -130,13 +91,9 @@ def test_delete_user_is_logical_and_scoped_to_current_tenant(
     db_session.expire_all()
     deleted_link = (
         db_session.query(UserTenantDB)
-        .filter(
-            UserTenantDB.user_id == user.id,
-            UserTenantDB.tenant_id == tenant.id,
-        )
+        .filter(UserTenantDB.user_id == user.id, UserTenantDB.tenant_id == tenant.id)
         .first()
     )
-
     assert deleted_link is not None
     assert deleted_link.status == 3
 
@@ -146,9 +103,7 @@ def test_get_user_list_requires_authentication(client: TestClient):
     assert response.status_code == 401
 
 
-def test_legacy_users_bootstrap_endpoint_is_not_registered(
-    client: TestClient,
-):
+def test_legacy_users_bootstrap_endpoint_is_not_registered(client: TestClient):
     response = client.post(
         "/users/bootstrap",
         json={
@@ -159,15 +114,10 @@ def test_legacy_users_bootstrap_endpoint_is_not_registered(
             "password": "segura123",
         },
     )
-
     assert response.status_code == 404
 
 
-def test_bootstrap_creates_initial_tenant_and_admin(
-    db_session: Session,
-    client: TestClient,
-    monkeypatch,
-):
+def test_bootstrap_creates_initial_tenant_and_admin(db_session: Session, client: TestClient, monkeypatch):
     from UsersAPI.services import bootstrap_service
 
     monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
@@ -191,7 +141,6 @@ def test_bootstrap_creates_initial_tenant_and_admin(
 
     assert response.status_code == 201
     payload = response.json()
-
     assert payload["tenant_name"] == f"Empresa Bootstrap {suffix}"
     assert payload["tenant_slug"] == f"empresa-bootstrap-{suffix}"
     assert payload["user_dni"] == admin_dni
@@ -200,21 +149,13 @@ def test_bootstrap_creates_initial_tenant_and_admin(
     assert payload["role_code"] == "ADMIN"
     assert payload["role_name"] == "Administrador"
 
-    user_tenant = (
-        db_session.query(UserTenantDB)
-        .filter(UserTenantDB.id == payload["user_tenant_id"])
-        .first()
-    )
+    user_tenant = db_session.query(UserTenantDB).filter(UserTenantDB.id == payload["user_tenant_id"]).first()
     assert user_tenant is not None
     assert user_tenant.tenant_id == payload["tenant_id"]
     assert user_tenant.status == 0
 
 
-def test_bootstrap_rejects_duplicate_tenant(
-    db_session: Session,
-    client: TestClient,
-    monkeypatch,
-):
+def test_bootstrap_is_disabled_after_initialization(db_session: Session, client: TestClient, monkeypatch):
     from UsersAPI.services import bootstrap_service
 
     monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
@@ -233,6 +174,9 @@ def test_bootstrap_rejects_duplicate_tenant(
     first = client.post("/bootstrap", json=payload)
     assert first.status_code == 201
 
-    second = client.post("/bootstrap", json=payload)
+    second = client.post(
+        "/bootstrap",
+        json={**payload, "tenant_slug": f"otro-{suffix}"},
+    )
     assert second.status_code == 409
-    assert second.json()["detail"] == "El tenant ya existe."
+    assert second.json()["detail"] == "El sistema ya fue inicializado. El bootstrap no está disponible."
