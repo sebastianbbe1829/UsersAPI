@@ -77,7 +77,7 @@ def test_create_user_returns_201_and_persists_user(
     assert link.status == 0
 
 
-def test_same_user_can_exist_in_multiple_tenants(
+def test_user_tenant_cannot_create_association_in_another_tenant(
     db_session: Session,
     client: TestClient,
 ):
@@ -106,9 +106,6 @@ def test_same_user_can_exist_in_multiple_tenants(
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
-    # El usuario del tenant A no puede crear directamente una asociación
-    # apuntando al tenant B. La creación debe estar siempre limitada al
-    # tenant del contexto autenticado.
     assert response.status_code == 404
     assert response.json()["detail"] == "Tenant no encontrado"
 
@@ -181,3 +178,44 @@ def test_legacy_users_bootstrap_endpoint_is_not_registered(
     )
 
     assert response.status_code == 404
+
+
+def test_bootstrap_creates_initial_tenant_and_admin(
+    db_session: Session,
+    client: TestClient,
+):
+    suffix = uuid4().hex[:10]
+
+    response = client.post(
+        "/bootstrap",
+        json={
+            "tenant_name": f"Empresa Bootstrap {suffix}",
+            "tenant_slug": f"empresa-bootstrap-{suffix}",
+            "admin_dni": f"{uuid4().int % 100000000:08d}",
+            "admin_name": "Administrador Inicial",
+            "admin_email": f"admin-{suffix}@example.com",
+            "admin_password": "segura123",
+            "admin_phone": "3000000000",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+
+    assert payload["tenant_name"] == f"Empresa Bootstrap {suffix}"
+    assert payload["tenant_slug"] == f"empresa-bootstrap-{suffix}"
+    assert payload["user_name"] == "Administrador Inicial"
+    assert payload["user_email"] == f"admin-{suffix}@example.com"
+    assert payload["role_code"] == "ADMIN"
+    assert payload["role_name"] == "Administrador"
+    assert payload["user_tenant_id"] > 0
+    assert payload["role_id"] > 0
+
+    user_tenant = (
+        db_session.query(UserTenantDB)
+        .filter(UserTenantDB.id == payload["user_tenant_id"])
+        .first()
+    )
+    assert user_tenant is not None
+    assert user_tenant.tenant_id == payload["tenant_id"]
+    assert user_tenant.status in (0, 1)
