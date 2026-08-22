@@ -10,7 +10,6 @@ class SuperBootstrapResponse(BaseModel):
     id: int
     email: EmailStr
     mfa_enabled: bool
-    mfa_secret: str
     provisioning_uri: str
 
 
