@@ -300,8 +300,7 @@ def bootstrap(
             message=(
                 f"Hola {user.name},\n\n"
                 "Tu cuenta de administrador ha sido creada correctamente.\n\n"
-                "Para activar tu cuenta utiliza el siguiente enlace de activación:\n\n"
-                f"/users/activate/{user.dni}/{user_tenant.activation_token}\n\n"
+                "Para activar tu cuenta utiliza el siguiente enlace de activación.\n\n"
                 "Este enlace es de un solo uso."
             ),
             dni=user.dni,
