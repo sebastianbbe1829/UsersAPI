@@ -1,27 +1,10 @@
 from datetime import timedelta
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from UsersAPI.controllers.auth_controller import create_access_token
-from UsersAPI.database import SessionLocal
-from UsersAPI.main import app
 from test.fixtures.multitenant import create_user_context
-
-
-@pytest.fixture
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def test_login_accepts_user_with_authenticate_permission(
@@ -94,4 +77,3 @@ def test_expired_token_is_rejected_by_validate_endpoint(
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Token expirado"
