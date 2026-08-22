@@ -17,6 +17,7 @@ from ..services.user_tenant_service import (
 
 def crear_user_tenant(
     datos: UserTenantCreate,
+    current_tenant_id: int,
     db: Session,
     current_user: UserDB | None = None,
 ):
@@ -24,6 +25,7 @@ def crear_user_tenant(
     return create_user_tenant(
         user_id=datos.user_id,
         tenant_id=datos.tenant_id,
+        current_tenant_id=current_tenant_id,
         email=datos.email,
         password=datos.password,
         phone=datos.phone,
@@ -33,31 +35,35 @@ def crear_user_tenant(
 
 
 # ============================================================
-# LISTAR TENANTS DE USUARIO
+# LISTAR TENANT DE UN USUARIO DENTRO DEL CONTEXTO ACTUAL
 # ============================================================
 
 def listar_tenants_usuario(
     user_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
 
     return list_user_tenants(
         user_id=user_id,
+        current_tenant_id=current_tenant_id,
         db=db,
     )
 
 
 # ============================================================
-# LISTAR USUARIOS DE TENANT
+# LISTAR USUARIOS DEL TENANT ACTUAL
 # ============================================================
 
 def listar_usuarios_tenant(
     tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
 
     return list_tenant_users(
         tenant_id=tenant_id,
+        current_tenant_id=current_tenant_id,
         db=db,
     )
 
@@ -68,11 +74,13 @@ def listar_usuarios_tenant(
 
 def obtener_user_tenant(
     user_tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
 
     return get_user_tenant(
         user_tenant_id=user_tenant_id,
+        current_tenant_id=current_tenant_id,
         db=db,
     )
 
@@ -83,10 +91,12 @@ def obtener_user_tenant(
 
 def eliminar_user_tenant(
     user_tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
 
     return delete_user_tenant(
         user_tenant_id=user_tenant_id,
+        current_tenant_id=current_tenant_id,
         db=db,
     )
