@@ -29,7 +29,10 @@ def client():
     return TestClient(app)
 
 
-def test_create_user_returns_201_and_persists_user(db_session: Session, client: TestClient):
+def test_create_user_returns_201_and_persists_user(
+    db_session: Session,
+    client: TestClient,
+):
     creator, tenant, user_tenant, token = create_user_context(
         db_session,
         password="segura123",
@@ -38,6 +41,7 @@ def test_create_user_returns_201_and_persists_user(db_session: Session, client: 
 
     new_dni = f"{uuid4().int % 100000000:08d}"
     new_email = f"{uuid4().hex[:8]}@example.com"
+
     response = client.post(
         "/users",
         json={
@@ -54,9 +58,14 @@ def test_create_user_returns_201_and_persists_user(db_session: Session, client: 
     payload = response.json()
     assert payload["dni"] == new_dni
     assert payload["email"] == new_email
+    assert "password" not in payload
+    assert "activation_token" not in payload
 
-    stored = db_session.query(UserDB).filter(UserDB.dni == new_dni).first()
+    stored = db_session.query(UserDB).filter(
+        UserDB.dni == new_dni
+    ).first()
     assert stored is not None
+
     link = db_session.query(UserTenantDB).filter(
         UserTenantDB.user_id == stored.id,
         UserTenantDB.tenant_id == tenant.id,
@@ -65,14 +74,19 @@ def test_create_user_returns_201_and_persists_user(db_session: Session, client: 
     assert link.email == new_email
 
 
-def test_delete_user_returns_safe_response(db_session: Session, client: TestClient):
+def test_delete_user_returns_safe_response(
+    db_session: Session,
+    client: TestClient,
+):
     user, tenant, user_tenant, token = create_user_context(
         db_session,
         password="segura123",
         name="Usuario Borrar",
     )
+
     user_dni = user.dni
     user_email = user_tenant.email
+
     response = client.delete(
         f"/users/{user_dni}",
         headers={"Authorization": f"Bearer {token}"},
@@ -86,13 +100,17 @@ def test_delete_user_returns_safe_response(db_session: Session, client: TestClie
     assert payload["name"] == "Usuario Borrar"
     assert payload["phone"] == "3000000000"
     assert "password" not in payload
-    assert "id" not in payload
+    assert "activation_token" not in payload
+
+    # El contrato actual de UserRead/UserDeleteResponse incluye id.
+    assert payload["id"] == user.id
 
     db_session.expire_all()
     deleted_link = db_session.query(UserTenantDB).filter(
         UserTenantDB.user_id == user.id,
         UserTenantDB.tenant_id == tenant.id,
     ).first()
+
     assert deleted_link is not None
     assert deleted_link.status == 3
 
@@ -100,3 +118,20 @@ def test_delete_user_returns_safe_response(db_session: Session, client: TestClie
 def test_get_user_list_requires_authentication(client: TestClient):
     response = client.get("/users")
     assert response.status_code == 401
+
+
+def test_legacy_users_bootstrap_endpoint_is_not_registered(
+    client: TestClient,
+):
+    response = client.post(
+        "/users/bootstrap",
+        json={
+            "dni": "99999999",
+            "name": "Legacy Bootstrap",
+            "email": "legacy@example.com",
+            "phone": "3000000000",
+            "password": "segura123",
+        },
+    )
+
+    assert response.status_code == 404
