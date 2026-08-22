@@ -18,11 +18,9 @@ def create_tenant(
 
     repo = TenantRepository(db)
 
-    # Normalizamos los valores
     name = name.strip()
     slug = slug.strip().lower()
 
-    # Validar nombre
     existente_nombre = repo.get_by_name(name)
 
     if existente_nombre:
@@ -31,7 +29,6 @@ def create_tenant(
             detail="Ya existe un tenant con ese nombre",
         )
 
-    # Validar slug
     existente_slug = repo.get_by_slug(slug)
 
     if existente_slug:
@@ -97,39 +94,62 @@ def create_tenant(
 
 
 def list_tenants(
+    tenant_id: int,
     db: Session,
     status_filter: int | None = None,
 ):
+    """
+    Lista únicamente el tenant del contexto autenticado.
 
-    repo = TenantRepository(db)
-
-    tenants = repo.get_all(status_filter)
-
-    logger.debug(
-        "Listando tenants",
-        extra={
-            "count": len(tenants),
-            "status_filter": status_filter,
-        },
-    )
-
-    return tenants
-
-
-def get_tenant(
-    tenant_id: int,
-    db: Session,
-):
+    El tenant_id debe provenir de get_current_tenant(), no de un
+    parámetro controlado libremente por el cliente.
+    """
 
     repo = TenantRepository(db)
 
     tenant = repo.get_by_id(tenant_id)
 
+    if tenant is None:
+        return []
+
+    if status_filter is not None and tenant.status != status_filter:
+        return []
+
+    logger.debug(
+        "Listando tenant actual",
+        extra={
+            "tenant_id": tenant_id,
+            "status_filter": status_filter,
+        },
+    )
+
+    return [tenant]
+
+
+def get_tenant(
+    tenant_id: int,
+    current_tenant_id: int,
+    db: Session,
+):
+    """
+    Obtiene un tenant únicamente si pertenece al contexto actual.
+    """
+
+    if tenant_id != current_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado",
+        )
+
+    repo = TenantRepository(db)
+
+    tenant = repo.get_by_id(current_tenant_id)
+
     if not tenant:
         logger.warning(
             "Tenant no encontrado",
             extra={
-                "tenant_id": tenant_id,
+                "tenant_id": current_tenant_id,
             },
         )
 
@@ -137,34 +157,37 @@ def get_tenant(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Tenant no encontrado",
         )
-
-    logger.debug(
-        "Tenant obtenido",
-        extra={
-            "tenant_id": tenant_id,
-        },
-    )
 
     return tenant
 
 
 def update_tenant(
     tenant_id: int,
+    current_tenant_id: int,
     name: str | None,
     slug: str | None,
     db: Session,
     current_user: UserDB | None = None,
 ):
+    """
+    Actualiza únicamente el tenant del contexto actual.
+    """
+
+    if tenant_id != current_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado",
+        )
 
     repo = TenantRepository(db)
 
-    tenant = repo.get_by_id(tenant_id)
+    tenant = repo.get_by_id(current_tenant_id)
 
     if not tenant:
         logger.warning(
             "Tenant no encontrado al actualizar",
             extra={
-                "tenant_id": tenant_id,
+                "tenant_id": current_tenant_id,
             },
         )
 
@@ -173,15 +196,12 @@ def update_tenant(
             detail="Tenant no encontrado",
         )
 
-    # Actualizar nombre
     if name is not None:
-
         name = name.strip()
 
         otro_tenant = repo.get_by_name(name)
 
         if otro_tenant and otro_tenant.id != tenant.id:
-
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ya existe otro tenant con ese nombre",
@@ -189,15 +209,12 @@ def update_tenant(
 
         tenant.name = name
 
-    # Actualizar slug
     if slug is not None:
-
         slug = slug.strip().lower()
 
         otro_tenant = repo.get_by_slug(slug)
 
         if otro_tenant and otro_tenant.id != tenant.id:
-
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El slug ya está registrado",
@@ -214,7 +231,6 @@ def update_tenant(
     tenant.updated_at = datetime.now()
 
     try:
-
         actualizado = repo.update(tenant)
 
         logger.info(
@@ -229,13 +245,12 @@ def update_tenant(
         return actualizado
 
     except IntegrityError:
-
         db.rollback()
 
         logger.warning(
             "Error al actualizar tenant",
             extra={
-                "tenant_id": tenant_id,
+                "tenant_id": current_tenant_id,
             },
         )
 
@@ -247,19 +262,28 @@ def update_tenant(
 
 def delete_tenant(
     tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
+    """
+    Elimina lógicamente únicamente el tenant del contexto actual.
+    """
+
+    if tenant_id != current_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado",
+        )
 
     repo = TenantRepository(db)
 
-    tenant = repo.get_by_id(tenant_id)
+    tenant = repo.get_by_id(current_tenant_id)
 
     if not tenant:
-
         logger.warning(
             "Tenant no encontrado al eliminar",
             extra={
-                "tenant_id": tenant_id,
+                "tenant_id": current_tenant_id,
             },
         )
 
@@ -287,6 +311,7 @@ def delete_tenant(
         "message": "Tenant eliminado correctamente",
     }
 
+
 def list_my_tenants(
     db: Session,
     current_user: UserDB,
@@ -296,8 +321,8 @@ def list_my_tenants(
     user_id = current_user.id
 
     tenants = repo.get_by_user_id(
-         user_id=user_id,
-         status_filter=1,
+        user_id=user_id,
+        status_filter=1,
     )
 
     logger.debug(
