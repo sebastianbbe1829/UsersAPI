@@ -69,17 +69,12 @@ async def crear_tenant_route(
     ],
 )
 async def listar_tenants_route(
-    status_filter: int | None = Query(
-        None,
-        description="Filtra el tenant actual por estado (0=inactivo, 1=activo)",
-    ),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
     db: Session = Depends(get_db),
 ):
     return listar_tenants(
         tenant_id=cast(int, user_tenant.tenant_id),
         db=db,
-        status_filter=status_filter,
     )
 
 

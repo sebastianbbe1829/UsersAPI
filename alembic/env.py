@@ -1,13 +1,11 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import engine_from_config
 
 from alembic import context
 
-from UsersAPI.database import Base, engine
-from UsersAPI.models.user import UserDB
-from UsersAPI.models.user_tenant import UserTenantDB
+from UsersAPI.database import Base
 
 
 # ============================================================
@@ -26,14 +24,14 @@ if config.config_file_name is not None:
 
 
 # ============================================================
-# METADATA DE SQLALCHEMY
+# METADATA SQLALCHEMY
 # ============================================================
 
 target_metadata = Base.metadata
 
 
 # ============================================================
-# ESQUEMA QUE ADMINISTRA ESTA APLICACIÓN
+# ESQUEMA ADMINISTRADO
 # ============================================================
 
 DB_SCHEMA = "users_api"
@@ -49,10 +47,7 @@ def include_name(
     parent_names,
 ):
     """
-    Indica qué objetos debe considerar Alembic.
-
-    La aplicación solamente administra
-    el esquema users_api.
+    Alembic solamente administra users_api
     """
 
     if type_ == "schema":
@@ -66,12 +61,14 @@ def include_name(
 
 
 # ============================================================
-# MIGRACIÓN OFFLINE
+# OFFLINE
 # ============================================================
 
 def run_migrations_offline() -> None:
 
-    url = config.get_main_option("sqlalchemy.url")
+    url = config.get_main_option(
+        "sqlalchemy.url"
+    )
 
     context.configure(
         url=url,
@@ -90,12 +87,21 @@ def run_migrations_offline() -> None:
 
 
 # ============================================================
-# MIGRACIÓN ONLINE
+# ONLINE
 # ============================================================
 
 def run_migrations_online() -> None:
 
-    connectable = engine
+    configuration = config.get_section(
+        config.config_ini_section
+    )
+
+    connectable = engine_from_config(
+        configuration,
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
 
     with connectable.connect() as connection:
 

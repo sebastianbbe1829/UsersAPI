@@ -7,8 +7,10 @@ from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..database import set_rls_tenant
 from ..logging_config import logger
 from ..models import (
     UserTenantDB,
@@ -59,6 +61,7 @@ def verify_password(
         )
 
     except Exception as exc:
+
         logger.error(
             "Error validando password: %s",
             exc,
@@ -166,6 +169,61 @@ def login_user(
     )
 
     # ========================================================
+    # RESOLVER TENANT
+    #
+    # El login todavía NO tiene tenant_id.
+    #
+    # Se recibe el slug y se utiliza la función
+    # SECURITY DEFINER para obtener el ID del tenant.
+    # ========================================================
+
+    tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id(:tenant_slug)
+            """
+        ),
+        {
+            "tenant_slug": datos.tenant,
+        },
+    ).scalar()
+
+    if tenant_id is None:
+
+        logger.warning(
+            "Tenant no encontrado slug=%s",
+            datos.tenant,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tenant inválido",
+        )
+
+    logger.info(
+        "Tenant resuelto slug=%s tenant_id=%s",
+        datos.tenant,
+        tenant_id,
+    )
+
+    # ========================================================
+    # ESTABLECER CONTEXTO RLS
+    #
+    # A partir de este momento las consultas normales de la
+    # aplicación quedan limitadas al tenant resuelto.
+    # ========================================================
+
+    set_rls_tenant(
+        db,
+        tenant_id,
+    )
+
+    logger.info(
+        "Contexto RLS establecido tenant_id=%s",
+        tenant_id,
+    )
+
+    # ========================================================
     # BUSCAR USUARIO EN EL TENANT
     # ========================================================
 
@@ -176,9 +234,16 @@ def login_user(
             UserTenantDB.tenant_id == TenantDB.id,
         )
         .filter(
+            # LOGIN SIEMPRE POR EMAIL
             UserTenantDB.email == datos.username,
-            TenantDB.slug == datos.tenant,
+
+            # Tenant resuelto anteriormente
+            UserTenantDB.tenant_id == tenant_id,
+
+            # Usuario dentro del tenant activo
             UserTenantDB.status == 1,
+
+            # Tenant activo
             TenantDB.status == 1,
         )
         .first()
@@ -187,7 +252,10 @@ def login_user(
     if user_tenant is None:
 
         logger.warning(
-            "Usuario no encontrado en tenant",
+            "Usuario no encontrado en tenant "
+            "email=%s tenant_id=%s",
+            datos.username,
+            tenant_id,
         )
 
         raise HTTPException(
@@ -323,6 +391,33 @@ def get_current_user(
         raise credentials_exception from exc
 
     # ========================================================
+    # OBTENER TENANT DEL TOKEN
+    # ========================================================
+
+    token_tenant_id = payload.get(
+        "tenant_id"
+    )
+
+    if token_tenant_id is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token sin tenant asociado",
+            headers={
+                "WWW-Authenticate": "Bearer",
+            },
+        )
+
+    # ========================================================
+    # ESTABLECER CONTEXTO RLS
+    # ========================================================
+
+    set_rls_tenant(
+        db,
+        token_tenant_id,
+    )
+
+    # ========================================================
     # BUSCAR USER TENANT ACTIVO
     # ========================================================
 
@@ -353,20 +448,6 @@ def get_current_user(
     # ========================================================
     # VALIDAR COHERENCIA DEL TENANT DEL TOKEN
     # ========================================================
-
-    token_tenant_id = payload.get(
-        "tenant_id"
-    )
-
-    if token_tenant_id is None:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token sin tenant asociado",
-            headers={
-                "WWW-Authenticate": "Bearer",
-            },
-        )
 
     if user_tenant.tenant_id != token_tenant_id:
 
@@ -438,6 +519,34 @@ def validate_token(
                 detail="Token inválido",
             )
 
+        # ====================================================
+        # OBTENER TENANT DEL TOKEN
+        # ====================================================
+
+        token_tenant_id = payload.get(
+            "tenant_id"
+        )
+
+        if token_tenant_id is None:
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token sin tenant asociado",
+            )
+
+        # ====================================================
+        # ESTABLECER CONTEXTO RLS
+        # ====================================================
+
+        set_rls_tenant(
+            db,
+            token_tenant_id,
+        )
+
+        # ====================================================
+        # BUSCAR USER TENANT ACTIVO
+        # ====================================================
+
         user_tenant = (
             db.query(UserTenantDB)
             .join(
@@ -457,6 +566,24 @@ def validate_token(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Usuario no encontrado",
+            )
+
+        # ====================================================
+        # VALIDAR COHERENCIA DEL TENANT
+        # ====================================================
+
+        if user_tenant.tenant_id != token_tenant_id:
+
+            logger.warning(
+                "Inconsistencia tenant JWT "
+                "usuario_tenant=%s token_tenant=%s",
+                user_tenant.tenant_id,
+                token_tenant_id,
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="El tenant del token no coincide con el usuario",
             )
 
         now = int(

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..controllers.bootstrap_controller import bootstrap_application
-from ..database import get_db
+from ..database import get_bootstrap_db
 from ..schemas import BootstrapRequest, BootstrapResponse
 
 
@@ -23,7 +23,7 @@ bootstrap_routes = APIRouter(
 def bootstrap_route(
     datos: BootstrapRequest,
     x_bootstrap_key: str = Header(..., alias="X-Bootstrap-Key"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_bootstrap_db),
 ):
     """Provisiona una nueva empresa mediante una clave interna.
 
