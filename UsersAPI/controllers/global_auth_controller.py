@@ -23,9 +23,10 @@ def login_super_user(
     request: Request,
     db: Session,
 ):
-    response = login_super_user_service(
+    client_ip = request.client.host if request.client else None
+
+    return login_super_user_service(
         datos,
         db,
+        client_ip=client_ip,
     )
-
-    return response
