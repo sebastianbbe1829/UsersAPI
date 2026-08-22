@@ -21,7 +21,6 @@ class GlobalUserDB(Base):
     email = Column(
         String(255),
         nullable=False,
-        unique=True,
         index=True,
     )
 
