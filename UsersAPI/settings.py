@@ -16,5 +16,46 @@ class Settings:
     algorithm: str = os.getenv("ALGORITHM", "HS256")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 
+    # ========================================================
+    # DATABASE
+    # ========================================================
+
+    database_url: str = os.getenv("DATABASE_URL", "")
+    bootstrap_database_url: str = os.getenv("BOOTSTRAP_DATABASE_URL", "")
+    database_admin_url: str = os.getenv("DATABASE_ADMIN_URL", "")
+
+    # ========================================================
+    # BOOTSTRAP
+    # ========================================================
+
+    bootstrap_key: str = os.getenv("BOOTSTRAP_KEY", "")
+
+    # ========================================================
+    # SUPER
+    # ========================================================
+
+    super_bootstrap_secret: str = os.getenv("SUPER_BOOTSTRAP_SECRET", "")
+    super_mfa_encryption_key: str = os.getenv(
+        "SUPER_MFA_ENCRYPTION_KEY",
+        "",
+    )
+
+    # ========================================================
+    # EMAIL
+    # ========================================================
+
+    mailersend_api_key: str = os.getenv("MAILERSEND_API_KEY", "")
+    email_from: str = os.getenv("EMAIL_FROM", "")
+    frontend_url: str = os.getenv("FRONTEND_URL", "")
+    backend_url: str = os.getenv("BACKEND_URL", "")
+
+    # ========================================================
+    # WHATSAPP
+    # ========================================================
+
+    whatsapp_token: str = os.getenv("WHATSAPP_TOKEN", "")
+    whatsapp_phone_id: str = os.getenv("WHATSAPP_PHONE_ID", "")
+    whatsapp_mode: str = os.getenv("WHATSAPP_MODE", "template")
+
 
 settings = Settings()

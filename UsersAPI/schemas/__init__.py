@@ -48,6 +48,13 @@ from .auth import (
     TokenValidationResponse,
 )
 
+from .global_auth import (
+    SuperBootstrapRequest,
+    SuperBootstrapResponse,
+    SuperLoginRequest,
+    SuperLoginResponse,
+)
+
 from .permission import (
     PermissionCreate,
     PermissionRead,
@@ -85,6 +92,10 @@ __all__ = [
     "TokenUserResponse",
     "TokenTenantResponse",
     "TokenValidationResponse",
+    "SuperBootstrapRequest",
+    "SuperBootstrapResponse",
+    "SuperLoginRequest",
+    "SuperLoginResponse",
     "BootstrapRequest",
     "BootstrapResponse",
 ]

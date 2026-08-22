@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config
 from alembic import context
 
 from UsersAPI.database import Base
+from UsersAPI.settings import settings
 
 
 # ============================================================
@@ -13,6 +14,18 @@ from UsersAPI.database import Base
 # ============================================================
 
 config = context.config
+
+# La URL de base de datos nunca se almacena en alembic.ini.
+# Se obtiene desde la configuración central de la aplicación.
+if not settings.database_admin_url:
+    raise RuntimeError(
+        "DATABASE_ADMIN_URL no está configurada"
+    )
+
+config.set_main_option(
+    "sqlalchemy.url",
+    settings.database_admin_url,
+)
 
 
 # ============================================================
@@ -101,7 +114,6 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
 
     with connectable.connect() as connection:
 

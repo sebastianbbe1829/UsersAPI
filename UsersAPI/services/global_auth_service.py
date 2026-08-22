@@ -110,7 +110,10 @@ def bootstrap_super_user(
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ya existe al menos un usuario SUPER; utilice la administración de usuarios globales",
+            detail=(
+                "Ya existe al menos un usuario SUPER; "
+                "utilice la administración de usuarios globales"
+            ),
         )
 
     email = datos.email.strip().lower()
@@ -214,6 +217,7 @@ def login_super_user(
             )
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+
     user.session_id = str(uuid.uuid4())
     user.last_login_at = now
     user.last_login_ip = client_ip
@@ -237,3 +241,58 @@ def login_super_user(
         user_type=SUPER_TOKEN_TYPE,
         session_id=user.session_id,
     )
+
+
+def get_current_super_user(
+    token: str,
+    db: Session,
+) -> GlobalUserDB:
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar el token SUPER",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+        )
+    except ExpiredSignatureError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token SUPER expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    except JWTError as exc:
+        raise credentials_exception from exc
+
+    if payload.get("user_type") != SUPER_TOKEN_TYPE:
+        raise credentials_exception
+
+    global_user_id = payload.get("global_user_id")
+    session_id = payload.get("session_id")
+
+    if global_user_id is None or session_id is None:
+        raise credentials_exception
+
+    user = (
+        db.query(GlobalUserDB)
+        .filter(
+            GlobalUserDB.id == global_user_id,
+            GlobalUserDB.is_active.is_(True),
+            GlobalUserDB.is_superuser.is_(True),
+        )
+        .first()
+    )
+
+    if user is None or user.session_id != session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="La sesión SUPER ya no es válida",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
