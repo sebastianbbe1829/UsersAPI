@@ -23,8 +23,6 @@ global_auth_routes = APIRouter(
 
     summary="Crear el primer usuario SUPER",
 
-    summary="Crear el primer usuario SUPER",
-
 )
 def bootstrap_super_user(
     datos: SuperBootstrapRequest,

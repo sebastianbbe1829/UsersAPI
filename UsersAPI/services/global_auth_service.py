@@ -39,7 +39,7 @@ def _fernet() -> Fernet:
         return Fernet(key.encode("ascii"))
     except Exception as exc:
         raise RuntimeError(
-            "SUPER_MFA_ENCRYPTION_KEY no contiene una clave Fernet v·lida"
+            "SUPER_MFA_ENCRYPTION_KEY no contiene una clave Fernet v√°lida"
         ) from exc
 
 
@@ -53,7 +53,7 @@ def _decrypt_mfa_secret(value: str) -> str:
     except InvalidToken as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible validar la configuraciÛn MFA",
+            detail="No fue posible validar la configuraci√≥n MFA",
         ) from exc
 
 
@@ -86,7 +86,7 @@ def bootstrap_super_user(
     if not settings.super_bootstrap_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="El bootstrap del usuario SUPER no est· configurado",
+            detail="El bootstrap del usuario SUPER no est√° configurado",
         )
 
     if not hmac.compare_digest(
@@ -95,12 +95,12 @@ def bootstrap_super_user(
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Secret de bootstrap inv·lida",
+            detail="Secret de bootstrap inv√°lida",
         )
 
-    # Bootstrap es ˙nicamente el mecanismo de creaciÛn inicial.
-    # DespuÈs de existir el primer SUPER, los siguientes SUPER deber·n
-    # crearse desde el mÛdulo administrativo de usuarios globales.
+    # Bootstrap es √∫nicamente el mecanismo de creaci√≥n inicial.
+    # Despu√©s de existir el primer SUPER, los siguientes SUPER deber√°n
+    # crearse desde el m√≥dulo administrativo de usuarios globales.
     existing = (
         db.query(GlobalUserDB)
         .filter(GlobalUserDB.is_superuser.is_(True))
@@ -112,7 +112,7 @@ def bootstrap_super_user(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "Ya existe al menos un usuario SUPER; "
-                "utilice la administraciÛn de usuarios globales"
+                "utilice la administraci√≥n de usuarios globales"
             ),
         )
 
@@ -126,7 +126,7 @@ def bootstrap_super_user(
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="El correo ya est· registrado como usuario global",
+            detail="El correo ya est√° registrado como usuario global",
         )
 
     secret = pyotp.random_base32()
@@ -184,14 +184,14 @@ def login_super_user(
     if user is None or not user.is_active or not user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales inv·lidas",
+            detail="Credenciales inv√°lidas",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not verify_password(datos.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales inv·lidas",
+            detail="Credenciales inv√°lidas",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -199,7 +199,7 @@ def login_super_user(
         if not datos.otp:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="CÛdigo MFA requerido",
+                detail="C√≥digo MFA requerido",
             )
 
         if not user.mfa_secret_encrypted:
@@ -213,7 +213,7 @@ def login_super_user(
         if not pyotp.TOTP(secret).verify(datos.otp, valid_window=1):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="CÛdigo MFA inv·lido",
+                detail="C√≥digo MFA inv√°lido",
             )
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -291,7 +291,7 @@ def get_current_super_user(
     if user is None or user.session_id != session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="La sesiÛn SUPER ya no es v·lida",
+            detail="La sesi√≥n SUPER ya no es v√°lida",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
