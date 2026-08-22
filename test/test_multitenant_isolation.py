@@ -4,9 +4,19 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from UsersAPI.database import SessionLocal
 from UsersAPI.main import app
 from UsersAPI.models import PermissionDB, RolePermissionDB
 from test.fixtures.multitenant import create_user_context
+
+
+@pytest.fixture
+def db_session():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
