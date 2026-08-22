@@ -170,6 +170,25 @@ logger.info(
     "Rutas de usuarios registradas"
 )
 
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
+@app.get("/", include_in_schema=False)
+def root():
+    return {
+        "status": "ok",
+        "service": "UsersAPI",
+    }
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    return {
+        "status": "healthy",
+        "service": "UsersAPI",
+    }
+
 app.include_router(auth_routers)
 
 logger.info(
