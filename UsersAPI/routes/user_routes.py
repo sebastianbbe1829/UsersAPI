@@ -23,7 +23,7 @@ from ..schemas import (
 )
 from ..security.dependencies import get_current_tenant
 from ..security.permissions import require_permission
-from ..models import UserDB, UserTenantDB
+from ..models import UserTenantDB
 
 
 user_routes = APIRouter(
@@ -31,14 +31,6 @@ user_routes = APIRouter(
     tags=["Usuarios"],
 )
 
-
-# ============================================================
-# CREAR USUARIO
-# POST /users
-#
-# Permiso requerido:
-#   USER_CREATE
-# ============================================================
 
 @user_routes.post(
     "",
@@ -52,7 +44,7 @@ user_routes = APIRouter(
 async def crear_usuario(
     user_obj: UserCreate,
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Crear un nuevo usuario con DNI único y contraseña cifrada."""
@@ -64,24 +56,14 @@ async def crear_usuario(
             current_user,
             user_tenant,
         )
-
     except HTTPException:
         raise
-
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al crear usuario",
         ) from e
 
-
-# ============================================================
-# EXPORTAR USUARIOS
-# GET /users/export
-#
-# Permiso requerido:
-#   USER_EXPORT
-# ============================================================
 
 @user_routes.get(
     "/export",
@@ -93,7 +75,7 @@ async def crear_usuario(
 )
 async def export_users_route(
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Exportar usuarios del tenant seleccionado a Excel."""
@@ -104,14 +86,6 @@ async def export_users_route(
         user_tenant,
     )
 
-
-# ============================================================
-# LISTAR USUARIOS
-# GET /users
-#
-# Permiso requerido:
-#   USER_READ
-# ============================================================
 
 @user_routes.get(
     "",
@@ -126,7 +100,7 @@ async def listar_usuarios(
     status: int | None = Query(
         None,
         description="Filtra usuarios por estado (0=inactivo, 1=activo)",
-        examples={  # type: ignore
+        examples={
             "activos": {
                 "summary": "Usuarios activos",
                 "value": 1,
@@ -149,14 +123,6 @@ async def listar_usuarios(
     )
 
 
-# ============================================================
-# OBTENER USUARIO
-# GET /users/{dni}
-#
-# Permiso requerido:
-#   USER_READ
-# ============================================================
-
 @user_routes.get(
     "/{dni}",
     response_model=UserRead,
@@ -171,15 +137,11 @@ async def obtener_usuario(
         ...,
         description="DNI del usuario a consultar",
         examples=[
-            {
-                "ejemplo": {
-                    "value": "12345678",
-                }
-            }
+            {"ejemplo": {"value": "12345678"}}
         ],
     ),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Obtener los datos de un usuario usando su DNI."""
@@ -190,14 +152,6 @@ async def obtener_usuario(
         user_tenant,
     )
 
-
-# ============================================================
-# ACTUALIZAR USUARIO
-# PATCH /users/{dni}
-#
-# Permiso requerido:
-#   USER_UPDATE
-# ============================================================
 
 @user_routes.patch(
     "/{dni}",
@@ -213,44 +167,32 @@ async def actualizar_usuario(
         ...,
         description="DNI del usuario a actualizar",
         examples=[
-            {
-                "ejemplo": {
-                    "value": "12345678",
-                }
-            }
+            {"ejemplo": {"value": "12345678"}}
         ],
     ),
     datos: UserUpdate = Body(
         ...,
-        examples={  # type: ignore
+        examples={
             "actualizar_phone": {
                 "summary": "Actualizar teléfono",
-                "value": {
-                    "phone": "2781554",
-                },
+                "value": {"phone": "2781554"},
             },
             "actualizar_email": {
                 "summary": "Actualizar email",
-                "value": {
-                    "email": "juan.nuevo@example.com",
-                },
+                "value": {"email": "juan.nuevo@example.com"},
             },
             "actualizar_name": {
                 "summary": "Actualizar nombre",
-                "value": {
-                    "name": "Juan Pérez Navarro",
-                },
+                "value": {"name": "Juan Pérez Navarro"},
             },
             "actualizar_status": {
                 "summary": "Actualizar estado",
-                "value": {
-                    "status": False,
-                },
+                "value": {"status": False},
             },
         },
     ),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Actualizar los datos de un usuario identificado por DNI."""
@@ -263,14 +205,6 @@ async def actualizar_usuario(
         user_tenant,
     )
 
-
-# ============================================================
-# ELIMINAR USUARIO
-# DELETE /users/{dni}
-#
-# Permiso requerido:
-#   USER_DELETE
-# ============================================================
 
 @user_routes.delete(
     "/{dni}",
@@ -286,15 +220,11 @@ async def eliminar_usuario(
         ...,
         description="DNI del usuario a eliminar",
         examples=[
-            {
-                "ejemplo": {
-                    "value": "12345678",
-                }
-            }
+            {"ejemplo": {"value": "12345678"}}
         ],
     ),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     """Eliminar un usuario usando su DNI."""
@@ -305,42 +235,6 @@ async def eliminar_usuario(
         user_tenant,
     )
 
-
-# ============================================================
-# BOOTSTRAP
-# POST /users/bootstrap
-#
-# Endpoint especial para crear el primer usuario.
-# NO requiere JWT.
-# NO requiere tenant.
-# NO requiere permisos.
-# ============================================================
-
-@user_routes.post(
-    "/bootstrap",
-    response_model=UserRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Crear usuario inicial sin token",
-)
-async def crear_usuario_inicial(
-    user_obj: UserCreate,
-    db: Session = Depends(get_db),
-):
-    return user_controller.crear_usuario(
-        user_obj,
-        db,
-    )
-
-
-# ============================================================
-# ACTIVAR USUARIO
-# POST /users/activate/{dni}/{token}
-#
-# Endpoint público de activación.
-# NO requiere JWT.
-# NO requiere tenant.
-# NO requiere permisos.
-# ============================================================
 
 @user_routes.post(
     "/activate/{dni}/{token}/",

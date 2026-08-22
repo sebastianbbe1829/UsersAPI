@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..controllers import auth_controller
 from ..database import get_db
+from ..models import UserTenantDB
 from ..schemas import (
     LoginRequest,
     LoginResponse,
@@ -48,10 +49,11 @@ def login(
 # VALIDAR TOKEN
 # GET /auth/validate
 #
-# Requiere un JWT válido.
+# Requiere un JWT válido y no expirado.
 #
-# No requiere AUTHENTICATE nuevamente porque el usuario
-# ya tuvo que poseer ese permiso para obtener el token.
+# get_current_user realiza la validación criptográfica completa
+# del JWT, incluyendo la expiración. Después se ejecuta la
+# consulta de validación para devolver la información del token.
 # ============================================================
 
 @auth_routers.get(
@@ -61,6 +63,7 @@ def login(
 )
 def validate(
     token: str = Depends(auth_controller.oauth2_scheme),
+    _current_user: UserTenantDB = Depends(auth_controller.get_current_user),
     db: Session = Depends(get_db),
 ):
 

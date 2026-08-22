@@ -55,33 +55,19 @@ def _send_welcome_notifications(
     """
 
     if reactivated:
-
-        email_subject = (
-            "Bienvenido nuevamente a UsersAPI"
-        )
-
+        email_subject = "Bienvenido nuevamente a UsersAPI"
         email_message = (
             f"Hola {user.name}, "
             f"tu cuenta ha sido reactivada exitosamente."
         )
-
     else:
-
-        email_subject = (
-            "Bienvenido a UsersAPI"
-        )
-
+        email_subject = "Bienvenido a UsersAPI"
         email_message = (
             f"Hola {user.name}, "
             f"tu cuenta ha sido creada exitosamente."
         )
 
-    # ========================================================
-    # CORREO
-    # ========================================================
-
     try:
-
         send_email(
             recipient=user_tenant.email,
             subject=email_subject,
@@ -101,38 +87,28 @@ def _send_welcome_notifications(
         )
 
     except Exception as exc:
-
         logger.warning(
-            "Usuario creado/reactivado pero falló "
-            "el envío de correo: %s",
+            "Usuario creado/reactivado pero falló el envío de correo: %s",
             exc,
         )
 
-    # ========================================================
-    # WHATSAPP
-    # ========================================================
-
     if not user_tenant.phone:
         logger.info(
-            "Usuario sin teléfono. "
-            "Se omite envío de WhatsApp.",
+            "Usuario sin teléfono. Se omite envío de WhatsApp.",
             extra={
                 "user_id": user.id,
                 "user_tenant_id": user_tenant.id,
                 "dni": user.dni,
             },
         )
-
         return
 
     try:
-
         send_whatsapp(
             to_number=user_tenant.phone,
             message=(
                 f"Hola {user.name}, "
-                f"tu cuenta en UsersAPI "
-                f"ha sido creada exitosamente."
+                f"tu cuenta en UsersAPI ha sido creada exitosamente."
             ),
             template_name="hello_world",
             parameters=None,
@@ -149,10 +125,8 @@ def _send_welcome_notifications(
         )
 
     except Exception as exc:
-
         logger.warning(
-            "Usuario creado/reactivado pero falló "
-            "el envío de WhatsApp: %s",
+            "Usuario creado/reactivado pero falló el envío de WhatsApp: %s",
             exc,
         )
 
@@ -164,6 +138,7 @@ def _send_welcome_notifications(
 def create_user_tenant(
     user_id: int,
     tenant_id: int,
+    current_tenant_id: int,
     email: str,
     password: str,
     phone: str | None,
@@ -171,96 +146,79 @@ def create_user_tenant(
     current_user: UserDB | UserTenantDB | None = None,
 ) -> UserTenantDB:
 
+    # --------------------------------------------------------
+    # SEGURIDAD MULTI-TENANT
+    # --------------------------------------------------------
+    # El tenant objetivo viene del body, por lo tanto debe
+    # coincidir explícitamente con el tenant autenticado.
+    # --------------------------------------------------------
+    if tenant_id != current_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado",
+        )
+
     user_repository = UserRepository(db)
     tenant_repository = TenantRepository(db)
     user_tenant_repository = UserTenantRepository(db)
 
     actor = _actor_dni(current_user)
 
-    # ========================================================
-    # VALIDAR USUARIO
-    # ========================================================
-
-    usuario = user_repository.get_by_id_including_deleted(
-        user_id
-    )
+    usuario = user_repository.get_by_id_including_deleted(user_id)
 
     if usuario is None:
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El usuario no existe",
         )
 
-    # ========================================================
-    # VALIDAR TENANT
-    # ========================================================
-
-    tenant = tenant_repository.get_by_id_including_deleted(
-        tenant_id
-    )
+    tenant = tenant_repository.get_by_id_including_deleted(current_tenant_id)
 
     if tenant is None:
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El tenant no existe",
         )
 
     if tenant.status == 3:
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El tenant está eliminado",
         )
 
     if tenant.status != 1:
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El tenant está inactivo",
         )
 
-    # ========================================================
-    # VALIDAR ASOCIACIÓN EXISTENTE
-    # ========================================================
-
     existente = (
         user_tenant_repository
         .get_by_user_and_tenant_including_deleted(
             user_id,
-            tenant_id,
+            current_tenant_id,
         )
     )
-
-    # ========================================================
-    # REACTIVAR
-    # ========================================================
 
     if existente is not None:
 
         if existente.status == 3:
-
             existente.status = 1
             existente.email = email
             existente.password = get_password_hash(password)
             existente.phone = phone
-            existente.activation_token = (
-                _generate_activation_token()
-            )
+            existente.activation_token = _generate_activation_token()
             existente.updated_at = datetime.now()
             existente.updated_by = actor
 
-            user_tenant_repository.mark_dirty(
-                existente
-            )
+            user_tenant_repository.mark_dirty(existente)
 
             logger.info(
                 "Asociación usuario-tenant reactivada",
                 extra={
                     "user_tenant_id": existente.id,
                     "user_id": user_id,
-                    "tenant_id": tenant_id,
+                    "tenant_id": current_tenant_id,
                     "dni": usuario.dni,
                 },
             )
@@ -273,25 +231,14 @@ def create_user_tenant(
 
             return existente
 
-        # ====================================================
-        # YA EXISTE
-        # ====================================================
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El usuario ya está asociado "
-                "a este tenant"
-            ),
+            detail="El usuario ya está asociado a este tenant",
         )
-
-    # ========================================================
-    # CREAR NUEVA ASOCIACIÓN
-    # ========================================================
 
     nueva_asociacion = UserTenantDB(
         user_id=user_id,
-        tenant_id=tenant_id,
+        tenant_id=current_tenant_id,
         email=email,
         password=get_password_hash(password),
         phone=phone,
@@ -302,30 +249,20 @@ def create_user_tenant(
     )
 
     try:
-
-        creada = (
-            user_tenant_repository
-            .add_without_commit(
-                nueva_asociacion
-            )
-        )
+        creada = user_tenant_repository.add_without_commit(nueva_asociacion)
 
     except IntegrityError as exc:
-
         logger.warning(
             "Intento de crear asociación duplicada",
             extra={
                 "user_id": user_id,
-                "tenant_id": tenant_id,
+                "tenant_id": current_tenant_id,
             },
         )
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "El usuario ya está asociado "
-                "a este tenant"
-            ),
+            detail="El usuario ya está asociado a este tenant",
         ) from exc
 
     logger.info(
@@ -333,7 +270,7 @@ def create_user_tenant(
         extra={
             "user_tenant_id": creada.id,
             "user_id": user_id,
-            "tenant_id": tenant_id,
+            "tenant_id": current_tenant_id,
             "dni": usuario.dni,
         },
     )
@@ -353,57 +290,53 @@ def create_user_tenant(
 
 def get_user_tenant(
     user_tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ) -> UserTenantDB:
 
     repository = UserTenantRepository(db)
 
-    asociacion = repository.get_by_id(
-        user_tenant_id
-    )
+    asociacion = repository.get_by_id(user_tenant_id)
 
-    if asociacion is None:
-
+    if asociacion is None or asociacion.tenant_id != current_tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "Asociación usuario-tenant "
-                "no encontrada"
-            ),
+            detail="Asociación usuario-tenant no encontrada",
         )
 
     return asociacion
 
 
 # ============================================================
-# LISTAR TENANTS DE UN USUARIO
+# LISTAR TENANTS DE UN USUARIO DENTRO DEL CONTEXTO ACTUAL
 # ============================================================
 
 def list_user_tenants(
     user_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
 
     user_repository = UserRepository(db)
     user_tenant_repository = UserTenantRepository(db)
 
-    usuario = (
-        user_repository
-        .get_by_id_including_deleted(
-            user_id
-        )
-    )
+    usuario = user_repository.get_by_id_including_deleted(user_id)
 
     if usuario is None:
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El usuario no existe",
         )
 
-    return user_tenant_repository.get_by_user(
-        user_id
+    asociacion = user_tenant_repository.get_by_user_and_tenant(
+        user_id=user_id,
+        tenant_id=current_tenant_id,
     )
+
+    if asociacion is None:
+        return []
+
+    return [asociacion]
 
 
 # ============================================================
@@ -412,29 +345,28 @@ def list_user_tenants(
 
 def list_tenant_users(
     tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
+
+    if tenant_id != current_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado",
+        )
 
     tenant_repository = TenantRepository(db)
     user_tenant_repository = UserTenantRepository(db)
 
-    tenant = (
-        tenant_repository
-        .get_by_id_including_deleted(
-            tenant_id
-        )
-    )
+    tenant = tenant_repository.get_by_id(current_tenant_id)
 
     if tenant is None:
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El tenant no existe",
         )
 
-    return user_tenant_repository.get_by_tenant(
-        tenant_id
-    )
+    return user_tenant_repository.get_by_tenant(current_tenant_id)
 
 
 # ============================================================
@@ -443,31 +375,24 @@ def list_tenant_users(
 
 def delete_user_tenant(
     user_tenant_id: int,
+    current_tenant_id: int,
     db: Session,
 ):
 
     repository = UserTenantRepository(db)
 
-    asociacion = repository.get_by_id(
-        user_tenant_id
-    )
+    asociacion = repository.get_by_id(user_tenant_id)
 
-    if asociacion is None:
-
+    if asociacion is None or asociacion.tenant_id != current_tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "Asociación usuario-tenant "
-                "no encontrada"
-            ),
+            detail="Asociación usuario-tenant no encontrada",
         )
 
     asociacion.status = 3
     asociacion.updated_at = datetime.now()
 
-    repository.mark_dirty(
-        asociacion
-    )
+    repository.mark_dirty(asociacion)
 
     logger.info(
         "Asociación usuario-tenant eliminada",
@@ -483,8 +408,5 @@ def delete_user_tenant(
         "user_id": asociacion.user_id,
         "tenant_id": asociacion.tenant_id,
         "status": asociacion.status,
-        "message": (
-            "Asociación usuario-tenant "
-            "eliminada correctamente"
-        ),
+        "message": "Asociación usuario-tenant eliminada correctamente",
     }

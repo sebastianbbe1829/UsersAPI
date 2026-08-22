@@ -1,7 +1,6 @@
-from typing import List
+from typing import List, cast
 
 from fastapi import APIRouter, Depends, Path, Query, status
-
 from sqlalchemy.orm import Session
 
 from ..controllers import (
@@ -13,18 +12,15 @@ from ..controllers import (
     eliminar_tenant,
     get_current_user,
 )
-
 from ..database import get_db
-
-from ..models import UserDB
-
+from ..models import UserTenantDB
 from ..schemas import (
     TenantCreate,
     TenantDeleteResponse,
     TenantRead,
     TenantUpdate,
 )
-
+from ..security.dependencies import get_current_tenant
 from ..security.permissions import require_permission
 
 
@@ -36,11 +32,6 @@ tenant_routes = APIRouter(
 
 # ============================================================
 # CREAR TENANT
-#
-# POST /tenants
-#
-# Permiso requerido:
-#   TENANT_CREATE
 # ============================================================
 
 @tenant_routes.post(
@@ -55,9 +46,8 @@ tenant_routes = APIRouter(
 async def crear_tenant_route(
     tenant: TenantCreate,
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
 ):
-
     return crear_tenant(
         tenant,
         db,
@@ -67,44 +57,34 @@ async def crear_tenant_route(
 
 # ============================================================
 # LISTAR TENANTS
-#
-# GET /tenants
-#
-# Permiso requerido:
-#   TENANT_READ
 # ============================================================
 
 @tenant_routes.get(
     "",
     response_model=List[TenantRead],
     status_code=status.HTTP_200_OK,
-    summary="Listar tenants",
+    summary="Obtener tenant actual",
     dependencies=[
         Depends(require_permission("TENANT_READ")),
     ],
 )
 async def listar_tenants_route(
-    status: int | None = Query(
+    status_filter: int | None = Query(
         None,
-        description="Filtra tenants por estado (0=inactivo, 1=activo)",
+        description="Filtra el tenant actual por estado (0=inactivo, 1=activo)",
     ),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
 ):
-
     return listar_tenants(
-        db,
-        status,
+        tenant_id=cast(int, user_tenant.tenant_id),
+        db=db,
+        status_filter=status_filter,
     )
 
 
 # ============================================================
 # LISTAR MIS TENANTS
-#
-# GET /tenants/my
-#
-# Permiso requerido:
-#   TENANT_READ
 # ============================================================
 
 @tenant_routes.get(
@@ -118,9 +98,8 @@ async def listar_tenants_route(
 )
 async def listar_mis_tenants_route(
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
 ):
-
     return listar_mis_tenants(
         db=db,
         current_user=current_user,
@@ -129,11 +108,6 @@ async def listar_mis_tenants_route(
 
 # ============================================================
 # OBTENER TENANT
-#
-# GET /tenants/{tenant_id}
-#
-# Permiso requerido:
-#   TENANT_READ
 # ============================================================
 
 @tenant_routes.get(
@@ -150,23 +124,18 @@ async def obtener_tenant_route(
         ...,
         description="ID del tenant",
     ),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
 ):
-
     return obtener_tenant(
-        tenant_id,
-        db,
+        tenant_id=tenant_id,
+        current_tenant_id=cast(int, user_tenant.tenant_id),
+        db=db,
     )
 
 
 # ============================================================
 # ACTUALIZAR TENANT
-#
-# PATCH /tenants/{tenant_id}
-#
-# Permiso requerido:
-#   TENANT_UPDATE
 # ============================================================
 
 @tenant_routes.patch(
@@ -181,25 +150,21 @@ async def obtener_tenant_route(
 async def actualizar_tenant_route(
     tenant_id: int,
     datos: TenantUpdate,
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
 ):
-
     return actualizar_tenant(
-        tenant_id,
-        datos,
-        db,
-        current_user,
+        tenant_id=tenant_id,
+        current_tenant_id=cast(int, user_tenant.tenant_id),
+        datos=datos,
+        db=db,
+        current_user=current_user,
     )
 
 
 # ============================================================
 # ELIMINAR TENANT
-#
-# DELETE /tenants/{tenant_id}
-#
-# Permiso requerido:
-#   TENANT_DELETE
 # ============================================================
 
 @tenant_routes.delete(
@@ -216,11 +181,11 @@ async def eliminar_tenant_route(
         ...,
         description="ID del tenant",
     ),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
     db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
 ):
-
     return eliminar_tenant(
-        tenant_id,
-        db,
+        tenant_id=tenant_id,
+        current_tenant_id=cast(int, user_tenant.tenant_id),
+        db=db,
     )

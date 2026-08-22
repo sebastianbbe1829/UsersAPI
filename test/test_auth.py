@@ -1,28 +1,14 @@
-import sys
 from datetime import timedelta
-from pathlib import Path
-from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from UsersAPI.controllers.auth_controller import create_access_token, pwd_context, verify_password
-from UsersAPI.database import SessionLocal
-from UsersAPI.main import app
+from UsersAPI.controllers.auth_controller import (
+    create_access_token,
+    pwd_context,
+    verify_password,
+)
 from test.fixtures.multitenant import create_user_context
-
-
-@pytest.fixture
-def db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def test_password_verification_in_memory():
@@ -33,9 +19,12 @@ def test_password_verification_in_memory():
     assert verify_password("otrovalor", hash_value) is False
 
 
-def test_password_update_is_stored_once_and_can_be_verified(db_session: Session):
+def test_password_update_is_stored_once_and_can_be_verified(
+    db_session: Session,
+    client: TestClient,
+):
     user, tenant, user_tenant, token = create_user_context(db_session)
-    client = TestClient(app)
+
     response = client.patch(
         f"/users/{user.dni}",
         json={"password": "newpass"},
@@ -50,10 +39,12 @@ def test_password_update_is_stored_once_and_can_be_verified(db_session: Session)
     assert verify_password("oldpass", user_tenant.password) is False
 
 
+def test_invalid_user_payload_returns_validation_error(
+    db_session: Session,
+    client: TestClient,
+):
+    user, _, _, token = create_user_context(db_session)
 
-def test_invalid_user_payload_returns_validation_error(db_session: Session):
-    user, tenant, user_tenant, token = create_user_context(db_session)
-    client = TestClient(app)
     response = client.post(
         "/users",
         json={"dni": user.dni, "name": "Test"},
@@ -61,13 +52,15 @@ def test_invalid_user_payload_returns_validation_error(db_session: Session):
     )
 
     assert response.status_code == 422
-    body = response.json()
-    assert "detail" in body
+    assert "detail" in response.json()
 
 
-
-def test_expired_token_returns_expired_message(db_session: Session):
+def test_expired_token_returns_expired_message(
+    db_session: Session,
+    client: TestClient,
+):
     user, tenant, user_tenant, _ = create_user_context(db_session)
+
     token = create_access_token(
         {
             "sub": user.dni,
@@ -77,7 +70,7 @@ def test_expired_token_returns_expired_message(db_session: Session):
         },
         expires_delta=timedelta(minutes=-5),
     )
-    client = TestClient(app)
+
     response = client.get(
         "/users",
         headers={"Authorization": f"Bearer {token}"},
@@ -85,4 +78,3 @@ def test_expired_token_returns_expired_message(db_session: Session):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Token expirado"
-
