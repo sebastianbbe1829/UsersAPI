@@ -16,6 +16,9 @@ class Settings:
     algorithm: str = os.getenv("ALGORITHM", "HS256")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 
+    # Secret exclusivo para el endpoint de bootstrap de tenants.
+    bootstrap_key: str = os.getenv("BOOTSTRAP_KEY", "")
+
     # Secret exclusivo para el endpoint de bootstrap del SUPER.
     super_bootstrap_secret: str = os.getenv("SUPER_BOOTSTRAP_SECRET", "")
 
