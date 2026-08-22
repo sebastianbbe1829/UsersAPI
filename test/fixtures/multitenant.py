@@ -13,9 +13,25 @@ from UsersAPI.models import (
 )
 
 
+TEST_PERMISSIONS = (
+    "AUTHENTICATE",
+    "USER_CREATE",
+    "USER_READ",
+    "USER_UPDATE",
+    "USER_DELETE",
+    "USER_EXPORT",
+    "TENANT_CREATE",
+    "TENANT_READ",
+    "TENANT_UPDATE",
+    "TENANT_DELETE",
+)
+
+
 def create_user_context(db, *, password="oldpass", name="Test User"):
+    """Crea un contexto completo y aislado para pruebas multi-tenant."""
     suffix = uuid4().hex[:10]
     now = datetime.now()
+
     tenant = TenantDB(
         name=f"Tenant {suffix}",
         slug=f"tenant-{suffix}",
@@ -23,12 +39,14 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         created_at=now,
         created_by="test",
     )
+
     user = UserDB(
         dni=f"{uuid4().int % 100000000:08d}",
         name=name,
         created_at=now,
         created_by="test",
     )
+
     db.add_all([tenant, user])
     db.flush()
 
@@ -56,8 +74,13 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
     db.add(role)
     db.flush()
 
-    for code in ("USER_CREATE", "USER_READ", "USER_UPDATE", "USER_DELETE", "USER_EXPORT"):
-        permission = db.query(PermissionDB).filter(PermissionDB.code == code).first()
+    for code in TEST_PERMISSIONS:
+        permission = (
+            db.query(PermissionDB)
+            .filter(PermissionDB.code == code)
+            .first()
+        )
+
         if permission is None:
             permission = PermissionDB(
                 code=code,
@@ -68,17 +91,32 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
             )
             db.add(permission)
             db.flush()
-        db.add(RolePermissionDB(role_id=role.id, permission_id=permission.id))
 
-    db.add(UserTenantRoleDB(user_tenant_id=user_tenant.id, role_id=role.id))
+        db.add(
+            RolePermissionDB(
+                role_id=role.id,
+                permission_id=permission.id,
+            )
+        )
+
+    db.add(
+        UserTenantRoleDB(
+            user_tenant_id=user_tenant.id,
+            role_id=role.id,
+        )
+    )
+
     db.commit()
     db.refresh(user)
     db.refresh(user_tenant)
 
-    token = create_access_token({
-        "sub": user.dni,
-        "tenant_id": tenant.id,
-        "tenant_slug": tenant.slug,
-        "user_tenant_id": user_tenant.id,
-    })
+    token = create_access_token(
+        {
+            "sub": user.dni,
+            "tenant_id": tenant.id,
+            "tenant_slug": tenant.slug,
+            "user_tenant_id": user_tenant.id,
+        }
+    )
+
     return user, tenant, user_tenant, token
