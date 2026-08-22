@@ -20,13 +20,16 @@ def bootstrap_database_url():
     return url.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def bootstrap_conn(bootstrap_database_url):
     with psycopg.connect(bootstrap_database_url) as conn:
-        yield conn
+        try:
+            yield conn
+        finally:
+            conn.rollback()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def tenant_ids(bootstrap_conn):
     with bootstrap_conn.cursor() as cur:
         cur.execute(
@@ -48,7 +51,10 @@ def tenant_ids(bootstrap_conn):
 @pytest.fixture
 def app_conn(app_database_url):
     with psycopg.connect(app_database_url) as conn:
-        yield conn
+        try:
+            yield conn
+        finally:
+            conn.rollback()
 
 
 def set_tenant(conn, tenant_id):
