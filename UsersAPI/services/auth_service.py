@@ -256,6 +256,7 @@ def login_user(
     access_token = create_access_token(
         {
             "sub": usuario.dni,
+            "name": usuario.name,
             "tenant_id": tenant.id,
             "tenant_slug": tenant.slug,
             "user_tenant_id": user_tenant.id,
@@ -271,9 +272,6 @@ def login_user(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "tenant_id": tenant.id,
-        "tenant_slug": tenant.slug,
-        "user_tenant_id": user_tenant.id,
     }
 
 

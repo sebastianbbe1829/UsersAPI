@@ -10,9 +10,6 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str
-    tenant_id: int
-    tenant_slug: str
-    user_tenant_id: int
 
 
 class TokenUserResponse(BaseModel):
