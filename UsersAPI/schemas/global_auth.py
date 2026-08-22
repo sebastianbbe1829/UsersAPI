@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class SuperBootstrapRequest(BaseModel):
-    bootstrap_secret: str = Field(min_length=1)
     email: EmailStr
     password: str = Field(min_length=12)
 
