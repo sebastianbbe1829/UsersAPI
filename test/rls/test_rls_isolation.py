@@ -1,6 +1,12 @@
 import psycopg
 
-from .conftest import set_tenant
+
+def set_tenant(conn, tenant_id):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT set_config('app.current_tenant_id', %s, false)",
+            (str(tenant_id),),
+        )
 
 
 def test_app_role_does_not_bypass_rls(app_conn):
