@@ -15,11 +15,19 @@ from UsersAPI.security.permission_definitions import PERMISSIONS
 from UsersAPI.services import bootstrap_service
 
 
+BOOTSTRAP_KEY = "test-bootstrap-key"
+
+
 @pytest.fixture(autouse=True)
-def disable_bootstrap_notifications(monkeypatch):
-    """Los tests no deben depender de servicios externos de correo/WhatsApp."""
+def configure_bootstrap(monkeypatch):
+    """Configura la clave interna y desactiva servicios externos en tests."""
+    monkeypatch.setenv("BOOTSTRAP_KEY", BOOTSTRAP_KEY)
     monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
     monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+
+
+def _bootstrap_headers(key: str = BOOTSTRAP_KEY):
+    return {"X-Bootstrap-Key": key}
 
 
 def _bootstrap_payload(suffix: str, *, dni: str | None = None):
@@ -34,10 +42,35 @@ def _bootstrap_payload(suffix: str, *, dni: str | None = None):
     }
 
 
+def test_bootstrap_requires_internal_key(client):
+    payload = _bootstrap_payload("sin-clave")
+
+    response = client.post("/bootstrap", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_bootstrap_rejects_invalid_internal_key(client):
+    payload = _bootstrap_payload("clave-invalida")
+
+    response = client.post(
+        "/bootstrap",
+        json=payload,
+        headers=_bootstrap_headers("clave-incorrecta"),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Clave de bootstrap inválida."
+
+
 def test_bootstrap_creates_new_tenant_with_admin_context(db_session, client):
     payload = _bootstrap_payload("uno")
 
-    response = client.post("/bootstrap", json=payload)
+    response = client.post(
+        "/bootstrap",
+        json=payload,
+        headers=_bootstrap_headers(),
+    )
 
     assert response.status_code == 201
     body = response.json()
@@ -95,8 +128,16 @@ def test_bootstrap_allows_a_second_company(db_session, client):
     first = _bootstrap_payload("uno")
     second = _bootstrap_payload("dos")
 
-    first_response = client.post("/bootstrap", json=first)
-    second_response = client.post("/bootstrap", json=second)
+    first_response = client.post(
+        "/bootstrap",
+        json=first,
+        headers=_bootstrap_headers(),
+    )
+    second_response = client.post(
+        "/bootstrap",
+        json=second,
+        headers=_bootstrap_headers(),
+    )
 
     assert first_response.status_code == 201
     assert second_response.status_code == 201
@@ -124,8 +165,16 @@ def test_bootstrap_can_reuse_global_user_for_another_tenant(db_session, client):
     first = _bootstrap_payload("uno", dni=admin_dni)
     second = _bootstrap_payload("dos", dni=admin_dni)
 
-    assert client.post("/bootstrap", json=first).status_code == 201
-    second_response = client.post("/bootstrap", json=second)
+    assert client.post(
+        "/bootstrap",
+        json=first,
+        headers=_bootstrap_headers(),
+    ).status_code == 201
+    second_response = client.post(
+        "/bootstrap",
+        json=second,
+        headers=_bootstrap_headers(),
+    )
 
     assert second_response.status_code == 201
 
@@ -144,8 +193,16 @@ def test_bootstrap_can_reuse_global_user_for_another_tenant(db_session, client):
 def test_bootstrap_rejects_duplicate_tenant_slug(client):
     payload = _bootstrap_payload("unico")
 
-    first_response = client.post("/bootstrap", json=payload)
-    second_response = client.post("/bootstrap", json=payload)
+    first_response = client.post(
+        "/bootstrap",
+        json=payload,
+        headers=_bootstrap_headers(),
+    )
+    second_response = client.post(
+        "/bootstrap",
+        json=payload,
+        headers=_bootstrap_headers(),
+    )
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
