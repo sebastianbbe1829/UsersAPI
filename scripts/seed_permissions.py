@@ -107,6 +107,11 @@ PERMISSIONS = [
         "Eliminar permisos",
         "Permite eliminar permisos",
     ),
+    (
+        "AUTHENTICATE",
+        "Autenticación",
+        "Permite la autenticación en el sistema",
+    ),
 ]
 
 

@@ -58,6 +58,7 @@ def _user_payload(
         "email": link.email,
         "phone": link.phone,
         "status": link.status,
+        "id": user.id,
     }
 
     if message is not None:

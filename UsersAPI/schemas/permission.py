@@ -3,6 +3,10 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
+# ============================================================
+# CREAR PERMISO
+# ============================================================
+
 class PermissionCreate(BaseModel):
 
     code: str
@@ -10,13 +14,9 @@ class PermissionCreate(BaseModel):
     description: str | None = None
 
 
-class PermissionUpdate(BaseModel):
-
-    code: str | None = None
-    name: str | None = None
-    description: str | None = None
-    status: int | None = None
-
+# ============================================================
+# RESPUESTA COMPLETA
+# ============================================================
 
 class PermissionRead(BaseModel):
 
@@ -32,6 +32,10 @@ class PermissionRead(BaseModel):
         from_attributes=True
     )
 
+
+# ============================================================
+# RESPUESTA PARA CONSULTAS
+# ============================================================
 
 class PermissionResponse(BaseModel):
 

@@ -135,6 +135,12 @@ class UserRead(UserBase):
         ),
     )
 
+    id: int = Field(
+        description=(
+            "Id del usuario"
+        ),
+    )
+
     model_config = ConfigDict(
         from_attributes=True,
     )
