@@ -179,7 +179,59 @@ def bootstrap(
         )
 
         # ====================================================
-        # 7. CREAR ROL ADMIN DEL TENANT
+        # 7. CREAR ROL AUTHENTICATE DEL TENANT
+        #
+        # Todo tenant debe tener este rol.
+        #
+        # El rol AUTHENTICATE permite otorgar el permiso
+        # mínimo necesario para autenticarse en el tenant.
+        # ====================================================
+
+        authenticate_role = RoleDB(
+            tenant_id=tenant.id,
+            code="AUTHENTICATE",
+            name="Autenticación",
+            description="Permite autenticarse en el tenant",
+            status=1,
+            created_at=ahora,
+            created_by=admin_dni,
+        )
+
+        authenticate_role = role_repository.add(
+            authenticate_role
+        )
+
+        # ====================================================
+        # 8. ASOCIAR PERMISO AUTHENTICATE AL ROL
+        # ====================================================
+
+        authenticate_permission = (
+            permission_repository.get_by_code(
+                "AUTHENTICATE"
+            )
+        )
+
+        if authenticate_permission is None:
+
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "El permiso 'AUTHENTICATE' "
+                    "no existe o está inactivo."
+                ),
+            )
+
+        authenticate_role_permission = RolePermissionDB(
+            role_id=authenticate_role.id,
+            permission_id=authenticate_permission.id,
+        )
+
+        role_permission_repository.add(
+            authenticate_role_permission
+        )
+
+        # ====================================================
+        # 9. CREAR ROL ADMIN DEL TENANT
         # ====================================================
 
         admin_role = RoleDB(
@@ -197,7 +249,7 @@ def bootstrap(
         )
 
         # ====================================================
-        # 8. ASOCIAR USUARIO AL ROL ADMIN
+        # 10. ASOCIAR USUARIO AL ROL ADMIN
         # ====================================================
 
         user_tenant_role = UserTenantRoleDB(
@@ -210,7 +262,7 @@ def bootstrap(
         )
 
         # ========================================================
-        # 9. ASOCIAR PERMISOS AL ROL ADMIN
+        # 11. ASOCIAR PERMISOS AL ROL ADMIN
         # ========================================================
 
         for permission_code, _, _ in PERMISSIONS:
@@ -278,7 +330,7 @@ def bootstrap(
         ) from exc
 
     # ========================================================
-    # 10. ENVIAR EMAIL DE ACTIVACIÓN
+    # 12. ENVIAR EMAIL DE ACTIVACIÓN
     # ========================================================
     #
     # IMPORTANTE:
@@ -334,7 +386,7 @@ def bootstrap(
         )
 
     # ========================================================
-    # 11. ENVIAR WHATSAPP
+    # 13. ENVIAR WHATSAPP
     # ========================================================
 
     try:
@@ -400,7 +452,7 @@ def bootstrap(
         )
 
     # ========================================================
-    # 12. LOG FINAL
+    # 14. LOG FINAL
     # ========================================================
 
     logger.info(
@@ -416,7 +468,7 @@ def bootstrap(
     )
 
     # ========================================================
-    # 13. RETORNAR RESULTADO
+    # 15. RETORNAR RESULTADO
     #
     # NO COMMIT
     # NO ROLLBACK
