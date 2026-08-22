@@ -16,19 +16,31 @@ class Settings:
     algorithm: str = os.getenv("ALGORITHM", "HS256")
     access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 
-    # URL administrativa utilizada por Alembic y tareas de infraestructura.
+    # ========================================================
+    # DATABASE
+    # ========================================================
+
+    database_url: str = os.getenv("DATABASE_URL", "")
+    bootstrap_database_url: str = os.getenv("BOOTSTRAP_DATABASE_URL", "")
     database_admin_url: str = os.getenv("DATABASE_ADMIN_URL", "")
 
-    # Secret exclusivo para el endpoint de bootstrap de tenants.
+    # ========================================================
+    # BOOTSTRAP
+    # ========================================================
+
     bootstrap_key: str = os.getenv("BOOTSTRAP_KEY", "")
 
-    # Secret exclusivo para el endpoint de bootstrap del SUPER.
+    # ========================================================
+    # SUPER
+    # ========================================================
+
     super_bootstrap_secret: str = os.getenv("SUPER_BOOTSTRAP_SECRET", "")
 
     # Clave Fernet para cifrar el secreto TOTP del SUPER.
-    # Si no existe, el servicio deriva una clave de SECRET_KEY para
-    # facilitar desarrollo local. En producción debe configurarse explícitamente.
-    super_mfa_encryption_key: str = os.getenv("SUPER_MFA_ENCRYPTION_KEY", "")
+    super_mfa_encryption_key: str = os.getenv(
+        "SUPER_MFA_ENCRYPTION_KEY",
+        "",
+    )
 
 
 settings = Settings()
