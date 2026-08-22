@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from ..models.user import UserDB
+from ..models import UserTenantDB
 from ..schemas import TenantCreate, TenantUpdate
 from ..services.tenant_service import (
     create_tenant,
@@ -15,7 +15,7 @@ from ..services.tenant_service import (
 def crear_tenant(
     tenant: TenantCreate,
     db: Session,
-    current_user: UserDB | None = None,
+    current_user: UserTenantDB | None = None,
 ):
     return create_tenant(
         name=tenant.name,
@@ -39,7 +39,7 @@ def listar_tenants(
 
 def listar_mis_tenants(
     db: Session,
-    current_user: UserDB,
+    current_user: UserTenantDB,
 ):
     return list_my_tenants(
         db=db,
@@ -64,7 +64,7 @@ def actualizar_tenant(
     current_tenant_id: int,
     datos: TenantUpdate,
     db: Session,
-    current_user: UserDB | None = None,
+    current_user: UserTenantDB | None = None,
 ):
     return update_tenant(
         tenant_id=tenant_id,
