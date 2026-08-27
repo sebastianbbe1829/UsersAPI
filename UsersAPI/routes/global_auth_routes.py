@@ -13,7 +13,7 @@ from ..schemas import (
 
 global_auth_routes = APIRouter(
     prefix="/auth/super",
-    tags=["Auth SUPER"],
+    tags=["Autenticación SUPER"],
 )
 
 

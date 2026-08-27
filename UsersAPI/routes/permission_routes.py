@@ -32,7 +32,7 @@ from ..controllers import get_current_user
 
 permission_routes = APIRouter(
     prefix="/permission",
-    tags=["Permission"],
+    tags=["Permisos"],
 )
 
 
