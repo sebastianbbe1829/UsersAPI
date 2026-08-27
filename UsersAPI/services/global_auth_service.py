@@ -67,6 +67,8 @@ def _create_super_token(
 
     payload = {
         "sub": str(user.id),
+        "name": user.email,
+        "email": user.email,
         "global_user_id": user.id,
         "user_type": SUPER_TOKEN_TYPE,
         "session_id": user.session_id,
