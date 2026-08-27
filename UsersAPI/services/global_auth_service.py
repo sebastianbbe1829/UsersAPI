@@ -59,10 +59,7 @@ def _decrypt_mfa_secret(value: str) -> str:
         ) from exc
 
 
-def _create_super_token(
-    user: GlobalUserDB,
-    tenant: TenantDB,
-) -> str:
+def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
     now = datetime.now(timezone.utc)
     exp = now.timestamp() + settings.access_token_expire_minutes * 60
 
@@ -91,7 +88,6 @@ def bootstrap_super_user(
     bootstrap_secret: str,
     db: Session,
 ) -> SuperBootstrapResponse:
-
     if not settings.super_bootstrap_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -160,10 +156,7 @@ def bootstrap_super_user(
         issuer_name="UsersAPI",
     )
 
-    logger.info(
-        "Usuario SUPER creado correctamente email=%s",
-        email,
-    )
+    logger.info("Usuario SUPER creado correctamente email=%s", email)
 
     return SuperBootstrapResponse(
         id=user.id,
@@ -178,7 +171,6 @@ def login_super_user(
     db: Session,
     client_ip: str | None = None,
 ) -> SuperLoginResponse:
-
     email = datos.email.strip().lower()
     tenant_slug = datos.tenant.strip().lower()
 
@@ -188,9 +180,7 @@ def login_super_user(
             SELECT users_api.resolve_tenant_id(:tenant_slug)
             """
         ),
-        {
-            "tenant_slug": tenant_slug,
-        },
+        {"tenant_slug": tenant_slug},
     ).scalar()
 
     if tenant_id is None:
@@ -199,10 +189,7 @@ def login_super_user(
             detail="Tenant no encontrado o inactivo",
         )
 
-    set_rls_tenant(
-        db,
-        tenant_id,
-    )
+    set_rls_tenant(db, tenant_id)
 
     tenant = (
         db.query(TenantDB)
@@ -295,7 +282,6 @@ def get_current_super_user(
     token: str,
     db: Session,
 ) -> GlobalUserDB:
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar el token SUPER",
@@ -333,15 +319,7 @@ def get_current_super_user(
     ):
         raise credentials_exception
 
-    # ========================================================
-    # VALIDAR LA IDENTIDAD GLOBAL ANTES DE ESTABLECER RLS
-    #
-    # GlobalUserDB no pertenece a un tenant. Si se establece
-    # RLS antes de consultar esta tabla, una política RLS global
-    # puede ocultar al SUPER y provocar un 401 en cada request
-    # posterior al login.
-    # ========================================================
-
+    # La identidad SUPER es global y se valida antes de establecer RLS.
     user = (
         db.query(GlobalUserDB)
         .filter(
@@ -359,30 +337,25 @@ def get_current_super_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # ========================================================
-    # AHORA VALIDAR EL TENANT Y ESTABLECER RLS
-    # ========================================================
+    # No consultamos TenantDB directamente aquí porque esa tabla puede
+    # estar protegida por RLS y todavía no existe un contexto tenant.
+    # La función de resolución devuelve el tenant sin depender del RLS.
+    resolved_tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id(:tenant_slug)
+            """
+        ),
+        {"tenant_slug": tenant_slug},
+    ).scalar()
 
-    tenant = (
-        db.query(TenantDB)
-        .filter(
-            TenantDB.id == tenant_id,
-            TenantDB.slug == tenant_slug,
-            TenantDB.status == 1,
-        )
-        .first()
-    )
-
-    if tenant is None:
+    if resolved_tenant_id is None or int(resolved_tenant_id) != int(tenant_id):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="El tenant asociado a la sesión SUPER ya no es válido",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    set_rls_tenant(
-        db,
-        tenant.id,
-    )
+    set_rls_tenant(db, int(resolved_tenant_id))
 
     return user
