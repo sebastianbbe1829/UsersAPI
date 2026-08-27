@@ -13,6 +13,18 @@ class SuperBootstrapResponse(BaseModel):
     provisioning_uri: str
 
 
+class SuperBootstrapMfaVerifyRequest(BaseModel):
+    user_id: int
+    otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class SuperBootstrapMfaVerifyResponse(BaseModel):
+    id: int
+    email: EmailStr
+    mfa_enabled: bool
+    mfa_verified: bool
+
+
 class SuperLoginRequest(BaseModel):
     email: EmailStr
     password: str
