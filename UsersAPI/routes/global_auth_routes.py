@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy.orm import Session
 
-from ..controllers import global_auth_controller
+from ..controllers import global_auth_bootstrap_controller, global_auth_controller
 from ..database import get_db
 from ..schemas import (
     SuperBootstrapMfaVerifyRequest,
@@ -46,7 +46,7 @@ def verify_bootstrap_mfa(
     x_super_bootstrap_secret: str = Header(...),
     db: Session = Depends(get_db),
 ):
-    return global_auth_controller.verify_bootstrap_mfa(
+    return global_auth_bootstrap_controller.verify_bootstrap_mfa(
         datos,
         x_super_bootstrap_secret,
         db,
