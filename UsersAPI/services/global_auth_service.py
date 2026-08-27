@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from jose import JWTError, ExpiredSignatureError, jwt
 from sqlalchemy.orm import Session
 
+from ..database import set_rls_tenant
 from ..logging_config import logger
 from ..models import GlobalUserDB, TenantDB
 from ..schemas.global_auth import (
@@ -247,6 +248,14 @@ def login_super_user(
 
     token = _create_super_token(user, tenant)
 
+    # El SUPER trabaja sobre el tenant seleccionado durante el login.
+    # A partir de aquí las consultas protegidas por RLS deben operar
+    # sobre ese tenant, igual que una sesión normal.
+    set_rls_tenant(
+        db,
+        tenant.id,
+    )
+
     logger.info(
         "Login SUPER exitoso email=%s tenant=%s session_id=%s",
         user.email,
@@ -339,5 +348,12 @@ def get_current_super_user(
             detail="El tenant asociado a la sesión SUPER ya no es válido",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Cada request SUPER vuelve a establecer el contexto RLS del tenant
+    # seleccionado en el JWT.
+    set_rls_tenant(
+        db,
+        tenant.id,
+    )
 
     return user
