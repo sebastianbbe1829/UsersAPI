@@ -15,6 +15,8 @@ from ..database import set_rls_tenant
 from ..logging_config import logger
 from ..models import GlobalUserDB, TenantDB
 from ..schemas.global_auth import (
+    SuperBootstrapMfaVerifyRequest,
+    SuperBootstrapMfaVerifyResponse,
     SuperBootstrapRequest,
     SuperBootstrapResponse,
     SuperLoginRequest,
@@ -32,9 +34,7 @@ def _fernet() -> Fernet:
 
     if not key:
         key = base64.urlsafe_b64encode(
-            hashlib.sha256(
-                settings.secret_key.encode("utf-8")
-            ).digest()
+            hashlib.sha256(settings.secret_key.encode("utf-8")).digest()
         ).decode("ascii")
 
     try:
@@ -57,6 +57,23 @@ def _decrypt_mfa_secret(value: str) -> str:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible validar la configuración MFA",
         ) from exc
+
+
+def _validate_bootstrap_secret(bootstrap_secret: str) -> None:
+    if not settings.super_bootstrap_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El bootstrap del usuario SUPER no está configurado",
+        )
+
+    if not hmac.compare_digest(
+        bootstrap_secret,
+        settings.super_bootstrap_secret,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Secret de bootstrap inválida",
+        )
 
 
 def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
@@ -88,20 +105,7 @@ def bootstrap_super_user(
     bootstrap_secret: str,
     db: Session,
 ) -> SuperBootstrapResponse:
-    if not settings.super_bootstrap_secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="El bootstrap del usuario SUPER no está configurado",
-        )
-
-    if not hmac.compare_digest(
-        bootstrap_secret,
-        settings.super_bootstrap_secret,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Secret de bootstrap inválida",
-        )
+    _validate_bootstrap_secret(bootstrap_secret)
 
     existing = (
         db.query(GlobalUserDB)
@@ -141,6 +145,7 @@ def bootstrap_super_user(
         is_superuser=True,
         mfa_enabled=True,
         mfa_secret_encrypted=_encrypt_mfa_secret(secret),
+        mfa_verified_at=None,
         session_id=None,
         created_at=now,
         created_by="super-bootstrap",
@@ -163,6 +168,67 @@ def bootstrap_super_user(
         email=user.email,
         mfa_enabled=True,
         provisioning_uri=provisioning_uri,
+    )
+
+
+def verify_bootstrap_mfa(
+    datos: SuperBootstrapMfaVerifyRequest,
+    bootstrap_secret: str,
+    db: Session,
+) -> SuperBootstrapMfaVerifyResponse:
+    _validate_bootstrap_secret(bootstrap_secret)
+
+    user = (
+        db.query(GlobalUserDB)
+        .filter(
+            GlobalUserDB.id == datos.user_id,
+            GlobalUserDB.is_active.is_(True),
+            GlobalUserDB.is_superuser.is_(True),
+        )
+        .first()
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario SUPER no encontrado",
+        )
+
+    if user.mfa_verified_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El MFA del usuario SUPER ya fue verificado",
+        )
+
+    if not user.mfa_enabled or not user.mfa_secret_encrypted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario SUPER no tiene un enrolamiento MFA pendiente",
+        )
+
+    secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
+
+    if not pyotp.TOTP(secret).verify(datos.otp, valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Código MFA inválido",
+        )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    user.mfa_verified_at = now
+    user.updated_at = now
+    user.updated_by = "super-bootstrap-mfa"
+
+    db.add(user)
+    db.flush()
+
+    logger.info("MFA SUPER verificado correctamente email=%s", user.email)
+
+    return SuperBootstrapMfaVerifyResponse(
+        id=user.id,
+        email=user.email,
+        mfa_enabled=user.mfa_enabled,
+        mfa_verified=True,
     )
 
 
@@ -228,6 +294,12 @@ def login_super_user(
         )
 
     if user.mfa_enabled:
+        if not user.mfa_verified_at:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El MFA del usuario SUPER aún no ha sido verificado",
+            )
+
         if not datos.otp:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -319,7 +391,6 @@ def get_current_super_user(
     ):
         raise credentials_exception
 
-    # La identidad SUPER es global y se valida antes de establecer RLS.
     user = (
         db.query(GlobalUserDB)
         .filter(
@@ -337,9 +408,6 @@ def get_current_super_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # No consultamos TenantDB directamente aquí porque esa tabla puede
-    # estar protegida por RLS y todavía no existe un contexto tenant.
-    # La función de resolución devuelve el tenant sin depender del RLS.
     resolved_tenant_id = db.execute(
         text(
             """
