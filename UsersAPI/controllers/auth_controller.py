@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import GlobalUserDB, UserTenantDB
-from ..schemas import LoginRequest
+from ..schemas import LoginRequest, SuperLoginRequest
 from ..settings import settings
 
 from ..services.auth_service import (
@@ -17,7 +17,10 @@ from ..services.auth_service import (
     verify_password as verify_password_service,
 )
 from ..services.auth_service import pwd_context
-from ..services.global_auth_service import get_current_super_user
+from ..services.global_auth_service import (
+    get_current_super_user,
+    login_super_user as login_super_user_service,
+)
 
 
 # ============================================================
@@ -61,8 +64,8 @@ def create_access_token(
 #
 # Distingue identidad tenant de identidad SUPER.
 #
-# El SUPER todavía NO obtiene contexto RLS aquí.
-# Eso ocurrirá en la fase de selección de tenant.
+# El SUPER obtiene el tenant desde el JWT generado durante
+# el login unificado.
 # ============================================================
 
 
@@ -98,6 +101,14 @@ def get_current_user(
 
 # ============================================================
 # LOGIN
+#
+# Un único endpoint /auth/login.
+#
+# super_mode=False:
+#     Login normal del tenant.
+#
+# super_mode=True:
+#     Login SUPER + MFA.
 # ============================================================
 
 
@@ -105,9 +116,43 @@ def login_user(
     datos: LoginRequest,
     db: Session,
 ):
+
+    if datos.super_mode:
+
+        super_datos = SuperLoginRequest(
+            email=datos.username,
+            password=datos.password,
+            otp=None,
+            tenant=datos.tenant,
+        )
+
+        return login_super_user_service(
+            super_datos,
+            db,
+        )
+
     return login_user_service(
         datos,
         db,
+    )
+
+
+# ============================================================
+# LOGIN SUPER CON MFA
+#
+# Permite completar el segundo paso del mismo flujo de login.
+# ============================================================
+
+
+def login_super_user(
+    datos: SuperLoginRequest,
+    db: Session,
+    client_ip: str | None = None,
+):
+    return login_super_user_service(
+        datos,
+        db,
+        client_ip=client_ip,
     )
 
 
