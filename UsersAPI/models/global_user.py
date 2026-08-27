@@ -103,16 +103,5 @@ class GlobalUserDB(Base):
     updated_by_bd = Column(
         String(100),
         nullable=True,
-    )
-
-    created_by_bd = Column(
-        String(100),
-        nullable=True,
-        server_default=text("USER"),
-    )
-
-    updated_by_bd = Column(
-        String(100),
-        nullable=True,
         server_default=text("USER"),
     )
