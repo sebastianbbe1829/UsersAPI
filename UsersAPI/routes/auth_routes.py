@@ -13,7 +13,7 @@ from ..schemas import (
 
 auth_routers = APIRouter(
     prefix="/auth",
-    tags=["Auth"],
+    tags=["Autenticación"],
 )
 
 

@@ -75,12 +75,40 @@ app = FastAPI(
             "description": "Operaciones sobre usuarios",
         },
         {
-            "name": "Auth",
-            "description": "Autenticación y generación de tokens JWT",
+            "name": "Autenticación",
+            "description": "Autenticación de usuarios y generación de tokens JWT",
         },
         {
-            "name": "Auth SUPER",
+            "name": "Autenticación SUPER",
             "description": "Autenticación global del usuario SUPER con MFA",
+        },
+        {
+            "name": "Tenants",
+            "description": "Operaciones sobre tenants",
+        },
+        {
+            "name": "Usuarios - Tenants",
+            "description": "Gestión de asociaciones entre usuarios y tenants",
+        },
+        {
+            "name": "Roles",
+            "description": "Operaciones sobre roles",
+        },
+        {
+            "name": "Usuarios - Roles",
+            "description": "Gestión de asociaciones entre usuarios y roles",
+        },
+        {
+            "name": "Roles - Permisos",
+            "description": "Gestión de permisos asociados a roles",
+        },
+        {
+            "name": "Bootstrap",
+            "description": "Inicialización de tenants y configuración inicial del sistema",
+        },
+        {
+            "name": "Permisos",
+            "description": "Operaciones sobre permisos",
         },
     ],
 )
