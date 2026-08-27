@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from ..controllers import global_auth_controller
 from ..database import get_db
 from ..schemas import (
+    SuperBootstrapMfaVerifyRequest,
+    SuperBootstrapMfaVerifyResponse,
     SuperBootstrapRequest,
     SuperBootstrapResponse,
     SuperLoginRequest,
@@ -20,9 +22,7 @@ global_auth_routes = APIRouter(
 @global_auth_routes.post(
     "/bootstrap",
     response_model=SuperBootstrapResponse,
-
     summary="Crear el primer usuario SUPER",
-
 )
 def bootstrap_super_user(
     datos: SuperBootstrapRequest,
@@ -30,6 +30,23 @@ def bootstrap_super_user(
     db: Session = Depends(get_db),
 ):
     return global_auth_controller.bootstrap_super_user(
+        datos,
+        x_super_bootstrap_secret,
+        db,
+    )
+
+
+@global_auth_routes.post(
+    "/bootstrap/verify-mfa",
+    response_model=SuperBootstrapMfaVerifyResponse,
+    summary="Verificar el MFA inicial del usuario SUPER",
+)
+def verify_bootstrap_mfa(
+    datos: SuperBootstrapMfaVerifyRequest,
+    x_super_bootstrap_secret: str = Header(...),
+    db: Session = Depends(get_db),
+):
+    return global_auth_controller.verify_bootstrap_mfa(
         datos,
         x_super_bootstrap_secret,
         db,
