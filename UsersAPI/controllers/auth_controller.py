@@ -115,6 +115,7 @@ def get_current_user(
 def login_user(
     datos: LoginRequest,
     db: Session,
+    client_ip: str | None = None,
 ):
 
     if datos.super_mode:
@@ -122,13 +123,14 @@ def login_user(
         super_datos = SuperLoginRequest(
             email=datos.username,
             password=datos.password,
-            otp=None,
+            otp=datos.otp,
             tenant=datos.tenant,
         )
 
         return login_super_user_service(
             super_datos,
             db,
+            client_ip=client_ip,
         )
 
     return login_user_service(
@@ -140,7 +142,8 @@ def login_user(
 # ============================================================
 # LOGIN SUPER CON MFA
 #
-# Permite completar el segundo paso del mismo flujo de login.
+# Mantiene disponible la función existente para compatibilidad
+# con el endpoint específico /auth/super/login.
 # ============================================================
 
 
