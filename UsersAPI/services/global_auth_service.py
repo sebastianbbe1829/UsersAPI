@@ -8,6 +8,7 @@ import pyotp
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, status
 from jose import JWTError, ExpiredSignatureError, jwt
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..database import set_rls_tenant
@@ -181,9 +182,36 @@ def login_super_user(
     email = datos.email.strip().lower()
     tenant_slug = datos.tenant.strip().lower()
 
+    # Antes de tener un tenant_id no podemos consultar TenantDB
+    # mediante ORM porque esa tabla está protegida por RLS.
+    # Igual que el login normal, resolvemos el tenant por su slug
+    # mediante la función SECURITY DEFINER y luego establecemos RLS.
+    tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id(:tenant_slug)
+            """
+        ),
+        {
+            "tenant_slug": tenant_slug,
+        },
+    ).scalar()
+
+    if tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado o inactivo",
+        )
+
+    set_rls_tenant(
+        db,
+        tenant_id,
+    )
+
     tenant = (
         db.query(TenantDB)
         .filter(
+            TenantDB.id == tenant_id,
             TenantDB.slug == tenant_slug,
             TenantDB.status == 1,
         )
@@ -249,14 +277,6 @@ def login_super_user(
     db.flush()
 
     token = _create_super_token(user, tenant)
-
-    # El SUPER trabaja sobre el tenant seleccionado durante el login.
-    # A partir de aquí las consultas protegidas por RLS deben operar
-    # sobre ese tenant, igual que una sesión normal.
-    set_rls_tenant(
-        db,
-        tenant.id,
-    )
 
     logger.info(
         "Login SUPER exitoso email=%s tenant=%s session_id=%s",
@@ -351,8 +371,6 @@ def get_current_super_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Cada request SUPER vuelve a establecer el contexto RLS del tenant
-    # seleccionado en el JWT.
     set_rls_tenant(
         db,
         tenant.id,
