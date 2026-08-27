@@ -23,57 +23,22 @@ from ..services.global_auth_service import (
 )
 
 
-# ============================================================
-# PASSWORD
-# ============================================================
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return verify_password_service(plain_password, hashed_password)
 
 
-def verify_password(
-    plain_password: str,
-    hashed_password: str,
-) -> bool:
-    return verify_password_service(
-        plain_password,
-        hashed_password,
-    )
-
-
-def get_password_hash(
-    password: str,
-) -> str:
+def get_password_hash(password: str) -> str:
     return get_password_hash_service(password)
 
 
-# ============================================================
-# JWT
-# ============================================================
-
-
-def create_access_token(
-    data: dict,
-    expires_delta=None,
-) -> str:
-    return create_access_token_service(
-        data,
-        expires_delta,
-    )
-
-
-# ============================================================
-# CURRENT USER
-#
-# Distingue identidad tenant de identidad SUPER.
-#
-# El SUPER obtiene el tenant desde el JWT generado durante
-# el login unificado.
-# ============================================================
+def create_access_token(data: dict, expires_delta=None) -> str:
+    return create_access_token_service(data, expires_delta)
 
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> UserTenantDB | GlobalUserDB:
-
     try:
         payload = jwt.decode(
             token,
@@ -82,34 +47,12 @@ def get_current_user(
             options={"verify_exp": False},
         )
     except JWTError:
-        return get_current_user_service(
-            token,
-            db,
-        )
+        return get_current_user_service(token, db)
 
     if payload.get("user_type") == "SUPER":
-        return get_current_super_user(
-            token,
-            db,
-        )
+        return get_current_super_user(token, db)
 
-    return get_current_user_service(
-        token,
-        db,
-    )
-
-
-# ============================================================
-# LOGIN
-#
-# Un único endpoint /auth/login.
-#
-# super_mode=False:
-#     Login normal del tenant.
-#
-# super_mode=True:
-#     Login SUPER + MFA.
-# ============================================================
+    return get_current_user_service(token, db)
 
 
 def login_user(
@@ -117,34 +60,16 @@ def login_user(
     db: Session,
     client_ip: str | None = None,
 ):
-
     if datos.super_mode:
-
         super_datos = SuperLoginRequest(
             email=datos.username,
             password=datos.password,
             otp=datos.otp,
             tenant=datos.tenant,
         )
+        return login_super_user_service(super_datos, db, client_ip=client_ip)
 
-        return login_super_user_service(
-            super_datos,
-            db,
-            client_ip=client_ip,
-        )
-
-    return login_user_service(
-        datos,
-        db,
-    )
-
-
-# ============================================================
-# LOGIN SUPER CON MFA
-#
-# Mantiene disponible la función existente para compatibilidad
-# con el endpoint específico /auth/super/login.
-# ============================================================
+    return login_user_service(datos, db)
 
 
 def login_super_user(
@@ -152,23 +77,8 @@ def login_super_user(
     db: Session,
     client_ip: str | None = None,
 ):
-    return login_super_user_service(
-        datos,
-        db,
-        client_ip=client_ip,
-    )
+    return login_super_user_service(datos, db, client_ip=client_ip)
 
 
-# ============================================================
-# VALIDATE TOKEN
-# ============================================================
-
-
-def validate_token(
-    token: str,
-    db: Session,
-):
-    return validate_token_service(
-        token,
-        db,
-    )
+def validate_token(token: str, db: Session):
+    return validate_token_service(token, db)
