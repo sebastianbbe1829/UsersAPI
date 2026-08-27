@@ -11,7 +11,7 @@ from jose import JWTError, ExpiredSignatureError, jwt
 from sqlalchemy.orm import Session
 
 from ..logging_config import logger
-from ..models import GlobalUserDB
+from ..models import GlobalUserDB, TenantDB
 from ..schemas.global_auth import (
     SuperBootstrapRequest,
     SuperBootstrapResponse,
@@ -57,7 +57,10 @@ def _decrypt_mfa_secret(value: str) -> str:
         ) from exc
 
 
-def _create_super_token(user: GlobalUserDB) -> str:
+def _create_super_token(
+    user: GlobalUserDB,
+    tenant: TenantDB,
+) -> str:
     now = datetime.now(timezone.utc)
     exp = now.timestamp() + settings.access_token_expire_minutes * 60
 
@@ -66,6 +69,8 @@ def _create_super_token(user: GlobalUserDB) -> str:
         "global_user_id": user.id,
         "user_type": SUPER_TOKEN_TYPE,
         "session_id": user.session_id,
+        "tenant_id": tenant.id,
+        "tenant_slug": tenant.slug,
         "iat": int(now.timestamp()),
         "exp": int(exp),
     }
@@ -98,9 +103,6 @@ def bootstrap_super_user(
             detail="Secret de bootstrap inválida",
         )
 
-    # Bootstrap es únicamente el mecanismo de creación inicial.
-    # Después de existir el primer SUPER, los siguientes SUPER deberán
-    # crearse desde el módulo administrativo de usuarios globales.
     existing = (
         db.query(GlobalUserDB)
         .filter(GlobalUserDB.is_superuser.is_(True))
@@ -174,6 +176,22 @@ def login_super_user(
 ) -> SuperLoginResponse:
 
     email = datos.email.strip().lower()
+    tenant_slug = datos.tenant.strip().lower()
+
+    tenant = (
+        db.query(TenantDB)
+        .filter(
+            TenantDB.slug == tenant_slug,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado o inactivo",
+        )
 
     user = (
         db.query(GlobalUserDB)
@@ -227,11 +245,12 @@ def login_super_user(
     db.add(user)
     db.flush()
 
-    token = _create_super_token(user)
+    token = _create_super_token(user, tenant)
 
     logger.info(
-        "Login SUPER exitoso email=%s session_id=%s",
+        "Login SUPER exitoso email=%s tenant=%s session_id=%s",
         user.email,
+        tenant.slug,
         user.session_id,
     )
 
@@ -240,6 +259,8 @@ def login_super_user(
         token_type="bearer",
         user_type=SUPER_TOKEN_TYPE,
         session_id=user.session_id,
+        tenant_id=tenant.id,
+        tenant_slug=tenant.slug,
     )
 
 
@@ -274,8 +295,15 @@ def get_current_super_user(
 
     global_user_id = payload.get("global_user_id")
     session_id = payload.get("session_id")
+    tenant_id = payload.get("tenant_id")
+    tenant_slug = payload.get("tenant_slug")
 
-    if global_user_id is None or session_id is None:
+    if (
+        global_user_id is None
+        or session_id is None
+        or tenant_id is None
+        or tenant_slug is None
+    ):
         raise credentials_exception
 
     user = (
@@ -292,6 +320,23 @@ def get_current_super_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="La sesión SUPER ya no es válida",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    tenant = (
+        db.query(TenantDB)
+        .filter(
+            TenantDB.id == tenant_id,
+            TenantDB.slug == tenant_slug,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El tenant asociado a la sesión SUPER ya no es válido",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
