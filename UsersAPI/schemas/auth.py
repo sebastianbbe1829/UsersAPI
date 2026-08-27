@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LoginRequest(BaseModel):
@@ -6,6 +6,7 @@ class LoginRequest(BaseModel):
     password: str
     tenant: str
     super_mode: bool = False
+    otp: str | None = Field(default=None, min_length=6, max_length=6)
 
 
 class LoginResponse(BaseModel):
