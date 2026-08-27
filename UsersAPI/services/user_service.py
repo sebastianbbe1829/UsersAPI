@@ -9,7 +9,7 @@ from sqlalchemy import text
 from UsersAPI.util.excel_utils import export_to_excel
 
 from ..logging_config import logger
-from ..models import UserDB, UserTenantDB
+from ..models import GlobalUserDB, UserDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
 from ..schemas import UserCreate, UserUpdate
@@ -20,25 +20,33 @@ from ..repositories.tenant_repository import TenantRepository
 from ..database import set_rls_tenant
 
 
-
 # ============================================================
 # UTILIDADES
 # ============================================================
 
 def _actor_dni(
-    current_user: UserTenantDB | None,
+    current_user: UserTenantDB | GlobalUserDB | None,
 ) -> str:
     """
-    Obtiene el DNI del usuario que ejecuta la operación.
+    Obtiene el identificador del usuario que ejecuta la operación.
 
-    Para bootstrap no existe usuario autenticado.
+    Para usuarios normales:
+        -> DNI
+
+    Para usuario SUPER:
+        -> email
+
+    Para bootstrap:
+        -> bootstrap
     """
 
-    return (
-        current_user.user.dni
-        if current_user
-        else "bootstrap"
-    )
+    if current_user is None:
+        return "bootstrap"
+
+    if isinstance(current_user, GlobalUserDB):
+        return current_user.email
+
+    return current_user.user.dni
 
 
 def _user_payload(
@@ -173,7 +181,7 @@ def _get_user_entity(
 def create_user(
     user: UserCreate,
     db: Session,
-    current_user: UserTenantDB | None = None,
+    current_user: UserTenantDB | GlobalUserDB | None = None,
     user_tenant: UserTenantDB | None = None,
 ):
     user_repository = UserRepository(db)
@@ -193,13 +201,13 @@ def create_user(
     tenant_id = user_tenant.tenant_id
 
     tenant = tenant_repository.get_by_id(
-        tenant_id= tenant_id
-        )
+        tenant_id=tenant_id
+    )
 
     if tenant is None:
         raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Tenant no encontrado",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado",
         )
 
     tenant_slug = tenant.slug
@@ -867,7 +875,7 @@ def update_user(
     dni: str,
     datos: UserUpdate,
     db: Session,
-    current_user: UserTenantDB,
+    current_user: UserTenantDB | GlobalUserDB,
     user_tenant: UserTenantDB,
 ):
 
@@ -942,7 +950,7 @@ def update_user(
     # ========================================================
 
     ahora = datetime.now()
-    actor = current_user.user.dni
+    actor = _actor_dni(current_user)
 
     usuario.updated_at = ahora
     usuario.updated_by = actor
@@ -1145,7 +1153,7 @@ def delete_user(
 
 def export_users(
     db: Session,
-    current_user: UserTenantDB,
+    current_user: UserTenantDB | GlobalUserDB,
     tenant_id: int,
 ):
 
@@ -1190,7 +1198,7 @@ def export_users(
         extra={
             "tenant_id": tenant_id,
             "cantidad": len(data),
-            "usuario_exportador": current_user.user.dni,
+            "usuario_exportador": _actor_dni(current_user),
         },
     )
 

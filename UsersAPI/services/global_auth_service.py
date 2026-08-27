@@ -8,10 +8,12 @@ import pyotp
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, status
 from jose import JWTError, ExpiredSignatureError, jwt
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..database import set_rls_tenant
 from ..logging_config import logger
-from ..models import GlobalUserDB
+from ..models import GlobalUserDB, TenantDB
 from ..schemas.global_auth import (
     SuperBootstrapRequest,
     SuperBootstrapResponse,
@@ -57,15 +59,19 @@ def _decrypt_mfa_secret(value: str) -> str:
         ) from exc
 
 
-def _create_super_token(user: GlobalUserDB) -> str:
+def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
     now = datetime.now(timezone.utc)
     exp = now.timestamp() + settings.access_token_expire_minutes * 60
 
     payload = {
         "sub": str(user.id),
+        "name": user.email,
+        "email": user.email,
         "global_user_id": user.id,
         "user_type": SUPER_TOKEN_TYPE,
         "session_id": user.session_id,
+        "tenant_id": tenant.id,
+        "tenant_slug": tenant.slug,
         "iat": int(now.timestamp()),
         "exp": int(exp),
     }
@@ -82,7 +88,6 @@ def bootstrap_super_user(
     bootstrap_secret: str,
     db: Session,
 ) -> SuperBootstrapResponse:
-
     if not settings.super_bootstrap_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -98,9 +103,6 @@ def bootstrap_super_user(
             detail="Secret de bootstrap inválida",
         )
 
-    # Bootstrap es únicamente el mecanismo de creación inicial.
-    # Después de existir el primer SUPER, los siguientes SUPER deberán
-    # crearse desde el módulo administrativo de usuarios globales.
     existing = (
         db.query(GlobalUserDB)
         .filter(GlobalUserDB.is_superuser.is_(True))
@@ -154,10 +156,7 @@ def bootstrap_super_user(
         issuer_name="UsersAPI",
     )
 
-    logger.info(
-        "Usuario SUPER creado correctamente email=%s",
-        email,
-    )
+    logger.info("Usuario SUPER creado correctamente email=%s", email)
 
     return SuperBootstrapResponse(
         id=user.id,
@@ -172,8 +171,41 @@ def login_super_user(
     db: Session,
     client_ip: str | None = None,
 ) -> SuperLoginResponse:
-
     email = datos.email.strip().lower()
+    tenant_slug = datos.tenant.strip().lower()
+
+    tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id(:tenant_slug)
+            """
+        ),
+        {"tenant_slug": tenant_slug},
+    ).scalar()
+
+    if tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado o inactivo",
+        )
+
+    set_rls_tenant(db, tenant_id)
+
+    tenant = (
+        db.query(TenantDB)
+        .filter(
+            TenantDB.id == tenant_id,
+            TenantDB.slug == tenant_slug,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado o inactivo",
+        )
 
     user = (
         db.query(GlobalUserDB)
@@ -227,11 +259,12 @@ def login_super_user(
     db.add(user)
     db.flush()
 
-    token = _create_super_token(user)
+    token = _create_super_token(user, tenant)
 
     logger.info(
-        "Login SUPER exitoso email=%s session_id=%s",
+        "Login SUPER exitoso email=%s tenant=%s session_id=%s",
         user.email,
+        tenant.slug,
         user.session_id,
     )
 
@@ -240,6 +273,8 @@ def login_super_user(
         token_type="bearer",
         user_type=SUPER_TOKEN_TYPE,
         session_id=user.session_id,
+        tenant_id=tenant.id,
+        tenant_slug=tenant.slug,
     )
 
 
@@ -247,7 +282,6 @@ def get_current_super_user(
     token: str,
     db: Session,
 ) -> GlobalUserDB:
-
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar el token SUPER",
@@ -274,10 +308,18 @@ def get_current_super_user(
 
     global_user_id = payload.get("global_user_id")
     session_id = payload.get("session_id")
+    tenant_id = payload.get("tenant_id")
+    tenant_slug = payload.get("tenant_slug")
 
-    if global_user_id is None or session_id is None:
+    if (
+        global_user_id is None
+        or session_id is None
+        or tenant_id is None
+        or tenant_slug is None
+    ):
         raise credentials_exception
 
+    # La identidad SUPER es global y se valida antes de establecer RLS.
     user = (
         db.query(GlobalUserDB)
         .filter(
@@ -294,5 +336,26 @@ def get_current_super_user(
             detail="La sesión SUPER ya no es válida",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # No consultamos TenantDB directamente aquí porque esa tabla puede
+    # estar protegida por RLS y todavía no existe un contexto tenant.
+    # La función de resolución devuelve el tenant sin depender del RLS.
+    resolved_tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id(:tenant_slug)
+            """
+        ),
+        {"tenant_slug": tenant_slug},
+    ).scalar()
+
+    if resolved_tenant_id is None or int(resolved_tenant_id) != int(tenant_id):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El tenant asociado a la sesión SUPER ya no es válido",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    set_rls_tenant(db, int(resolved_tenant_id))
 
     return user

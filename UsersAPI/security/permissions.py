@@ -1,8 +1,10 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..controllers.auth_controller import get_current_user
 from ..database import get_db
 from ..models import (
+    GlobalUserDB,
     PermissionDB,
     UserTenantDB,
 )
@@ -14,6 +16,9 @@ def require_permission(permission_code: str):
     def permission_checker(
         user_tenant: UserTenantDB = Depends(
             get_current_tenant
+        ),
+        current_user: UserTenantDB | GlobalUserDB = Depends(
+            get_current_user
         ),
         db: Session = Depends(get_db),
     ):
@@ -35,6 +40,24 @@ def require_permission(permission_code: str):
                     f"El permiso '{permission_code}' no existe"
                 ),
             )
+
+        # ====================================================
+        # USUARIO SUPER
+        #
+        # Un SUPER autenticado con MFA tiene autorización
+        # global dentro del tenant indicado por su JWT.
+        # El contexto RLS ya fue establecido por
+        # get_current_tenant().
+        #
+        # No depende de roles/permisos del usuario del tenant.
+        # ====================================================
+
+        if isinstance(current_user, GlobalUserDB):
+            return user_tenant
+
+        # ====================================================
+        # USUARIO NORMAL
+        # ====================================================
 
         has_permission = any(
             permission.code
