@@ -5,11 +5,15 @@ class LoginRequest(BaseModel):
     username: str
     password: str
     tenant: str
+    super_mode: bool = False
 
 
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str
+    user_type: str = "TENANT"
+    tenant_id: int | None = None
+    tenant_slug: str | None = None
 
 
 class TokenUserResponse(BaseModel):
