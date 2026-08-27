@@ -182,10 +182,6 @@ def login_super_user(
     email = datos.email.strip().lower()
     tenant_slug = datos.tenant.strip().lower()
 
-    # Antes de tener un tenant_id no podemos consultar TenantDB
-    # mediante ORM porque esa tabla está protegida por RLS.
-    # Igual que el login normal, resolvemos el tenant por su slug
-    # mediante la función SECURITY DEFINER y luego establecemos RLS.
     tenant_id = db.execute(
         text(
             """
@@ -337,6 +333,15 @@ def get_current_super_user(
     ):
         raise credentials_exception
 
+    # ========================================================
+    # VALIDAR LA IDENTIDAD GLOBAL ANTES DE ESTABLECER RLS
+    #
+    # GlobalUserDB no pertenece a un tenant. Si se establece
+    # RLS antes de consultar esta tabla, una política RLS global
+    # puede ocultar al SUPER y provocar un 401 en cada request
+    # posterior al login.
+    # ========================================================
+
     user = (
         db.query(GlobalUserDB)
         .filter(
@@ -353,6 +358,10 @@ def get_current_super_user(
             detail="La sesión SUPER ya no es válida",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # ========================================================
+    # AHORA VALIDAR EL TENANT Y ESTABLECER RLS
+    # ========================================================
 
     tenant = (
         db.query(TenantDB)
