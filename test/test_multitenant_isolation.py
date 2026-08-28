@@ -251,6 +251,7 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
     )
 
     user_tenant_b_id = user_tenant_b.id
+    user_tenant_b_tenant_id = user_tenant_b.tenant_id
 
     grant_permissions(
         db_session,
@@ -280,7 +281,7 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
     )
 
     db_session.expire_all()
-    set_rls_tenant(db_session, user_tenant_b.tenant_id)
+    set_rls_tenant(db_session, user_tenant_b_tenant_id)
     user_tenant_b_after = db_session.get(type(user_tenant_b), user_tenant_b_id)
     assert user_tenant_b_after is not None
     assert user_tenant_b_after.status == 1
