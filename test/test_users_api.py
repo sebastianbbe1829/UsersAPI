@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from UsersAPI.database import BootstrapSessionLocal
 from UsersAPI.models import UserDB, UserTenantDB
 from UsersAPI.settings import settings
 from test.fixtures.multitenant import create_user_context
@@ -190,10 +191,17 @@ def test_bootstrap_creates_tenant_and_admin(
     assert result["role_code"] == "ADMIN"
     assert result["role_name"] == "Administrador"
 
-    user_tenant = db_session.get(UserTenantDB, result["user_tenant_id"])
-    assert user_tenant is not None
-    assert user_tenant.tenant_id == result["tenant_id"]
-    assert user_tenant.status == 0
+    # /bootstrap confirma usando users_api_bootstrap (BYPASSRLS), por lo que
+    # la persistencia debe verificarse con esa misma conexión y no con la
+    # sesión de aplicación, cuyo contexto RLS no pertenece al tenant creado.
+    verification_db = BootstrapSessionLocal()
+    try:
+        user_tenant = verification_db.get(UserTenantDB, result["user_tenant_id"])
+        assert user_tenant is not None
+        assert user_tenant.tenant_id == result["tenant_id"]
+        assert user_tenant.status == 0
+    finally:
+        verification_db.close()
 
 
 def test_bootstrap_can_provision_multiple_tenants(
