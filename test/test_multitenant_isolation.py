@@ -107,9 +107,9 @@ def test_tenant_cannot_update_another_tenant(
 
     tenant_a_id = tenant_a.id
     tenant_b_id = tenant_b.id
+    original_name = tenant_b.name
 
     grant_permissions(db_session, user_tenant_a, "TENANT_UPDATE")
-    original_name = tenant_b.name
 
     response = client.patch(
         f"/tenants/{tenant_b_id}",
