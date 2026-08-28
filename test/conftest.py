@@ -61,24 +61,17 @@ def db_session():
             if current_created_tenant_ids:
                 tenant_ids = tuple(current_created_tenant_ids)
 
-                # app_users no está scoped por tenant. Eliminamos solamente
-                # los usuarios cuyo único vínculo tenant pertenece a un
-                # tenant creado por esta prueba.
+                # Primero eliminamos las filas dependientes de los tenants.
+                # app_users no puede eliminarse mientras existan user_tenants
+                # que lo referencien.
                 cleanup_db.execute(
                     text(
                         """
-                        DELETE FROM users_api.app_users u
-                        WHERE EXISTS (
-                            SELECT 1
-                            FROM users_api.user_tenants ut
-                            WHERE ut.user_id = u.id
-                              AND ut.tenant_id IN :tenant_ids
-                        )
-                        AND NOT EXISTS (
-                            SELECT 1
-                            FROM users_api.user_tenants ut2
-                            WHERE ut2.user_id = u.id
-                              AND ut2.tenant_id NOT IN :tenant_ids
+                        DELETE FROM users_api.user_tenant_roles
+                        WHERE user_tenant_id IN (
+                            SELECT id
+                            FROM users_api.user_tenants
+                            WHERE tenant_id IN :tenant_ids
                         )
                         """
                     ).bindparams(
@@ -90,7 +83,95 @@ def db_session():
                 )
 
                 cleanup_db.execute(
-                    text("DELETE FROM users_api.tenants WHERE id IN :tenant_ids").bindparams(
+                    text(
+                        """
+                        DELETE FROM users_api.role_permissions
+                        WHERE role_id IN (
+                            SELECT id
+                            FROM users_api.roles
+                            WHERE tenant_id IN :tenant_ids
+                        )
+                        """
+                    ).bindparams(
+                        __import__("sqlalchemy").bindparam(
+                            "tenant_ids", expanding=True
+                        )
+                    ),
+                    {"tenant_ids": tenant_ids},
+                )
+
+                cleanup_db.execute(
+                    text(
+                        """
+                        DELETE FROM users_api.roles
+                        WHERE tenant_id IN :tenant_ids
+                        """
+                    ).bindparams(
+                        __import__("sqlalchemy").bindparam(
+                            "tenant_ids", expanding=True
+                        )
+                    ),
+                    {"tenant_ids": tenant_ids},
+                )
+
+                # Guardamos los usuarios que quedarán libres después de
+                # eliminar sus asociaciones con estos tenants.
+                candidate_user_ids = {
+                    row[0]
+                    for row in cleanup_db.execute(
+                        text(
+                            """
+                            SELECT DISTINCT user_id
+                            FROM users_api.user_tenants
+                            WHERE tenant_id IN :tenant_ids
+                            """
+                        ).bindparams(
+                            __import__("sqlalchemy").bindparam(
+                                "tenant_ids", expanding=True
+                            )
+                        ),
+                        {"tenant_ids": tenant_ids},
+                    ).all()
+                }
+
+                cleanup_db.execute(
+                    text(
+                        """
+                        DELETE FROM users_api.user_tenants
+                        WHERE tenant_id IN :tenant_ids
+                        """
+                    ).bindparams(
+                        __import__("sqlalchemy").bindparam(
+                            "tenant_ids", expanding=True
+                        )
+                    ),
+                    {"tenant_ids": tenant_ids},
+                )
+
+                if candidate_user_ids:
+                    cleanup_db.execute(
+                        text(
+                            """
+                            DELETE FROM users_api.app_users u
+                            WHERE u.id IN :user_ids
+                              AND NOT EXISTS (
+                                  SELECT 1
+                                  FROM users_api.user_tenants ut
+                                  WHERE ut.user_id = u.id
+                              )
+                            """
+                        ).bindparams(
+                            __import__("sqlalchemy").bindparam(
+                                "user_ids", expanding=True
+                            )
+                        ),
+                        {"user_ids": tuple(candidate_user_ids)},
+                    )
+
+                cleanup_db.execute(
+                    text(
+                        "DELETE FROM users_api.tenants WHERE id IN :tenant_ids"
+                    ).bindparams(
                         __import__("sqlalchemy").bindparam(
                             "tenant_ids", expanding=True
                         )
