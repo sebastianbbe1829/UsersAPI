@@ -27,19 +27,6 @@ from ..database import set_rls_tenant
 def _actor_dni(
     current_user: UserTenantDB | GlobalUserDB | None,
 ) -> str:
-    """
-    Obtiene el identificador del usuario que ejecuta la operación.
-
-    Para usuarios normales:
-        -> DNI
-
-    Para usuario SUPER:
-        -> email
-
-    Para bootstrap:
-        -> bootstrap
-    """
-
     if current_user is None:
         return "bootstrap"
 
@@ -54,15 +41,6 @@ def _user_payload(
     link: UserTenantDB,
     message: str | None = None,
 ):
-    """
-    Construye la respuesta pública del usuario.
-
-    Nunca expone:
-        - password
-        - activation_token
-        - IDs internos
-    """
-
     payload = {
         "dni": user.dni,
         "name": user.name,
@@ -87,10 +65,6 @@ def _tenant_link(
     tenant_id: int,
     user_tenant_repository: UserTenantRepository,
 ) -> UserTenantDB:
-    """
-    Obtiene la relación entre UserDB y TenantDB.
-    """
-
     link = user_tenant_repository.get_by_user_and_tenant(
         user.id,
         tenant_id,
@@ -114,11 +88,6 @@ def _get_user_entity(
     tenant_id: int,
     user_repository: UserRepository,
 ) -> UserDB:
-    """
-    Obtiene un usuario global únicamente si pertenece
-    al tenant indicado y su relación no está eliminada.
-    """
-
     usuario = user_repository.get_by_dni_in_tenant(
         dni,
         tenant_id,
@@ -135,8 +104,6 @@ def _get_user_entity(
 
 # ============================================================
 # CREAR / REACTIVAR USUARIO
-#
-# POST /users
 # ============================================================
 
 def create_user(
@@ -650,4 +617,156 @@ def export_users(
     return export_to_excel(
         data=data,
         current_user=current_user,
+    )
+
+
+# ============================================================
+# ACTIVAR USUARIO NORMAL
+#
+# POST /users/activate/{dni}/{token}
+# ============================================================
+
+def activate_user(
+    dni: str,
+    token: str,
+    db: Session,
+):
+    tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id_by_activation_token(
+                :activation_token
+            )
+            """
+        ),
+        {
+            "activation_token": token,
+        },
+    ).scalar()
+
+    if tenant_id is None:
+        logger.warning(
+            "Intento de activación con token inválido",
+            extra={"dni": dni},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de activación inválido",
+        )
+
+    set_rls_tenant(db, tenant_id)
+
+    user_repository = UserRepository(db)
+    user_tenant_repository = UserTenantRepository(db)
+
+    usuario = user_repository.get_by_dni(dni)
+
+    if usuario is None:
+        logger.warning(
+            "Intento de activación para usuario inexistente",
+            extra={"dni": dni},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+
+    link = user_tenant_repository.get_by_activation_token(token)
+
+    if link is None:
+        logger.warning(
+            "Intento de activación con token inválido",
+            extra={"dni": dni},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de activación inválido",
+        )
+
+    if link.user_id != usuario.id:
+        logger.warning(
+            "Intento de activación con token perteneciente a otro usuario",
+            extra={
+                "dni": dni,
+                "user_id": usuario.id,
+                "token_user_id": link.user_id,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de activación inválido",
+        )
+
+    if link.status == 3:
+        logger.warning(
+            "Intento de activar usuario eliminado",
+            extra={"dni": dni, "user_tenant_id": link.id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario se encuentra eliminado",
+        )
+
+    if link.status == 1:
+        logger.info(
+            "Intento de activar usuario que ya estaba activo",
+            extra={"dni": dni, "user_tenant_id": link.id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario ya se encuentra activo",
+        )
+
+    link.status = 1
+    link.activation_token = None
+
+    ahora = datetime.now()
+    link.updated_at = ahora
+    link.updated_by = "activation"
+    usuario.updated_at = ahora
+    usuario.updated_by = "activation"
+
+    try:
+        user_tenant_repository.update(link)
+        user_repository.update(usuario)
+    except IntegrityError as exc:
+        logger.exception(
+            "Error de integridad al activar usuario",
+            extra={
+                "dni": dni,
+                "user_tenant_id": link.id,
+                "error": str(exc),
+                "orig": str(exc.orig),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fue posible activar el usuario",
+        ) from exc
+    except Exception as exc:
+        logger.exception(
+            "Error inesperado al activar usuario",
+            extra={
+                "dni": dni,
+                "user_tenant_id": link.id,
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al activar usuario",
+        ) from exc
+
+    logger.info(
+        "Usuario activado correctamente",
+        extra={
+            "dni": dni,
+            "user_id": usuario.id,
+            "user_tenant_id": link.id,
+        },
+    )
+
+    return _user_payload(
+        usuario,
+        link,
+        message="Usuario activado correctamente",
     )
