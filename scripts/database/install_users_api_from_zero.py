@@ -31,7 +31,6 @@ def execute_sql_file(engine, sql_file: Path):
 
 
 def terminate_role_sessions(db, role_name: str):
-    """Evita sesiones con OID de rol obsoleto en Neon después de DROP ROLE."""
     db.execute(
         text(
             """
@@ -57,14 +56,13 @@ def reset_database(engine):
         print(f"Terminando sesiones de {ROLE_BOOTSTRAP}...")
         terminate_role_sessions(db, ROLE_BOOTSTRAP)
 
-        # PostgreSQL no soporta DROP ROLE ... CASCADE. Primero eliminamos
-        # objetos y privilegios propiedad del rol; después eliminamos el rol.
-        # Esto también evita problemas si el rol es propietario del schema.
+        # Los roles de Neon no se eliminan durante la instalación. La cuenta
+        # administrativa usada por la aplicación no necesariamente tiene
+        # CREATEROLE/ADMIN sobre ellos. Los scripts de roles son idempotentes
+        # y los reutilizan si ya existen.
+        print("Eliminando objetos y privilegios propiedad de los roles...")
         for role_name in (ROLE_APP, ROLE_BOOTSTRAP):
-            print(f"Eliminando objetos propiedad de {role_name}...")
             db.execute(text(f"DROP OWNED BY {role_name} CASCADE"))
-            print(f"Eliminando rol {role_name}...")
-            db.execute(text(f"DROP ROLE IF EXISTS {role_name}"))
 
         print("Eliminando esquema users_api...")
         db.execute(text("DROP SCHEMA IF EXISTS users_api CASCADE"))
@@ -271,7 +269,7 @@ def main():
     print()
     print("ADVERTENCIA:")
     print("Este proceso ELIMINA completamente el esquema users_api")
-    print("y elimina los roles users_api_app y users_api_bootstrap.")
+    print("y conserva los roles users_api_app y users_api_bootstrap.")
     print("Se reconstruirá toda la estructura desde cero.")
     print()
 
