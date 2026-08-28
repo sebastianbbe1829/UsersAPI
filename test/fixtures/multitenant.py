@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from UsersAPI.controllers.auth_controller import create_access_token, pwd_context
+from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import (
     PermissionDB,
     RoleDB,
@@ -28,17 +29,39 @@ TEST_PERMISSIONS = (
 
 
 def create_user_context(db, *, password="oldpass", name="Test User"):
-    """Crea un contexto multi-tenant dentro de la transacción de la prueba."""
+    """Crea un contexto multi-tenant respetando el aislamiento RLS."""
     suffix = uuid4().hex[:10]
     now = datetime.now()
 
-    tenant = TenantDB(
-        name=f"Tenant {suffix}",
-        slug=f"tenant-{suffix}",
-        status=1,
-        created_at=now,
-        created_by="test",
-    )
+    # Los tenants se crean mediante la conexión exclusiva de bootstrap,
+    # que es la única que puede crear tenants sin un tenant previo.
+    bootstrap_db = BootstrapSessionLocal()
+    try:
+        tenant = TenantDB(
+            name=f"Tenant {suffix}",
+            slug=f"tenant-{suffix}",
+            status=1,
+            created_at=now,
+            created_by="test",
+        )
+        bootstrap_db.add(tenant)
+        bootstrap_db.flush()
+        bootstrap_db.commit()
+        tenant_id = tenant.id
+        tenant_slug = tenant.slug
+    except Exception:
+        bootstrap_db.rollback()
+        raise
+    finally:
+        bootstrap_db.close()
+
+    # A partir de aquí, la prueba trabaja con la conexión normal protegida
+    # por RLS y con el tenant explícitamente establecido.
+    set_rls_tenant(db, tenant_id)
+
+    tenant = db.get(TenantDB, tenant_id)
+    if tenant is None:
+        raise RuntimeError("No fue posible recuperar el tenant de prueba")
 
     user = UserDB(
         dni=f"{uuid4().int % 100000000:08d}",
@@ -47,7 +70,7 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         created_by="test",
     )
 
-    db.add_all([tenant, user])
+    db.add(user)
     db.flush()
 
     user_tenant = UserTenantDB(
@@ -114,9 +137,13 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         {
             "sub": user.dni,
             "tenant_id": tenant.id,
-            "tenant_slug": tenant.slug,
+            "tenant_slug": tenant_slug,
             "user_tenant_id": user_tenant.id,
         }
     )
+
+    # La conexión de bootstrap hizo commit para que la conexión normal pueda
+    # ver el tenant. El conftest se encarga de eliminarlo al terminar la prueba.
+    db.info.setdefault("bootstrap_tenant_ids", []).append(tenant_id)
 
     return user, tenant, user_tenant, token
