@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import importlib
 import pytest
+from sqlalchemy import text
 
 from UsersAPI.models import (
     PermissionDB,
@@ -97,6 +98,14 @@ def test_bootstrap_creates_new_tenant_with_admin_context(db_session, client):
     assert body["user_dni"] == payload["admin_dni"]
     assert body["user_email"] == payload["admin_email"]
     assert body["role_code"] == "ADMIN"
+
+    # Las consultas posteriores deben ejecutarse con el tenant context que
+    # utilizaría una transacción real de la aplicación. RLS debe permanecer
+    # activo durante el test; no se debe deshabilitar para inspeccionar datos.
+    db_session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": str(body["tenant_id"])},
+    )
 
     tenant = db_session.query(TenantDB).filter(
         TenantDB.slug == payload["tenant_slug"]
