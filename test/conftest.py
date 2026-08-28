@@ -14,32 +14,55 @@ def db_session():
     transaction = connection.begin()
     db = Session(bind=connection)
 
+    # /bootstrap utiliza deliberadamente una conexión independiente con
+    # users_api_bootstrap (BYPASSRLS), por lo que sus INSERT no participan en
+    # la transacción de db_session y no pueden ser revertidos con este rollback.
+    # Tomamos un snapshot de tenants existentes para poder limpiar únicamente
+    # los tenants creados por el test.
+    cleanup_db = BootstrapSessionLocal()
+    try:
+        existing_tenant_ids = {
+            row[0]
+            for row in cleanup_db.execute(
+                text("SELECT id FROM users_api.tenants")
+            ).all()
+        }
+    finally:
+        cleanup_db.close()
+
     try:
         yield db
     finally:
-        tenant_ids = list(db.info.get("bootstrap_tenant_ids", []))
         db.close()
         transaction.rollback()
         connection.close()
 
-        # Los tenants de prueba se crean mediante bootstrap porque RLS impide
-        # crear un tenant desde una sesión normal sin un contexto previo.
-        # Una vez finalizada la prueba, se eliminan con la misma conexión
-        # privilegiada de bootstrap.
-        if tenant_ids:
-            cleanup_db = BootstrapSessionLocal()
-            try:
-                for tenant_id in tenant_ids:
-                    cleanup_db.execute(
-                        text("DELETE FROM users_api.tenants WHERE id = :tenant_id"),
-                        {"tenant_id": tenant_id},
-                    )
-                cleanup_db.commit()
-            except Exception:
-                cleanup_db.rollback()
-                raise
-            finally:
-                cleanup_db.close()
+        # Bootstrap confirma en una transacción independiente. Después del
+        # rollback de la sesión normal, eliminamos únicamente los tenants que
+        # no existían al comenzar el test. Esto evita contaminar la BD real
+        # de desarrollo sin deshabilitar RLS en la aplicación.
+        cleanup_db = BootstrapSessionLocal()
+        try:
+            created_tenant_ids = {
+                row[0]
+                for row in cleanup_db.execute(
+                    text("SELECT id FROM users_api.tenants")
+                ).all()
+                if row[0] not in existing_tenant_ids
+            }
+
+            for tenant_id in created_tenant_ids:
+                cleanup_db.execute(
+                    text("DELETE FROM users_api.tenants WHERE id = :tenant_id"),
+                    {"tenant_id": tenant_id},
+                )
+
+            cleanup_db.commit()
+        except Exception:
+            cleanup_db.rollback()
+            raise
+        finally:
+            cleanup_db.close()
 
 
 @pytest.fixture
