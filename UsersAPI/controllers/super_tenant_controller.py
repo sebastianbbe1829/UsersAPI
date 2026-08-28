@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from ..models import GlobalUserDB
-from ..schemas import BootstrapRequest, TenantUpdate
+from ..schemas import BootstrapRequest, BootstrapResponse, TenantUpdate
 from ..services.super_tenant_service import (
     get_any_tenant,
     list_all_tenants,
@@ -34,7 +34,28 @@ def crear_tenant_super(
 ):
     user = require_super_user(current_user)
     verify_super_mfa_otp(user, otp)
-    return provision_tenant(datos, db)
+
+    result = provision_tenant(datos, db)
+
+    tenant = result["tenant"]
+    user = result["user"]
+    user_tenant = result["user_tenant"]
+    role = result["role"]
+
+    return BootstrapResponse(
+        tenant_id=tenant.id,
+        tenant_name=tenant.name,
+        tenant_slug=tenant.slug,
+        user_id=user.id,
+        user_dni=user.dni,
+        user_name=user.name,
+        user_tenant_id=user_tenant.id,
+        user_email=user_tenant.email,
+        role_id=role.id,
+        role_code=role.code,
+        role_name=role.name,
+        message="Bootstrap realizado correctamente.",
+    )
 
 
 def actualizar_tenant_super(
