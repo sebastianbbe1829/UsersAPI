@@ -33,17 +33,21 @@ def db_session():
     try:
         yield db
     finally:
+        # Guardamos los tenants creados por este test antes de cerrar la
+        # sesión, ya que create_user_context() los registra en db.info.
+        created_tenant_ids = set(db.info.get("bootstrap_tenant_ids", []))
+
         db.close()
         transaction.rollback()
         connection.close()
 
         # Bootstrap confirma en una transacción independiente. Después del
         # rollback de la sesión normal, eliminamos únicamente los tenants que
-        # no existían al comenzar el test. Esto evita contaminar la BD real
-        # de desarrollo sin deshabilitar RLS en la aplicación.
+        # no existían al comenzar el test y los usuarios globales de app_users
+        # que quedaron asociados exclusivamente a esos tenants.
         cleanup_db = BootstrapSessionLocal()
         try:
-            created_tenant_ids = {
+            current_created_tenant_ids = {
                 row[0]
                 for row in cleanup_db.execute(
                     text("SELECT id FROM users_api.tenants")
@@ -51,10 +55,47 @@ def db_session():
                 if row[0] not in existing_tenant_ids
             }
 
-            for tenant_id in created_tenant_ids:
+            if created_tenant_ids:
+                current_created_tenant_ids &= created_tenant_ids
+
+            if current_created_tenant_ids:
+                tenant_ids = tuple(current_created_tenant_ids)
+
+                # app_users no está scoped por tenant. Eliminamos solamente
+                # los usuarios cuyo único vínculo tenant pertenece a un
+                # tenant creado por esta prueba.
                 cleanup_db.execute(
-                    text("DELETE FROM users_api.tenants WHERE id = :tenant_id"),
-                    {"tenant_id": tenant_id},
+                    text(
+                        """
+                        DELETE FROM users_api.app_users u
+                        WHERE EXISTS (
+                            SELECT 1
+                            FROM users_api.user_tenants ut
+                            WHERE ut.user_id = u.id
+                              AND ut.tenant_id IN :tenant_ids
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM users_api.user_tenants ut2
+                            WHERE ut2.user_id = u.id
+                              AND ut2.tenant_id NOT IN :tenant_ids
+                        )
+                        """
+                    ).bindparams(
+                        __import__("sqlalchemy").bindparam(
+                            "tenant_ids", expanding=True
+                        )
+                    ),
+                    {"tenant_ids": tenant_ids},
+                )
+
+                cleanup_db.execute(
+                    text("DELETE FROM users_api.tenants WHERE id IN :tenant_ids").bindparams(
+                        __import__("sqlalchemy").bindparam(
+                            "tenant_ids", expanding=True
+                        )
+                    ),
+                    {"tenant_ids": tenant_ids},
                 )
 
             cleanup_db.commit()
