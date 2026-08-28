@@ -33,8 +33,6 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
     suffix = uuid4().hex[:10]
     now = datetime.now()
 
-    # Los tenants se crean mediante la conexión exclusiva de bootstrap,
-    # que es la única que puede crear tenants sin un tenant previo.
     bootstrap_db = BootstrapSessionLocal()
     try:
         tenant = TenantDB(
@@ -55,8 +53,6 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
     finally:
         bootstrap_db.close()
 
-    # A partir de aquí, la prueba trabaja con la conexión normal protegida
-    # por RLS y con el tenant explícitamente establecido.
     set_rls_tenant(db, tenant_id)
 
     tenant = db.get(TenantDB, tenant_id)
@@ -127,14 +123,12 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         role_id=role.id,
     )
     db.add(user_tenant_role)
-
     db.flush()
-    db.refresh(user)
-    db.refresh(user_tenant)
 
-    # Forzar la carga de la relación desde la BD. Esto evita depender del
-    # estado del identity map/lazy loading en los tests bajo RLS.
-    db.expire(user_tenant, ["roles"])
+    # Cargar la relación mientras el contexto RLS todavía corresponde a este
+    # tenant. No expirarla después: el mismo db_session puede crear otro tenant
+    # y cambiar el contexto RLS antes de que el caller use este objeto.
+    db.refresh(user_tenant)
     user_tenant.roles
 
     token = create_access_token(
@@ -146,8 +140,6 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         }
     )
 
-    # La conexión de bootstrap hizo commit para que la conexión normal pueda
-    # ver el tenant. El conftest se encarga de eliminarlo al terminar la prueba.
     db.info.setdefault("bootstrap_tenant_ids", []).append(tenant_id)
 
     return user, tenant, user_tenant, token
