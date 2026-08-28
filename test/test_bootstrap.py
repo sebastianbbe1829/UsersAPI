@@ -7,6 +7,7 @@ from UsersAPI.models import (
     RoleDB,
     RolePermissionDB,
     TenantDB,
+    TenantConfigDB,
     UserDB,
     UserTenantDB,
     UserTenantRoleDB,
@@ -91,6 +92,16 @@ def test_bootstrap_creates_new_tenant_with_admin_context(db_session, client):
         UserTenantDB.tenant_id == tenant.id,
         UserTenantDB.user_id == user.id,
     ).one()
+
+    config = db_session.query(TenantConfigDB).filter(
+        TenantConfigDB.tenant_id == tenant.id
+    ).one()
+
+    assert config.app_title == payload["tenant_name"]
+    assert config.logo_url is None
+    assert config.primary_color == "#0D6EFD"
+    assert config.secondary_color == "#6C757D"
+    assert config.created_by == payload["admin_dni"]
 
     admin_role = db_session.query(RoleDB).filter(
         RoleDB.tenant_id == tenant.id,
