@@ -616,6 +616,7 @@ def export_users(
     )
     return export_to_excel(
         data=data,
+        filename="usuarios.xlsx",
         current_user=current_user,
     )
 
