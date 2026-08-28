@@ -3,7 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from UsersAPI.database import set_rls_tenant
+from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import PermissionDB, RolePermissionDB
 from test.fixtures.multitenant import create_user_context
 
@@ -120,10 +120,18 @@ def test_tenant_cannot_update_another_tenant(
     assert response.status_code == 404
     assert response.json()["detail"] == "Tenant no encontrado"
 
-    db_session.expire_all()
-    tenant_b_after = db_session.get(type(tenant_b), tenant_b_id)
-    assert tenant_b_after is not None
-    assert tenant_b_after.name == original_name
+    # La sesión de aplicación está bajo el contexto RLS de tenant A, por lo
+    # que no puede usarse para comprobar la existencia de tenant B. La
+    # verificación de persistencia debe hacerse con la conexión de bootstrap,
+    # que tiene BYPASSRLS, sin alterar el comportamiento que estamos probando.
+    verification_db = BootstrapSessionLocal()
+    try:
+        tenant_b_after = verification_db.get(type(tenant_b), tenant_b_id)
+        assert tenant_b_after is not None
+        assert tenant_b_after.name == original_name
+    finally:
+        verification_db.close()
+
     assert tenant_a_id != tenant_b_id
 
 
@@ -154,10 +162,13 @@ def test_tenant_cannot_delete_another_tenant(
     assert response.status_code == 404
     assert response.json()["detail"] == "Tenant no encontrado"
 
-    db_session.expire_all()
-    tenant_b_after = db_session.get(type(tenant_b), tenant_b_id)
-    assert tenant_b_after is not None
-    assert tenant_b_after.status == 1
+    verification_db = BootstrapSessionLocal()
+    try:
+        tenant_b_after = verification_db.get(type(tenant_b), tenant_b_id)
+        assert tenant_b_after is not None
+        assert tenant_b_after.status == 1
+    finally:
+        verification_db.close()
 
 
 def test_user_tenant_cannot_list_another_tenant(
@@ -269,6 +280,7 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
     )
 
     db_session.expire_all()
+    set_rls_tenant(db_session, user_tenant_b.tenant_id)
     user_tenant_b_after = db_session.get(type(user_tenant_b), user_tenant_b_id)
     assert user_tenant_b_after is not None
     assert user_tenant_b_after.status == 1
