@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 import pytest
 import psycopg
@@ -30,31 +31,70 @@ def bootstrap_conn(bootstrap_database_url):
 
 
 @pytest.fixture
-def tenant_ids(bootstrap_conn):
-    with bootstrap_conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id
-            FROM users_api.tenants
-            WHERE status = 1
-            ORDER BY id
-            """
-        )
-        rows = cur.fetchall()
+def tenant_ids(bootstrap_database_url):
+    """Crea dos tenants y un usuario temporales para las pruebas RLS."""
+    suffix = uuid4().hex[:12]
+    tenant_ids = []
+    user_id = None
 
-    if len(rows) < 2:
-        pytest.skip("Se necesitan al menos dos tenants activos para probar aislamiento RLS")
-
-    return rows[0][0], rows[1][0]
-
-
-@pytest.fixture
-def app_conn(app_database_url):
-    with psycopg.connect(app_database_url) as conn:
+    with psycopg.connect(bootstrap_database_url) as conn:
         try:
-            yield conn
+            with conn.cursor() as cur:
+                for label in ("A", "B"):
+                    cur.execute(
+                        """
+                        INSERT INTO users_api.tenants
+                            (name, slug, status, created_at, created_by)
+                        VALUES
+                            (%s, %s, 1, now(), 'pytest')
+                        RETURNING id
+                        """,
+                        (
+                            f"RLS Test Tenant {label} {suffix}",
+                            f"rls-test-{label.lower()}-{suffix}",
+                        ),
+                    )
+                    tenant_ids.append(cur.fetchone()[0])
+
+                cur.execute(
+                    """
+                    INSERT INTO users_api.app_users
+                        (dni, name, created_at, created_by)
+                    VALUES
+                        (%s, 'RLS Test User', now(), 'pytest')
+                    RETURNING id
+                    """,
+                    (f"9{uuid4().int % 10000000:07d}",),
+                )
+                user_id = cur.fetchone()[0]
+
+            conn.commit()
+            yield tuple(tenant_ids)
         finally:
-            conn.rollback()
+            with conn.cursor() as cur:
+                if tenant_ids:
+                    cur.execute(
+                        """
+                        DELETE FROM users_api.user_tenants
+                        WHERE tenant_id = ANY(%s)
+                        """,
+                        (tenant_ids,),
+                    )
+
+                    cur.execute(
+                        """
+                        DELETE FROM users_api.tenants
+                        WHERE id = ANY(%s)
+                        """,
+                        (tenant_ids,),
+                    )
+
+                if user_id is not None:
+                    cur.execute(
+                        "DELETE FROM users_api.app_users WHERE id = %s",
+                        (user_id,),
+                    )
+            conn.commit()
 
 
 def set_tenant(conn, tenant_id):
