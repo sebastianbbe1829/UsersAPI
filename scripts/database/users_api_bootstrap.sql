@@ -22,14 +22,10 @@ BEGIN
 END
 $$;
 
-ALTER ROLE users_api_bootstrap
-LOGIN
-PASSWORD 'C4MB14M3_2026'
-NOSUPERUSER
-NOCREATEDB
-NOCREATEROLE
-INHERIT
-BYPASSRLS;
+-- IMPORTANTE:
+-- Si el rol ya existe, no se modifican sus atributos aquí.
+-- Neon no permite alterar atributos administrativos del rol
+-- con la conexión utilizada por la aplicación/instalador.
 
 GRANT USAGE
 ON SCHEMA users_api
