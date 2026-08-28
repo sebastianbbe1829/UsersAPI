@@ -7,7 +7,7 @@ from ..controllers.tenant_config_controller import (
     obtener_config_tenant,
 )
 from ..database import get_db
-from ..models import TenantDB, UserTenantDB
+from ..models import UserTenantDB
 from ..schemas import TenantConfigRead, TenantConfigUpdate
 from ..security.dependencies import get_current_tenant
 from ..security.permissions import require_permission
