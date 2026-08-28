@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from UsersAPI.database import set_rls_tenant
-from UsersAPI.models import TenantConfigDB
+from UsersAPI.models import PermissionDB, RolePermissionDB, TenantConfigDB
 from test.fixtures.multitenant import create_user_context
 from test.test_multitenant_isolation import grant_permissions
 
@@ -95,7 +95,6 @@ def test_tenant_config_update_isolated_from_another_tenant(
     tenant_a_id = tenant_a.id
     tenant_b_id = tenant_b.id
 
-    # Creamos explícitamente la configuración de B bajo su propio contexto.
     set_rls_tenant(db_session, tenant_b_id)
     db_session.add(
         TenantConfigDB(
@@ -143,6 +142,21 @@ def test_tenant_config_requires_permission(
     )
 
     grant_permissions(db_session, user_tenant, "TENANT_READ")
+
+    # create_user_context crea el rol de prueba con todos los permisos base.
+    # Para probar realmente la autorización del PATCH, retiramos TENANT_UPDATE.
+    tenant_update_permission = (
+        db_session.query(PermissionDB)
+        .filter(PermissionDB.code == "TENANT_UPDATE")
+        .one()
+    )
+    role_id = user_tenant.roles[0].role_id
+    db_session.query(RolePermissionDB).filter(
+        RolePermissionDB.role_id == role_id,
+        RolePermissionDB.permission_id == tenant_update_permission.id,
+    ).delete(synchronize_session=False)
+    db_session.flush()
+    db_session.expire_all()
 
     response = client.patch(
         "/tenant-config",
