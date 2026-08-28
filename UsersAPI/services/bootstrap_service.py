@@ -9,6 +9,7 @@ from ..controllers.auth_controller import get_password_hash
 from ..logging_config import logger
 from ..models import (
     TenantDB,
+    TenantConfigDB,
     UserDB,
     UserTenantDB,
     RoleDB,
@@ -59,6 +60,7 @@ def bootstrap(
     ejecutar este bootstrap para crear su propio:
 
         Tenant
+        Configuración visual del tenant
         Usuario global administrador
         UserTenant
         Rol AUTHENTICATE
@@ -127,6 +129,21 @@ def bootstrap(
 
     try:
         tenant = tenant_repository.add(tenant)
+
+        # ====================================================
+        # 3.1 CREAR CONFIGURACIÓN VISUAL POR DEFECTO
+        # ====================================================
+
+        tenant.config = TenantConfigDB(
+            app_title=tenant_name,
+            logo_url=None,
+            primary_color="#0D6EFD",
+            secondary_color="#6C757D",
+            created_at=ahora,
+            created_by=admin_dni,
+        )
+
+        db.flush()
 
         if existing_user is None:
             user = user_repository.add(user)
