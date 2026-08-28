@@ -1,6 +1,6 @@
 from typing import List, cast
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Header, Path, status
 from sqlalchemy.orm import Session
 
 from ..controllers import (
@@ -12,9 +12,12 @@ from ..controllers import (
     eliminar_tenant,
     get_current_user,
 )
-from ..database import get_db
+from ..controllers import super_tenant_controller
+from ..database import get_db, get_bootstrap_db
 from ..models import UserTenantDB
 from ..schemas import (
+    BootstrapRequest,
+    BootstrapResponse,
     TenantCreate,
     TenantDeleteResponse,
     TenantRead,
@@ -28,6 +31,91 @@ tenant_routes = APIRouter(
     prefix="/tenants",
     tags=["Tenants"],
 )
+
+
+# ============================================================
+# ADMINISTRACIÓN GLOBAL DE TENANTS - SUPER
+#
+# Estas rutas no utilizan el contexto RLS del tenant del JWT.
+# La sesión SUPER se valida con DATABASE_URL y las operaciones
+# sobre tenants se ejecutan mediante BOOTSTRAP_DATABASE_URL,
+# cuyo usuario tiene BYPASSRLS.
+# ============================================================
+
+@tenant_routes.get(
+    "/admin",
+    response_model=List[TenantRead],
+    status_code=status.HTTP_200_OK,
+    summary="Listar todos los tenants como SUPER",
+)
+async def listar_tenants_super_route(
+    db: Session = Depends(get_bootstrap_db),
+    current_user=Depends(get_current_user),
+):
+    return super_tenant_controller.listar_tenants_super(
+        db=db,
+        current_user=current_user,
+    )
+
+
+@tenant_routes.get(
+    "/admin/{tenant_id}",
+    response_model=TenantRead,
+    status_code=status.HTTP_200_OK,
+    summary="Obtener cualquier tenant como SUPER",
+)
+async def obtener_tenant_super_route(
+    tenant_id: int = Path(..., description="ID del tenant"),
+    db: Session = Depends(get_bootstrap_db),
+    current_user=Depends(get_current_user),
+):
+    return super_tenant_controller.obtener_tenant_super(
+        tenant_id=tenant_id,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@tenant_routes.post(
+    "/admin/provision",
+    response_model=BootstrapResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Provisionar un nuevo tenant como SUPER",
+)
+async def crear_tenant_super_route(
+    datos: BootstrapRequest,
+    x_super_mfa_otp: str = Header(..., alias="X-Super-MFA-OTP"),
+    db: Session = Depends(get_bootstrap_db),
+    current_user=Depends(get_current_user),
+):
+    return super_tenant_controller.crear_tenant_super(
+        datos=datos,
+        otp=x_super_mfa_otp,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@tenant_routes.patch(
+    "/admin/{tenant_id}",
+    response_model=TenantRead,
+    status_code=status.HTTP_200_OK,
+    summary="Actualizar cualquier tenant como SUPER",
+)
+async def actualizar_tenant_super_route(
+    tenant_id: int,
+    datos: TenantUpdate,
+    x_super_mfa_otp: str = Header(..., alias="X-Super-MFA-OTP"),
+    db: Session = Depends(get_bootstrap_db),
+    current_user=Depends(get_current_user),
+):
+    return super_tenant_controller.actualizar_tenant_super(
+        tenant_id=tenant_id,
+        datos=datos,
+        otp=x_super_mfa_otp,
+        db=db,
+        current_user=current_user,
+    )
 
 
 # ============================================================
