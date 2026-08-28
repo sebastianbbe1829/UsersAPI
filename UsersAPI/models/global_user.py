@@ -52,6 +52,11 @@ class GlobalUserDB(Base):
         nullable=True,
     )
 
+    mfa_verified_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
     session_id = Column(
         String(36),
         nullable=True,

@@ -49,6 +49,8 @@ from .auth import (
 )
 
 from .global_auth import (
+    SuperBootstrapMfaVerifyRequest,
+    SuperBootstrapMfaVerifyResponse,
     SuperBootstrapRequest,
     SuperBootstrapResponse,
     SuperLoginRequest,
@@ -94,6 +96,8 @@ __all__ = [
     "TokenValidationResponse",
     "SuperBootstrapRequest",
     "SuperBootstrapResponse",
+    "SuperBootstrapMfaVerifyRequest",
+    "SuperBootstrapMfaVerifyResponse",
     "SuperLoginRequest",
     "SuperLoginResponse",
     "BootstrapRequest",
