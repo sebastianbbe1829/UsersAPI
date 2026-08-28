@@ -12,7 +12,7 @@ def db_session():
     """Sesión aislada por prueba; nunca persiste datos de aplicación."""
     connection = engine.connect()
     transaction = connection.begin()
-    db = Session(bind=connection)
+    db = Session(bind=connection, expire_on_commit=False)
 
     # /bootstrap utiliza deliberadamente una conexión independiente con
     # users_api_bootstrap (BYPASSRLS), por lo que sus INSERT no participan en
