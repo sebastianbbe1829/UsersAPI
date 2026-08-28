@@ -14,7 +14,7 @@ from UsersAPI.models import (
 )
 from UsersAPI.security.permission_definitions import PERMISSIONS
 from UsersAPI.services import bootstrap_service
-from UsersAPI.settings import settings
+from UsersAPI.settings import Settings
 
 
 BOOTSTRAP_KEY = "test-bootstrap-key"
@@ -24,7 +24,17 @@ BOOTSTRAP_KEY = "test-bootstrap-key"
 def configure_bootstrap(monkeypatch):
     """Configura la clave interna y desactiva servicios externos en tests."""
     monkeypatch.setenv("BOOTSTRAP_KEY", BOOTSTRAP_KEY)
-    monkeypatch.setattr(settings, "bootstrap_key", BOOTSTRAP_KEY)
+
+    # Settings es frozen=True. No se modifica la instancia global;
+    # se reemplaza únicamente la referencia utilizada por la ruta.
+    from UsersAPI.routes import bootstrap_routes
+
+    monkeypatch.setattr(
+        bootstrap_routes,
+        "settings",
+        Settings(bootstrap_key=BOOTSTRAP_KEY),
+    )
+
     monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
     monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
 
