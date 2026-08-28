@@ -4,15 +4,14 @@ from datetime import datetime
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.formatting.rule import CellIsRule
 
-from ..models import UserDB
+from ..models import UserTenantDB, GlobalUserDB
 
 
 def export_to_excel(
     data: list[dict],
     filename: str,
-    current_user: UserDB | None = None
+    current_user: UserTenantDB | GlobalUserDB | None = None,
 ):
     """
     Genera un reporte de usuarios en Excel con formato visual,
@@ -63,17 +62,17 @@ def export_to_excel(
     ws["A1"].font = Font(
         bold=True,
         size=20,
-        color=COLOR_BLANCO
+        color=COLOR_BLANCO,
     )
 
     ws["A1"].fill = PatternFill(
         "solid",
-        fgColor=COLOR_TITULO
+        fgColor=COLOR_TITULO,
     )
 
     ws["A1"].alignment = Alignment(
         horizontal="center",
-        vertical="center"
+        vertical="center",
     )
 
     ws.row_dimensions[1].height = 35
@@ -86,17 +85,36 @@ def export_to_excel(
         "%d/%m/%Y %H:%M:%S"
     )
 
-    nombre_usuario = (
-        current_user.name
-        if current_user
-        else "Usuario no identificado"
-    )
+    # ----------------------------------------------------------
+    # USUARIO QUE GENERA EL REPORTE
+    #
+    # UserTenantDB no tiene directamente name ni dni.
+    # Esos datos pertenecen a su relación app_user.
+    #
+    # GlobalUserDB sí tiene directamente name y dni.
+    # ----------------------------------------------------------
 
-    dni_usuario = (
-        current_user.dni
-        if current_user
-        else "N/A"
-    )
+    if current_user is None:
+
+        nombre_usuario = "Usuario no identificado"
+        dni_usuario = "N/A"
+
+    elif isinstance(current_user, UserTenantDB):
+
+        if current_user.app_user:
+
+            nombre_usuario = current_user.app_user.name
+            dni_usuario = current_user.app_user.dni
+
+        else:
+
+            nombre_usuario = "Usuario no identificado"
+            dni_usuario = "N/A"
+
+    else:
+
+        nombre_usuario = current_user.name
+        dni_usuario = current_user.dni
 
     informacion = [
         ("Generado por", nombre_usuario),
@@ -111,23 +129,23 @@ def export_to_excel(
         celda_etiqueta = ws.cell(
             row=fila,
             column=1,
-            value=etiqueta
+            value=etiqueta,
         )
 
         celda_valor = ws.cell(
             row=fila,
             column=2,
-            value=valor
+            value=valor,
         )
 
         celda_etiqueta.font = Font(
             bold=True,
-            color=COLOR_TITULO
+            color=COLOR_TITULO,
         )
 
         celda_etiqueta.fill = PatternFill(
             "solid",
-            fgColor=COLOR_SECUNDARIO
+            fgColor=COLOR_SECUNDARIO,
         )
 
         celda_etiqueta.border = borde_suave
@@ -158,21 +176,21 @@ def export_to_excel(
     celda_resumen = ws.cell(
         row=fila_resumen,
         column=1,
-        value="RESUMEN"
+        value="RESUMEN",
     )
 
     celda_resumen.font = Font(
         bold=True,
-        color=COLOR_BLANCO
+        color=COLOR_BLANCO,
     )
 
     celda_resumen.fill = PatternFill(
         "solid",
-        fgColor=COLOR_PRINCIPAL
+        fgColor=COLOR_PRINCIPAL,
     )
 
     celda_resumen.alignment = Alignment(
-        horizontal="center"
+        horizontal="center",
     )
 
     celda_resumen.border = borde_suave
@@ -185,27 +203,27 @@ def export_to_excel(
 
     for columna, (etiqueta, valor) in enumerate(
         resumen,
-        start=2
+        start=2,
     ):
 
         celda = ws.cell(
             row=fila_resumen,
             column=columna,
-            value=f"{etiqueta}: {valor}"
+            value=f"{etiqueta}: {valor}",
         )
 
         celda.font = Font(
             bold=True,
-            color=COLOR_TITULO
+            color=COLOR_TITULO,
         )
 
         celda.fill = PatternFill(
             "solid",
-            fgColor=COLOR_GRIS
+            fgColor=COLOR_GRIS,
         )
 
         celda.alignment = Alignment(
-            horizontal="center"
+            horizontal="center",
         )
 
         celda.border = borde_suave
@@ -221,33 +239,33 @@ def export_to_excel(
         "Nombre",
         "Email",
         "Teléfono",
-        "Estado"
+        "Estado",
     ]
 
     for columna, encabezado in enumerate(
         columnas,
-        start=1
+        start=1,
     ):
 
         celda = ws.cell(
             row=fila_inicio_tabla,
             column=columna,
-            value=encabezado
+            value=encabezado,
         )
 
         celda.font = Font(
             bold=True,
-            color=COLOR_BLANCO
+            color=COLOR_BLANCO,
         )
 
         celda.fill = PatternFill(
             "solid",
-            fgColor=COLOR_PRINCIPAL
+            fgColor=COLOR_PRINCIPAL,
         )
 
         celda.alignment = Alignment(
             horizontal="center",
-            vertical="center"
+            vertical="center",
         )
 
         celda.border = borde_suave
@@ -264,31 +282,32 @@ def export_to_excel(
 
         for columna, encabezado in enumerate(
             columnas,
-            start=1
+            start=1,
         ):
 
             valor = usuario.get(
                 encabezado,
-                ""
+                "",
             )
 
             celda = ws.cell(
                 row=fila_actual,
                 column=columna,
-                value=valor
+                value=valor,
             )
 
             celda.border = borde_suave
 
             celda.alignment = Alignment(
-                vertical="center"
+                vertical="center",
             )
 
             # Filas alternadas
             if indice % 2 == 1:
+
                 celda.fill = PatternFill(
                     "solid",
-                    fgColor=COLOR_GRIS_CLARO
+                    fgColor=COLOR_GRIS_CLARO,
                 )
 
         # ------------------------------------------------------
@@ -297,10 +316,10 @@ def export_to_excel(
 
         ws.cell(
             row=fila_actual,
-            column=1
+            column=1,
         ).alignment = Alignment(
             horizontal="center",
-            vertical="center"
+            vertical="center",
         )
 
         # ------------------------------------------------------
@@ -309,10 +328,10 @@ def export_to_excel(
 
         ws.cell(
             row=fila_actual,
-            column=4
+            column=4,
         ).alignment = Alignment(
             horizontal="center",
-            vertical="center"
+            vertical="center",
         )
 
         # ------------------------------------------------------
@@ -323,30 +342,30 @@ def export_to_excel(
 
         celda_estado = ws.cell(
             row=fila_actual,
-            column=5
+            column=5,
         )
 
         celda_estado.alignment = Alignment(
             horizontal="center",
-            vertical="center"
+            vertical="center",
         )
 
         celda_estado.font = Font(
-            bold=True
+            bold=True,
         )
 
         if estado == "Activo":
 
             celda_estado.fill = PatternFill(
                 "solid",
-                fgColor=COLOR_ACTIVO
+                fgColor=COLOR_ACTIVO,
             )
 
         elif estado == "Inactivo":
 
             celda_estado.fill = PatternFill(
                 "solid",
-                fgColor=COLOR_INACTIVO
+                fgColor=COLOR_INACTIVO,
             )
 
         fila_actual += 1
@@ -359,7 +378,6 @@ def export_to_excel(
     # No usamos Table() ni TableStyleInfo().
     # Solo usamos AutoFilter para evitar el error
     # "Característica quitada: Tabla".
-    # ==========================================================
 
     ws.auto_filter.ref = (
         f"A{fila_inicio_tabla}:E{fila_actual - 1}"
@@ -397,8 +415,9 @@ def export_to_excel(
 
     for fila_dato in range(
         fila_inicio_tabla + 1,
-        fila_actual
+        fila_actual,
     ):
+
         ws.row_dimensions[fila_dato].height = 22
 
     # ==========================================================
@@ -421,5 +440,5 @@ def export_to_excel(
             "Content-Disposition": (
                 f"attachment; filename={filename}"
             )
-        }
+        },
     )
