@@ -51,22 +51,20 @@ def reset_database(engine):
     print_separator()
 
     with engine.begin() as db:
-        # Primero terminamos las sesiones de los roles que vamos a eliminar.
-        # Esto es especialmente importante en Neon: una sesión viva puede
-        # conservar un OID de rol que ya no existe y provocar "invalid role OID".
         print(f"Terminando sesiones de {ROLE_APP}...")
         terminate_role_sessions(db, ROLE_APP)
 
         print(f"Terminando sesiones de {ROLE_BOOTSTRAP}...")
         terminate_role_sessions(db, ROLE_BOOTSTRAP)
 
-        # Los roles pueden ser propietarios del schema u objetos dentro de él.
-        # Por eso primero eliminamos los roles con CASCADE y después el schema.
-        print(f"Eliminando rol {ROLE_APP}...")
-        db.execute(text(f"DROP ROLE IF EXISTS {ROLE_APP} CASCADE"))
-
-        print(f"Eliminando rol {ROLE_BOOTSTRAP}...")
-        db.execute(text(f"DROP ROLE IF EXISTS {ROLE_BOOTSTRAP} CASCADE"))
+        # PostgreSQL no soporta DROP ROLE ... CASCADE. Primero eliminamos
+        # objetos y privilegios propiedad del rol; después eliminamos el rol.
+        # Esto también evita problemas si el rol es propietario del schema.
+        for role_name in (ROLE_APP, ROLE_BOOTSTRAP):
+            print(f"Eliminando objetos propiedad de {role_name}...")
+            db.execute(text(f"DROP OWNED BY {role_name} CASCADE"))
+            print(f"Eliminando rol {role_name}...")
+            db.execute(text(f"DROP ROLE IF EXISTS {role_name}"))
 
         print("Eliminando esquema users_api...")
         db.execute(text("DROP SCHEMA IF EXISTS users_api CASCADE"))
