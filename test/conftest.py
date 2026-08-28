@@ -9,7 +9,7 @@ from UsersAPI.main import app
 
 @pytest.fixture
 def db_session():
-    """Sesión aislada por prueba; nunca persiste datos de aplicación."""
+    """Sesión aislada por prueba; limpia también los datos confirmados por bootstrap."""
     connection = engine.connect()
     transaction = connection.begin()
     db = Session(bind=connection, expire_on_commit=False)
@@ -17,8 +17,8 @@ def db_session():
     # /bootstrap utiliza deliberadamente una conexión independiente con
     # users_api_bootstrap (BYPASSRLS), por lo que sus INSERT no participan en
     # la transacción de db_session y no pueden ser revertidos con este rollback.
-    # Tomamos un snapshot de tenants existentes para poder limpiar únicamente
-    # los tenants creados por el test.
+    # Tomamos un snapshot de tenants existentes para limpiar únicamente los
+    # tenants creados durante esta prueba.
     cleanup_db = BootstrapSessionLocal()
     try:
         existing_tenant_ids = {
@@ -33,18 +33,14 @@ def db_session():
     try:
         yield db
     finally:
-        # Guardamos los tenants creados por este test antes de cerrar la
-        # sesión, ya que create_user_context() los registra en db.info.
-        created_tenant_ids = set(db.info.get("bootstrap_tenant_ids", []))
-
         db.close()
         transaction.rollback()
         connection.close()
 
         # Bootstrap confirma en una transacción independiente. Después del
-        # rollback de la sesión normal, eliminamos únicamente los tenants que
-        # no existían al comenzar el test y los usuarios globales de app_users
-        # que quedaron asociados exclusivamente a esos tenants.
+        # rollback de la sesión normal, eliminamos todos los tenants que no
+        # existían al comenzar el test. Esto incluye los creados directamente
+        # por create_user_context() y los creados mediante /bootstrap.
         cleanup_db = BootstrapSessionLocal()
         try:
             current_created_tenant_ids = {
@@ -55,15 +51,9 @@ def db_session():
                 if row[0] not in existing_tenant_ids
             }
 
-            if created_tenant_ids:
-                current_created_tenant_ids &= created_tenant_ids
-
             if current_created_tenant_ids:
                 tenant_ids = tuple(current_created_tenant_ids)
 
-                # Primero eliminamos las filas dependientes de los tenants.
-                # app_users no puede eliminarse mientras existan user_tenants
-                # que lo referencien.
                 cleanup_db.execute(
                     text(
                         """
@@ -114,8 +104,6 @@ def db_session():
                     {"tenant_ids": tenant_ids},
                 )
 
-                # Guardamos los usuarios que quedarán libres después de
-                # eliminar sus asociaciones con estos tenants.
                 candidate_user_ids = {
                     row[0]
                     for row in cleanup_db.execute(
