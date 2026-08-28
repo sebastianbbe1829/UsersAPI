@@ -3,13 +3,19 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import PermissionDB, RolePermissionDB
 from test.fixtures.multitenant import create_user_context
 
 
 def grant_permissions(db: Session, user_tenant, *permission_codes: str):
     """Concede permisos al rol del contexto de prueba."""
-    role = user_tenant.roles[0].role
+    # El caller puede haber creado otro tenant después de crear este
+    # user_tenant. Restauramos el contexto correcto antes de consultar o
+    # insertar en role_permissions, que está protegido por RLS.
+    set_rls_tenant(db, user_tenant.tenant_id)
+
+    role_id = user_tenant.roles[0].role_id
 
     for code in permission_codes:
         permission = (
@@ -26,7 +32,7 @@ def grant_permissions(db: Session, user_tenant, *permission_codes: str):
         exists = (
             db.query(RolePermissionDB)
             .filter(
-                RolePermissionDB.role_id == role.id,
+                RolePermissionDB.role_id == role_id,
                 RolePermissionDB.permission_id == permission.id,
             )
             .first()
@@ -35,7 +41,7 @@ def grant_permissions(db: Session, user_tenant, *permission_codes: str):
         if exists is None:
             db.add(
                 RolePermissionDB(
-                    role_id=role.id,
+                    role_id=role_id,
                     permission_id=permission.id,
                 )
             )
@@ -59,10 +65,16 @@ def test_tenant_cannot_read_another_tenant(
         name="Admin B",
     )
 
+    # Guardamos los IDs antes de cambiar el contexto RLS. grant_permissions()
+    # hace expire_all(), por lo que acceder luego a tenant_b.id intentaría
+    # recargar el tenant bajo el contexto de tenant A y RLS lo ocultaría.
+    tenant_a_id = tenant_a.id
+    tenant_b_id = tenant_b.id
+
     grant_permissions(db_session, user_tenant_a, "TENANT_READ")
 
     response = client.get(
-        f"/tenants/{tenant_b.id}",
+        f"/tenants/{tenant_b_id}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
@@ -70,12 +82,12 @@ def test_tenant_cannot_read_another_tenant(
     assert response.json()["detail"] == "Tenant no encontrado"
 
     own_response = client.get(
-        f"/tenants/{tenant_a.id}",
+        f"/tenants/{tenant_a_id}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
     assert own_response.status_code == 200
-    assert own_response.json()["id"] == tenant_a.id
+    assert own_response.json()["id"] == tenant_a_id
 
 
 def test_tenant_cannot_update_another_tenant(
@@ -93,11 +105,14 @@ def test_tenant_cannot_update_another_tenant(
         name="Admin B",
     )
 
-    grant_permissions(db_session, user_tenant_a, "TENANT_UPDATE")
+    tenant_a_id = tenant_a.id
+    tenant_b_id = tenant_b.id
     original_name = tenant_b.name
 
+    grant_permissions(db_session, user_tenant_a, "TENANT_UPDATE")
+
     response = client.patch(
-        f"/tenants/{tenant_b.id}",
+        f"/tenants/{tenant_b_id}",
         json={"name": "Tenant comprometido"},
         headers={"Authorization": f"Bearer {token_a}"},
     )
@@ -105,9 +120,19 @@ def test_tenant_cannot_update_another_tenant(
     assert response.status_code == 404
     assert response.json()["detail"] == "Tenant no encontrado"
 
-    db_session.expire_all()
-    assert db_session.get(type(tenant_b), tenant_b.id).name == original_name
-    assert tenant_a.id != tenant_b.id
+    # La sesión de aplicación está bajo el contexto RLS de tenant A, por lo
+    # que no puede usarse para comprobar la existencia de tenant B. La
+    # verificación de persistencia debe hacerse con la conexión de bootstrap,
+    # que tiene BYPASSRLS, sin alterar el comportamiento que estamos probando.
+    verification_db = BootstrapSessionLocal()
+    try:
+        tenant_b_after = verification_db.get(type(tenant_b), tenant_b_id)
+        assert tenant_b_after is not None
+        assert tenant_b_after.name == original_name
+    finally:
+        verification_db.close()
+
+    assert tenant_a_id != tenant_b_id
 
 
 def test_tenant_cannot_delete_another_tenant(
@@ -125,18 +150,25 @@ def test_tenant_cannot_delete_another_tenant(
         name="Admin B",
     )
 
+    tenant_b_id = tenant_b.id
+
     grant_permissions(db_session, user_tenant_a, "TENANT_DELETE")
 
     response = client.delete(
-        f"/tenants/{tenant_b.id}",
+        f"/tenants/{tenant_b_id}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Tenant no encontrado"
 
-    db_session.expire_all()
-    assert db_session.get(type(tenant_b), tenant_b.id).status == 1
+    verification_db = BootstrapSessionLocal()
+    try:
+        tenant_b_after = verification_db.get(type(tenant_b), tenant_b_id)
+        assert tenant_b_after is not None
+        assert tenant_b_after.status == 1
+    finally:
+        verification_db.close()
 
 
 def test_user_tenant_cannot_list_another_tenant(
@@ -154,10 +186,12 @@ def test_user_tenant_cannot_list_another_tenant(
         name="Admin B",
     )
 
+    tenant_b_id = tenant_b.id
+
     grant_permissions(db_session, user_tenant_a, "USER_READ")
 
     response = client.get(
-        f"/user-tenants/tenant/{tenant_b.id}",
+        f"/user-tenants/tenant/{tenant_b_id}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
@@ -180,6 +214,8 @@ def test_user_tenant_cannot_create_association_in_another_tenant(
         name="Admin B",
     )
 
+    tenant_b_id = tenant_b.id
+
     grant_permissions(db_session, user_tenant_a, "USER_UPDATE")
     email = f"{uuid4().hex[:8]}@example.com"
 
@@ -187,7 +223,7 @@ def test_user_tenant_cannot_create_association_in_another_tenant(
         "/user-tenants",
         json={
             "user_id": user_a.id,
-            "tenant_id": tenant_b.id,
+            "tenant_id": tenant_b_id,
             "email": email,
             "password": "segura123",
             "phone": "3000000000",
@@ -214,6 +250,9 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
         name="Admin B",
     )
 
+    user_tenant_b_id = user_tenant_b.id
+    user_tenant_b_tenant_id = user_tenant_b.tenant_id
+
     grant_permissions(
         db_session,
         user_tenant_a,
@@ -222,7 +261,7 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
     )
 
     read_response = client.get(
-        f"/user-tenants/{user_tenant_b.id}",
+        f"/user-tenants/{user_tenant_b_id}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
@@ -232,7 +271,7 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
     )
 
     delete_response = client.delete(
-        f"/user-tenants/{user_tenant_b.id}",
+        f"/user-tenants/{user_tenant_b_id}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
@@ -242,4 +281,7 @@ def test_user_tenant_cannot_read_or_delete_association_from_another_tenant(
     )
 
     db_session.expire_all()
-    assert db_session.get(type(user_tenant_b), user_tenant_b.id).status == 1
+    set_rls_tenant(db_session, user_tenant_b_tenant_id)
+    user_tenant_b_after = db_session.get(type(user_tenant_b), user_tenant_b_id)
+    assert user_tenant_b_after is not None
+    assert user_tenant_b_after.status == 1

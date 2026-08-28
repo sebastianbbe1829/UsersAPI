@@ -97,3 +97,10 @@ class TenantDB(Base):
         back_populates="tenant",
         cascade="all, delete-orphan",
     )
+
+    config = relationship(
+        "TenantConfigDB",
+        back_populates="tenant",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

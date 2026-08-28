@@ -5,54 +5,39 @@
 -- NO tiene BYPASSRLS.
 -- ============================================================
 
-CREATE ROLE users_api_app
-LOGIN
-PASSWORD 'C4MB14M3_2026'
-NOSUPERUSER
-NOCREATEDB
-NOCREATEROLE
-NOINHERIT
-NOBYPASSRLS;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = 'users_api_app'
+    ) THEN
+        CREATE ROLE users_api_app
+        LOGIN
+        PASSWORD 'C4MB14M3_2026'
+        NOSUPERUSER
+        NOCREATEDB
+        NOCREATEROLE
+        NOINHERIT
+        NOBYPASSRLS;
+    END IF;
+END
+$$;
 
-
--- ============================================================
--- ACCESO AL SCHEMA
--- ============================================================
+-- IMPORTANTE:
+-- Si el rol ya existe, no se modifican sus atributos aquí.
+-- Neon no permite alterar atributos administrativos del rol
+-- con la conexión utilizada por la aplicación/instalador.
 
 GRANT USAGE
 ON SCHEMA users_api
 TO users_api_app;
 
-
--- ============================================================
--- PERMISOS SOBRE TABLAS EXISTENTES
--- ============================================================
-
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON ALL TABLES IN SCHEMA users_api
 TO users_api_app;
 
-
--- ============================================================
--- PERMISOS SOBRE SECUENCIAS EXISTENTES
---
--- IMPORTANTE:
--- Las tablas con SERIAL/IDENTITY utilizan secuencias.
--- Sin USAGE/SELECT la aplicación puede consultar tablas
--- pero falla al hacer INSERT.
--- ============================================================
-
 GRANT USAGE, SELECT
 ON ALL SEQUENCES IN SCHEMA users_api
 TO users_api_app;
-
-
--- ============================================================
--- PERMISOS PARA OBJETOS FUTUROS
---
--- Alembic normalmente ejecuta las migraciones como
--- neondb_owner, por eso se especifica FOR ROLE neondb_owner.
--- ============================================================
 
 ALTER DEFAULT PRIVILEGES
 FOR ROLE neondb_owner
@@ -60,7 +45,6 @@ IN SCHEMA users_api
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLES
 TO users_api_app;
-
 
 ALTER DEFAULT PRIVILEGES
 FOR ROLE neondb_owner

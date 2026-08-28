@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from UsersAPI.controllers.auth_controller import create_access_token, pwd_context
+from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import (
     PermissionDB,
     RoleDB,
@@ -28,17 +29,35 @@ TEST_PERMISSIONS = (
 
 
 def create_user_context(db, *, password="oldpass", name="Test User"):
-    """Crea un contexto multi-tenant dentro de la transacción de la prueba."""
+    """Crea un contexto multi-tenant respetando el aislamiento RLS."""
     suffix = uuid4().hex[:10]
     now = datetime.now()
 
-    tenant = TenantDB(
-        name=f"Tenant {suffix}",
-        slug=f"tenant-{suffix}",
-        status=1,
-        created_at=now,
-        created_by="test",
-    )
+    bootstrap_db = BootstrapSessionLocal()
+    try:
+        tenant = TenantDB(
+            name=f"Tenant {suffix}",
+            slug=f"tenant-{suffix}",
+            status=1,
+            created_at=now,
+            created_by="test",
+        )
+        bootstrap_db.add(tenant)
+        bootstrap_db.flush()
+        bootstrap_db.commit()
+        tenant_id = tenant.id
+        tenant_slug = tenant.slug
+    except Exception:
+        bootstrap_db.rollback()
+        raise
+    finally:
+        bootstrap_db.close()
+
+    set_rls_tenant(db, tenant_id)
+
+    tenant = db.get(TenantDB, tenant_id)
+    if tenant is None:
+        raise RuntimeError("No fue posible recuperar el tenant de prueba")
 
     user = UserDB(
         dni=f"{uuid4().int % 100000000:08d}",
@@ -47,7 +66,7 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
         created_by="test",
     )
 
-    db.add_all([tenant, user])
+    db.add(user)
     db.flush()
 
     user_tenant = UserTenantDB(
@@ -99,24 +118,28 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
             )
         )
 
-    db.add(
-        UserTenantRoleDB(
-            user_tenant_id=user_tenant.id,
-            role_id=role.id,
-        )
+    user_tenant_role = UserTenantRoleDB(
+        user_tenant_id=user_tenant.id,
+        role_id=role.id,
     )
-
+    db.add(user_tenant_role)
     db.flush()
-    db.refresh(user)
+
+    # Cargar la relación mientras el contexto RLS todavía corresponde a este
+    # tenant. No expirarla después: el mismo db_session puede crear otro tenant
+    # y cambiar el contexto RLS antes de que el caller use este objeto.
     db.refresh(user_tenant)
+    user_tenant.roles
 
     token = create_access_token(
         {
             "sub": user.dni,
             "tenant_id": tenant.id,
-            "tenant_slug": tenant.slug,
+            "tenant_slug": tenant_slug,
             "user_tenant_id": user_tenant.id,
         }
     )
+
+    db.info.setdefault("bootstrap_tenant_ids", []).append(tenant_id)
 
     return user, tenant, user_tenant, token

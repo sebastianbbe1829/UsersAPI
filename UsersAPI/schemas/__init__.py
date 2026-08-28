@@ -15,6 +15,11 @@ from .tenant import (
     BootstrapResponse,
 )
 
+from .tenant_config import (
+    TenantConfigUpdate,
+    TenantConfigRead,
+)
+
 from .user_tenant import (
     UserTenantCreate,
     UserTenantRead,
@@ -76,6 +81,8 @@ __all__ = [
     "TenantDeleteResponse",
     "TenantRead",
     "TenantUpdate",
+    "TenantConfigUpdate",
+    "TenantConfigRead",
     "UserTenantCreate",
     "UserTenantRead",
     "UserTenantDeleteResponse",

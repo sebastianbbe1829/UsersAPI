@@ -15,6 +15,7 @@ from .routes import (
     auth_routers,
     global_auth_routes,
     tenant_routes,
+    tenant_config_routes,
     user_tenant_routes,
     role_routes,
     user_tenant_role_routes,
@@ -85,6 +86,10 @@ app = FastAPI(
         {
             "name": "Tenants",
             "description": "Operaciones sobre tenants",
+        },
+        {
+            "name": "Configuración UI",
+            "description": "Configuración visual parametrizable por tenant",
         },
         {
             "name": "Usuarios - Tenants",
@@ -189,6 +194,9 @@ logger.info("Rutas de autenticación SUPER registradas")
 app.include_router(tenant_routes)
 logger.info("Rutas de tenants registradas")
 
+app.include_router(tenant_config_routes)
+logger.info("Rutas de configuración UI registradas")
+
 app.include_router(user_tenant_routes)
 logger.info("Rutas de relaciones usuario-tenant registradas")
 
@@ -220,6 +228,12 @@ async def validation_exception_handler(
 
         if "input" in error:
             error["input"] = str(error["input"])
+
+        if "ctx" in error:
+            error["ctx"] = {
+                key: str(value)
+                for key, value in error["ctx"].items()
+            }
 
         errores.append(error)
 

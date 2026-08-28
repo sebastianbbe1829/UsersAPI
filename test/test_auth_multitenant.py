@@ -50,9 +50,7 @@ def test_login_rejects_wrong_tenant(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "Credenciales inválidas o usuario inactivo"
-    )
+    assert response.json()["detail"] == "Tenant inválido"
 
 
 def test_expired_token_is_rejected_by_validate_endpoint(

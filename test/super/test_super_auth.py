@@ -4,6 +4,7 @@ import pyotp
 import pytest
 from fastapi import HTTPException
 
+from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import GlobalUserDB, TenantDB
 from UsersAPI.schemas.global_auth import SuperLoginRequest
 from UsersAPI.services.auth_service import get_password_hash
@@ -18,6 +19,9 @@ from UsersAPI.services.global_auth_service import (
 
 @pytest.fixture
 def temporary_tenant(db_session):
+    """Crea un tenant usando el contexto de bootstrap, que bypassa RLS."""
+    bootstrap_db = BootstrapSessionLocal()
+
     tenant = TenantDB(
         name="Tenant SUPER Test",
         slug="tenant-super-test",
@@ -26,10 +30,21 @@ def temporary_tenant(db_session):
         created_by="pytest",
     )
 
-    db_session.add(tenant)
-    db_session.flush()
+    try:
+        bootstrap_db.add(tenant)
+        bootstrap_db.commit()
+        bootstrap_db.refresh(tenant)
 
-    return tenant
+        # Las operaciones posteriores del test sobre la conexión normal
+        # quedan sujetas a RLS para este tenant.
+        set_rls_tenant(db_session, tenant.id)
+
+        yield tenant
+
+    finally:
+        bootstrap_db.query(TenantDB).filter(TenantDB.id == tenant.id).delete()
+        bootstrap_db.commit()
+        bootstrap_db.close()
 
 
 @pytest.fixture
