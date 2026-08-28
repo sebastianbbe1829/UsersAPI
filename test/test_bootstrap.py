@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+import importlib
 import pytest
 
 from UsersAPI.models import (
@@ -25,12 +26,15 @@ def configure_bootstrap(monkeypatch):
     """Configura la clave interna y desactiva servicios externos en tests."""
     monkeypatch.setenv("BOOTSTRAP_KEY", BOOTSTRAP_KEY)
 
-    # Settings es frozen=True. No se modifica la instancia global;
-    # se reemplaza únicamente la referencia utilizada por la ruta.
-    from UsersAPI.routes import bootstrap_routes
+    # El paquete UsersAPI.routes expone bootstrap_routes como APIRouter.
+    # Para reemplazar la referencia `settings` usada por la ruta debemos
+    # obtener el módulo real que contiene bootstrap_route.
+    bootstrap_routes_module = importlib.import_module(
+        "UsersAPI.routes.bootstrap_routes"
+    )
 
     monkeypatch.setattr(
-        bootstrap_routes,
+        bootstrap_routes_module,
         "settings",
         Settings(bootstrap_key=BOOTSTRAP_KEY),
     )
