@@ -22,6 +22,16 @@ def bootstrap_database_url():
 
 
 @pytest.fixture
+def app_conn(app_database_url):
+    """Conexión directa con el rol de aplicación para probar RLS real."""
+    with psycopg.connect(app_database_url) as conn:
+        try:
+            yield conn
+        finally:
+            conn.rollback()
+
+
+@pytest.fixture
 def bootstrap_conn(bootstrap_database_url):
     with psycopg.connect(bootstrap_database_url) as conn:
         try:
@@ -80,7 +90,6 @@ def tenant_ids(bootstrap_database_url):
                         """,
                         (tenant_ids,),
                     )
-
                     cur.execute(
                         """
                         DELETE FROM users_api.tenants
