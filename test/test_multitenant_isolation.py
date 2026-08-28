@@ -3,12 +3,18 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from UsersAPI.database import set_rls_tenant
 from UsersAPI.models import PermissionDB, RolePermissionDB
 from test.fixtures.multitenant import create_user_context
 
 
 def grant_permissions(db: Session, user_tenant, *permission_codes: str):
     """Concede permisos al rol del contexto de prueba."""
+    # El caller puede haber creado otro tenant después de crear este
+    # user_tenant. Restauramos el contexto correcto antes de consultar o
+    # insertar en role_permissions, que está protegido por RLS.
+    set_rls_tenant(db, user_tenant.tenant_id)
+
     role_id = user_tenant.roles[0].role_id
 
     for code in permission_codes:
