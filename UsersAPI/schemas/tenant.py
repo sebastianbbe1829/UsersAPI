@@ -36,6 +36,11 @@ class TenantUpdate(BaseModel):
         description="Nuevo slug del tenant",
     )
 
+    status: int | None = Field(
+        default=None,
+        description="Estado del tenant: 1 activo, 0 inactivo",
+    )
+
 
 class TenantRead(BaseModel):
     id: int
@@ -55,16 +60,9 @@ class TenantDeleteResponse(BaseModel):
     status: int
     message: str
 
+
 # ============================================================
 # BOOTSTRAP
-#
-# Crea:
-#   - Tenant
-#   - Usuario global
-#   - Usuario asociado al tenant
-#   - Rol ADMIN
-#   - Asociación usuario -> rol
-#   - Permisos del rol ADMIN
 # ============================================================
 
 class BootstrapRequest(BaseModel):
@@ -116,6 +114,7 @@ class BootstrapRequest(BaseModel):
         max_length=20,
         description="Teléfono del administrador",
     )
+
 
 # ============================================================
 # RESPUESTA BOOTSTRAP
