@@ -171,13 +171,103 @@ def run_alembic():
 
 
 # ============================================================
+# APLICAR PERMISOS APP
+#
+# IMPORTANTE:
+# Se ejecuta DESPUÉS de Alembic.
+#
+# En este punto ya existen:
+# - tablas
+# - secuencias
+#
+# Por eso ALL TABLES y ALL SEQUENCES sí funcionan.
+# ============================================================
+
+def apply_app_permissions(engine):
+    print()
+    print_separator()
+    print("5. APLICAR PERMISOS users_api_app")
+    print_separator()
+
+    with engine.begin() as db:
+
+        print("GRANT USAGE ON SCHEMA...")
+
+        db.execute(
+            text(
+                """
+                GRANT USAGE
+                ON SCHEMA users_api
+                TO users_api_app
+                """
+            )
+        )
+
+        print("GRANT sobre tablas...")
+
+        db.execute(
+            text(
+                """
+                GRANT SELECT, INSERT, UPDATE, DELETE
+                ON ALL TABLES IN SCHEMA users_api
+                TO users_api_app
+                """
+            )
+        )
+
+        print("GRANT sobre secuencias...")
+
+        db.execute(
+            text(
+                """
+                GRANT USAGE, SELECT
+                ON ALL SEQUENCES IN SCHEMA users_api
+                TO users_api_app
+                """
+            )
+        )
+
+        print("DEFAULT PRIVILEGES sobre tablas...")
+
+        db.execute(
+            text(
+                """
+                ALTER DEFAULT PRIVILEGES
+                FOR ROLE neondb_owner
+                IN SCHEMA users_api
+                GRANT SELECT, INSERT, UPDATE, DELETE
+                ON TABLES
+                TO users_api_app
+                """
+            )
+        )
+
+        print("DEFAULT PRIVILEGES sobre secuencias...")
+
+        db.execute(
+            text(
+                """
+                ALTER DEFAULT PRIVILEGES
+                FOR ROLE neondb_owner
+                IN SCHEMA users_api
+                GRANT USAGE, SELECT
+                ON SEQUENCES
+                TO users_api_app
+                """
+            )
+        )
+
+    print("Permisos users_api_app OK")
+
+
+# ============================================================
 # SEED DE PERMISOS
 # ============================================================
 
 def seed_permissions(engine):
     print()
     print_separator()
-    print("5. CARGAR PERMISOS")
+    print("6. CARGAR PERMISOS")
     print_separator()
 
     print()
@@ -250,25 +340,193 @@ def seed_permissions(engine):
 def create_bootstrap_role(engine):
     print()
     print_separator()
-    print("6. CREAR users_api_bootstrap")
+    print("7. CREAR users_api_bootstrap")
     print_separator()
 
     execute_sql_file(engine, BOOTSTRAP_SQL)
 
 
 # ============================================================
-# VALIDACIÓN
+# VALIDAR PERMISOS APP
+# ============================================================
+
+def validate_app_permissions(engine):
+    print()
+    print_separator()
+    print("8. VALIDAR PERMISOS users_api_app")
+    print_separator()
+
+    with engine.connect() as db:
+
+        schema_usage = db.execute(
+            text(
+                """
+                SELECT has_schema_privilege(
+                    'users_api_app',
+                    'users_api',
+                    'USAGE'
+                )
+                """
+            )
+        ).scalar()
+
+        print(
+            f"Schema users_api USAGE: {schema_usage}"
+        )
+
+        if not schema_usage:
+            raise RuntimeError(
+                "users_api_app no tiene USAGE sobre users_api."
+            )
+
+        tables_without_insert = db.execute(
+            text(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'users_api'
+                  AND table_type = 'BASE TABLE'
+                  AND NOT has_table_privilege(
+                      'users_api_app',
+                      quote_ident(table_schema) || '.' ||
+                      quote_ident(table_name),
+                      'INSERT'
+                  )
+                ORDER BY table_name
+                """
+            )
+        ).fetchall()
+
+        if tables_without_insert:
+            print("Tablas sin INSERT:")
+
+            for row in tables_without_insert:
+                print(f"  - {row[0]}")
+
+            raise RuntimeError(
+                "users_api_app no tiene INSERT sobre todas las tablas."
+            )
+
+        sequences_without_usage = db.execute(
+            text(
+                """
+                SELECT sequence_name
+                FROM information_schema.sequences
+                WHERE sequence_schema = 'users_api'
+                  AND NOT has_sequence_privilege(
+                      'users_api_app',
+                      quote_ident(sequence_schema) || '.' ||
+                      quote_ident(sequence_name),
+                      'USAGE'
+                  )
+                ORDER BY sequence_name
+                """
+            )
+        ).fetchall()
+
+        if sequences_without_usage:
+            print("Secuencias sin USAGE:")
+
+            for row in sequences_without_usage:
+                print(f"  - {row[0]}")
+
+            raise RuntimeError(
+                "users_api_app no tiene USAGE sobre todas las secuencias."
+            )
+
+        print("Permisos users_api_app OK")
+
+
+# ============================================================
+# VALIDAR PERMISOS BOOTSTRAP
+# ============================================================
+
+def validate_bootstrap_permissions(engine):
+    print()
+    print_separator()
+    print("9. VALIDAR PERMISOS users_api_bootstrap")
+    print_separator()
+
+    with engine.connect() as db:
+
+        bypass_rls = db.execute(
+            text(
+                """
+                SELECT rolbypassrls
+                FROM pg_roles
+                WHERE rolname = 'users_api_bootstrap'
+                """
+            )
+        ).scalar()
+
+        print(
+            f"users_api_bootstrap BYPASSRLS: {bypass_rls}"
+        )
+
+        if not bypass_rls:
+            raise RuntimeError(
+                "users_api_bootstrap no tiene BYPASSRLS."
+            )
+
+        schema_usage = db.execute(
+            text(
+                """
+                SELECT has_schema_privilege(
+                    'users_api_bootstrap',
+                    'users_api',
+                    'USAGE'
+                )
+                """
+            )
+        ).scalar()
+
+        print(
+            f"Schema users_api USAGE: {schema_usage}"
+        )
+
+        if not schema_usage:
+            raise RuntimeError(
+                "users_api_bootstrap no tiene USAGE sobre users_api."
+            )
+
+        sequences_without_usage = db.execute(
+            text(
+                """
+                SELECT sequence_name
+                FROM information_schema.sequences
+                WHERE sequence_schema = 'users_api'
+                  AND NOT has_sequence_privilege(
+                      'users_api_bootstrap',
+                      quote_ident(sequence_schema) || '.' ||
+                      quote_ident(sequence_name),
+                      'USAGE'
+                  )
+                ORDER BY sequence_name
+                """
+            )
+        ).fetchall()
+
+        if sequences_without_usage:
+            print("Secuencias sin USAGE:")
+
+            for row in sequences_without_usage:
+                print(f"  - {row[0]}")
+
+            raise RuntimeError(
+                "users_api_bootstrap no tiene USAGE sobre todas las secuencias."
+            )
+
+        print("Permisos users_api_bootstrap OK")
+
+
+# ============================================================
+# VALIDACIÓN GENERAL
 # ============================================================
 
 def validate_installation(engine):
     print()
     print_separator()
-    print("7. VALIDACIÓN")
-    print_separator()
-
-    print()
-    print_separator()
-    print("VALIDANDO INSTALACIÓN")
+    print("10. VALIDACIÓN GENERAL")
     print_separator()
 
     with engine.connect() as db:
@@ -300,6 +558,11 @@ def validate_installation(engine):
         for role in roles:
             print(role)
 
+        if len(roles) != 2:
+            raise RuntimeError(
+                "No se encontraron los dos roles requeridos."
+            )
+
         # ----------------------------------------------------
         # TABLAS
         # ----------------------------------------------------
@@ -320,6 +583,37 @@ def validate_installation(engine):
 
         for table in tables:
             print(f"  - {table[0]}")
+
+        if not tables:
+            raise RuntimeError(
+                "No se encontraron tablas en users_api."
+            )
+
+        # ----------------------------------------------------
+        # SECUENCIAS
+        # ----------------------------------------------------
+
+        print()
+        print("SECUENCIAS users_api:")
+
+        sequences = db.execute(
+            text(
+                """
+                SELECT sequence_name
+                FROM information_schema.sequences
+                WHERE sequence_schema = 'users_api'
+                ORDER BY sequence_name
+                """
+            )
+        ).fetchall()
+
+        for sequence in sequences:
+            print(f"  - {sequence[0]}")
+
+        if not sequences:
+            print(
+                "  - No existen secuencias en users_api."
+            )
 
         # ----------------------------------------------------
         # PERMISOS
@@ -352,6 +646,11 @@ def validate_installation(engine):
         print(
             f"Total permisos: {len(permissions)}"
         )
+
+        if not permissions:
+            raise RuntimeError(
+                "No se encontraron permisos."
+            )
 
         # ----------------------------------------------------
         # ALEMBIC
@@ -391,28 +690,6 @@ def validate_installation(engine):
         else:
             print("  - NO EXISTE")
 
-        # ----------------------------------------------------
-        # VALIDACIONES BÁSICAS
-        # ----------------------------------------------------
-
-        print()
-
-        if not roles:
-            raise RuntimeError(
-                "No se encontraron los roles requeridos."
-            )
-
-        if not tables:
-            raise RuntimeError(
-                "No se encontraron tablas en users_api."
-            )
-
-        if not permissions:
-            raise RuntimeError(
-                "No se encontraron permisos."
-            )
-
-        if not alembic_exists:
             raise RuntimeError(
                 "No existe public.alembic_version."
             )
@@ -454,7 +731,8 @@ def main():
     # --------------------------------------------------------
 
     engine = create_engine(
-        settings.database_admin_url
+        settings.database_admin_url,
+        pool_pre_ping=True,
     )
 
     try:
@@ -484,19 +762,40 @@ def main():
         run_alembic()
 
         # ----------------------------------------------------
-        # 5. PERMISOS
+        # 5. PERMISOS APP
+        #
+        # IMPORTANTE:
+        # Se aplican después de Alembic.
+        # ----------------------------------------------------
+
+        apply_app_permissions(engine)
+
+        # ----------------------------------------------------
+        # 6. SEED PERMISOS
         # ----------------------------------------------------
 
         seed_permissions(engine)
 
         # ----------------------------------------------------
-        # 6. BOOTSTRAP ROLE
+        # 7. BOOTSTRAP ROLE
         # ----------------------------------------------------
 
         create_bootstrap_role(engine)
 
         # ----------------------------------------------------
-        # 7. VALIDACIÓN
+        # 8. VALIDAR APP
+        # ----------------------------------------------------
+
+        validate_app_permissions(engine)
+
+        # ----------------------------------------------------
+        # 9. VALIDAR BOOTSTRAP
+        # ----------------------------------------------------
+
+        validate_bootstrap_permissions(engine)
+
+        # ----------------------------------------------------
+        # 10. VALIDACIÓN GENERAL
         # ----------------------------------------------------
 
         validate_installation(engine)
