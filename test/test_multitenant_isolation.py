@@ -9,7 +9,7 @@ from test.fixtures.multitenant import create_user_context
 
 def grant_permissions(db: Session, user_tenant, *permission_codes: str):
     """Concede permisos al rol del contexto de prueba."""
-    role = user_tenant.roles[0].role
+    role_id = user_tenant.roles[0].role_id
 
     for code in permission_codes:
         permission = (
@@ -26,7 +26,7 @@ def grant_permissions(db: Session, user_tenant, *permission_codes: str):
         exists = (
             db.query(RolePermissionDB)
             .filter(
-                RolePermissionDB.role_id == role.id,
+                RolePermissionDB.role_id == role_id,
                 RolePermissionDB.permission_id == permission.id,
             )
             .first()
@@ -35,7 +35,7 @@ def grant_permissions(db: Session, user_tenant, *permission_codes: str):
         if exists is None:
             db.add(
                 RolePermissionDB(
-                    role_id=role.id,
+                    role_id=role_id,
                     permission_id=permission.id,
                 )
             )
