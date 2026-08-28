@@ -1,17 +1,101 @@
 import io
 from datetime import datetime
+from typing import Any
 
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-from ..models import UserTenantDB, GlobalUserDB
+
+def _obtener_datos_usuario(current_user: Any | None) -> tuple[str, str]:
+    """
+    Obtiene de forma segura el nombre y documento del usuario
+    que genera el reporte.
+
+    Soporta objetos como:
+    - UserDB
+    - UserTenantDB
+    - GlobalUserDB
+    - Objetos con relaciones de usuario
+    """
+
+    if current_user is None:
+        return (
+            "Usuario no identificado",
+            "N/A",
+        )
+
+    # ==========================================================
+    # CASO 1: EL OBJETO YA TIENE NAME Y DNI
+    # ==========================================================
+
+    nombre = getattr(current_user, "name", None)
+    dni = getattr(current_user, "dni", None)
+
+    if nombre:
+        return (
+            str(nombre),
+            str(dni) if dni else "N/A",
+        )
+
+    # ==========================================================
+    # CASO 2: USER TENANT CON RELACIÓN "user"
+    # ==========================================================
+
+    usuario = getattr(current_user, "user", None)
+
+    if usuario is not None:
+        nombre = getattr(usuario, "name", None)
+        dni = getattr(usuario, "dni", None)
+
+        if nombre:
+            return (
+                str(nombre),
+                str(dni) if dni else "N/A",
+            )
+
+    # ==========================================================
+    # CASO 3: RELACIÓN CON APP_USER
+    # ==========================================================
+
+    app_user = getattr(current_user, "app_user", None)
+
+    if app_user is not None:
+        nombre = getattr(app_user, "name", None)
+        dni = getattr(app_user, "dni", None)
+
+        if nombre:
+            return (
+                str(nombre),
+                str(dni) if dni else "N/A",
+            )
+
+    # ==========================================================
+    # CASO 4: GLOBAL USER
+    # ==========================================================
+
+    email = getattr(current_user, "email", None)
+
+    if email:
+        return (
+            str(email),
+            str(dni) if dni else "N/A",
+        )
+
+    # ==========================================================
+    # FALLBACK FINAL
+    # ==========================================================
+
+    return (
+        "Usuario no identificado",
+        str(dni) if dni else "N/A",
+    )
 
 
 def export_to_excel(
     data: list[dict],
     filename: str,
-    current_user: UserTenantDB | GlobalUserDB | None = None,
+    current_user: Any | None = None,
 ):
     """
     Genera un reporte de usuarios en Excel con formato visual,
@@ -45,10 +129,22 @@ def export_to_excel(
     # ==========================================================
 
     borde_suave = Border(
-        left=Side(style="thin", color=COLOR_BORDE),
-        right=Side(style="thin", color=COLOR_BORDE),
-        top=Side(style="thin", color=COLOR_BORDE),
-        bottom=Side(style="thin", color=COLOR_BORDE),
+        left=Side(
+            style="thin",
+            color=COLOR_BORDE,
+        ),
+        right=Side(
+            style="thin",
+            color=COLOR_BORDE,
+        ),
+        top=Side(
+            style="thin",
+            color=COLOR_BORDE,
+        ),
+        bottom=Side(
+            style="thin",
+            color=COLOR_BORDE,
+        ),
     )
 
     # ==========================================================
@@ -85,41 +181,23 @@ def export_to_excel(
         "%d/%m/%Y %H:%M:%S"
     )
 
-    # ----------------------------------------------------------
-    # USUARIO QUE GENERA EL REPORTE
-    #
-    # UserTenantDB no tiene directamente name ni dni.
-    # Esos datos pertenecen a su relación app_user.
-    #
-    # GlobalUserDB sí tiene directamente name y dni.
-    # ----------------------------------------------------------
-
-    if current_user is None:
-
-        nombre_usuario = "Usuario no identificado"
-        dni_usuario = "N/A"
-
-    elif isinstance(current_user, UserTenantDB):
-
-        if current_user.app_user:
-
-            nombre_usuario = current_user.app_user.name
-            dni_usuario = current_user.app_user.dni
-
-        else:
-
-            nombre_usuario = "Usuario no identificado"
-            dni_usuario = "N/A"
-
-    else:
-
-        nombre_usuario = current_user.name
-        dni_usuario = current_user.dni
+    nombre_usuario, dni_usuario = (
+        _obtener_datos_usuario(current_user)
+    )
 
     informacion = [
-        ("Generado por", nombre_usuario),
-        ("DNI", dni_usuario),
-        ("Fecha de generación", fecha_generacion),
+        (
+            "Generado por",
+            nombre_usuario,
+        ),
+        (
+            "DNI",
+            dni_usuario,
+        ),
+        (
+            "Fecha de generación",
+            fecha_generacion,
+        ),
     ]
 
     fila = 3
@@ -196,12 +274,24 @@ def export_to_excel(
     celda_resumen.border = borde_suave
 
     resumen = [
-        ("Total usuarios", total_usuarios),
-        ("Usuarios activos", activos),
-        ("Usuarios inactivos", inactivos),
+        (
+            "Total usuarios",
+            total_usuarios,
+        ),
+        (
+            "Usuarios activos",
+            activos,
+        ),
+        (
+            "Usuarios inactivos",
+            inactivos,
+        ),
     ]
 
-    for columna, (etiqueta, valor) in enumerate(
+    for columna, (
+        etiqueta,
+        valor,
+    ) in enumerate(
         resumen,
         start=2,
     ):
@@ -270,7 +360,9 @@ def export_to_excel(
 
         celda.border = borde_suave
 
-    ws.row_dimensions[fila_inicio_tabla].height = 25
+    ws.row_dimensions[
+        fila_inicio_tabla
+    ].height = 25
 
     # ==========================================================
     # DATOS
@@ -302,7 +394,6 @@ def export_to_excel(
                 vertical="center",
             )
 
-            # Filas alternadas
             if indice % 2 == 1:
 
                 celda.fill = PatternFill(
@@ -310,9 +401,9 @@ def export_to_excel(
                     fgColor=COLOR_GRIS_CLARO,
                 )
 
-        # ------------------------------------------------------
+        # ======================================================
         # DNI
-        # ------------------------------------------------------
+        # ======================================================
 
         ws.cell(
             row=fila_actual,
@@ -322,9 +413,9 @@ def export_to_excel(
             vertical="center",
         )
 
-        # ------------------------------------------------------
+        # ======================================================
         # TELÉFONO
-        # ------------------------------------------------------
+        # ======================================================
 
         ws.cell(
             row=fila_actual,
@@ -334,9 +425,9 @@ def export_to_excel(
             vertical="center",
         )
 
-        # ------------------------------------------------------
+        # ======================================================
         # ESTADO
-        # ------------------------------------------------------
+        # ======================================================
 
         estado = usuario.get("Estado")
 
@@ -374,15 +465,13 @@ def export_to_excel(
     # FILTRO DE EXCEL
     # ==========================================================
 
-    # IMPORTANTE:
-    # No usamos Table() ni TableStyleInfo().
-    # Solo usamos AutoFilter para evitar el error
-    # "Característica quitada: Tabla".
-
     ws.auto_filter.ref = (
         f"A{fila_inicio_tabla}:E{fila_actual - 1}"
         if total_usuarios > 0
-        else f"A{fila_inicio_tabla}:E{fila_inicio_tabla}"
+        else (
+            f"A{fila_inicio_tabla}:"
+            f"E{fila_inicio_tabla}"
+        )
     )
 
     # ==========================================================
@@ -399,7 +488,9 @@ def export_to_excel(
 
     for columna, ancho in anchos.items():
 
-        ws.column_dimensions[columna].width = ancho
+        ws.column_dimensions[
+            columna
+        ].width = ancho
 
     # ==========================================================
     # CONFIGURACIÓN DE LA HOJA
@@ -418,7 +509,9 @@ def export_to_excel(
         fila_actual,
     ):
 
-        ws.row_dimensions[fila_dato].height = 22
+        ws.row_dimensions[
+            fila_dato
+        ].height = 22
 
     # ==========================================================
     # GENERAR ARCHIVO
@@ -438,7 +531,7 @@ def export_to_excel(
         ),
         headers={
             "Content-Disposition": (
-                f"attachment; filename={filename}"
+                f'attachment; filename="{filename}"'
             )
         },
     )
