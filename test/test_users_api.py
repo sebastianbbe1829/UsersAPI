@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from UsersAPI.models import UserDB, UserTenantDB
+from UsersAPI.settings import settings
 from test.fixtures.multitenant import create_user_context
 
 
@@ -160,6 +161,10 @@ def _bootstrap_payload(suffix: str) -> dict:
     }
 
 
+def _bootstrap_headers() -> dict:
+    return {"X-Bootstrap-Key": settings.bootstrap_key}
+
+
 def test_bootstrap_creates_tenant_and_admin(
     db_session: Session,
     client: TestClient,
@@ -173,7 +178,7 @@ def test_bootstrap_creates_tenant_and_admin(
     suffix = uuid4().hex[:10]
     payload = _bootstrap_payload(suffix)
 
-    response = client.post("/bootstrap", json=payload)
+    response = client.post("/bootstrap", json=payload, headers=_bootstrap_headers())
 
     assert response.status_code == 201
     result = response.json()
@@ -205,8 +210,8 @@ def test_bootstrap_can_provision_multiple_tenants(
     first_suffix = uuid4().hex[:10]
     second_suffix = uuid4().hex[:10]
 
-    first = client.post("/bootstrap", json=_bootstrap_payload(first_suffix))
-    second = client.post("/bootstrap", json=_bootstrap_payload(second_suffix))
+    first = client.post("/bootstrap", json=_bootstrap_payload(first_suffix), headers=_bootstrap_headers())
+    second = client.post("/bootstrap", json=_bootstrap_payload(second_suffix), headers=_bootstrap_headers())
 
     assert first.status_code == 201
     assert second.status_code == 201
@@ -227,7 +232,7 @@ def test_bootstrap_rejects_duplicate_tenant_slug(
     suffix = uuid4().hex[:10]
     payload = _bootstrap_payload(suffix)
 
-    first = client.post("/bootstrap", json=payload)
+    first = client.post("/bootstrap", json=payload, headers=_bootstrap_headers())
     assert first.status_code == 201
 
     second = client.post(
@@ -237,6 +242,7 @@ def test_bootstrap_rejects_duplicate_tenant_slug(
             "admin_dni": f"{uuid4().int % 100000000:08d}",
             "admin_email": f"other-{suffix}@example.com",
         },
+        headers=_bootstrap_headers(),
     )
 
     assert second.status_code == 409
