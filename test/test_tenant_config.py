@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -93,6 +95,21 @@ def test_tenant_config_update_isolated_from_another_tenant(
     tenant_a_id = tenant_a.id
     tenant_b_id = tenant_b.id
 
+    # Creamos explícitamente la configuración de B bajo su propio contexto.
+    set_rls_tenant(db_session, tenant_b_id)
+    db_session.add(
+        TenantConfigDB(
+            tenant_id=tenant_b_id,
+            app_title="Configuración B",
+            logo_url=None,
+            primary_color="#445566",
+            secondary_color="#778899",
+            created_at=datetime.now(),
+            created_by="test",
+        )
+    )
+    db_session.flush()
+
     grant_permissions(db_session, user_tenant_a, "TENANT_READ", "TENANT_UPDATE")
 
     response = client.patch(
@@ -111,7 +128,8 @@ def test_tenant_config_update_isolated_from_another_tenant(
         .one()
     )
 
-    assert config_b.app_title == "Admin B"
+    assert config_b.app_title == "Configuración B"
+    assert config_b.primary_color == "#445566"
 
 
 def test_tenant_config_requires_permission(
