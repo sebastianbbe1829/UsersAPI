@@ -260,58 +260,6 @@ def upgrade() -> None:
         schema="users_api",
     )
 
-    # ========================================================
-    # 5. CREAR TENANT DEMO
-    # ========================================================
-
-    op.execute(
-        """
-        INSERT INTO users_api.tenants
-        (
-            name,
-            slug,
-            status,
-            created_at,
-            created_by
-        )
-        VALUES
-        (
-            'Tenant Demo',
-            'tenant-demo',
-            1,
-            CURRENT_TIMESTAMP,
-            'system'
-        )
-        """
-    )
-
-    # ========================================================
-    # 6. ASOCIAR TODOS LOS USUARIOS EXISTENTES
-    #    AL TENANT DEMO
-    # ========================================================
-
-    op.execute(
-        """
-        INSERT INTO users_api.user_tenants
-        (
-            user_id,
-            tenant_id,
-            status,
-            created_at,
-            created_by
-        )
-        SELECT
-            u.id,
-            t.id,
-            1,
-            CURRENT_TIMESTAMP,
-            'system'
-        FROM users_api.app_users u
-        CROSS JOIN users_api.tenants t
-        WHERE t.slug = 'tenant-demo'
-        """
-    )
-
 
 # ============================================================
 # DOWNGRADE
