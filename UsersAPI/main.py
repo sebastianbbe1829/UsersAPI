@@ -71,17 +71,50 @@ app = FastAPI(
         "deepLinking": True,
     },
     openapi_tags=[
-        {"name": "Usuarios", "description": "Operaciones sobre usuarios"},
-        {"name": "Autenticación", "description": "Autenticación de usuarios y generación de tokens JWT"},
-        {"name": "Autenticación SUPER", "description": "Autenticación global del usuario SUPER con MFA"},
-        {"name": "Tenants", "description": "Operaciones sobre tenants"},
-        {"name": "Configuración UI", "description": "Configuración visual parametrizable por tenant"},
-        {"name": "Usuarios - Tenants", "description": "Gestión de asociaciones entre usuarios y tenants"},
-        {"name": "Roles", "description": "Operaciones sobre roles"},
-        {"name": "Usuarios - Roles", "description": "Gestión de asociaciones entre usuarios y roles"},
-        {"name": "Roles - Permisos", "description": "Gestión de permisos asociados a roles"},
-        {"name": "Bootstrap", "description": "Inicialización de tenants y configuración inicial del sistema"},
-        {"name": "Permisos", "description": "Operaciones sobre permisos"},
+        {
+            "name": "Usuarios",
+            "description": "Operaciones sobre usuarios",
+        },
+        {
+            "name": "Autenticación",
+            "description": "Autenticación de usuarios y generación de tokens JWT",
+        },
+        {
+            "name": "Autenticación SUPER",
+            "description": "Autenticación global del usuario SUPER con MFA",
+        },
+        {
+            "name": "Tenants",
+            "description": "Operaciones sobre tenants",
+        },
+        {
+            "name": "Configuración UI",
+            "description": "Configuración visual parametrizable por tenant",
+        },
+        {
+            "name": "Usuarios - Tenants",
+            "description": "Gestión de asociaciones entre usuarios y tenants",
+        },
+        {
+            "name": "Roles",
+            "description": "Operaciones sobre roles",
+        },
+        {
+            "name": "Usuarios - Roles",
+            "description": "Gestión de asociaciones entre usuarios y roles",
+        },
+        {
+            "name": "Roles - Permisos",
+            "description": "Gestión de permisos asociados a roles",
+        },
+        {
+            "name": "Bootstrap",
+            "description": "Inicialización de tenants y configuración inicial del sistema",
+        },
+        {
+            "name": "Permisos",
+            "description": "Operaciones sobre permisos",
+        },
     ],
 )
 
@@ -106,9 +139,13 @@ if os.path.isdir(STATIC_DIR):
         StaticFiles(directory=STATIC_DIR),
         name="static",
     )
-    logger.info(f"Directorio /static montado correctamente: {STATIC_DIR}")
+    logger.info(
+        f"Directorio /static montado correctamente: {STATIC_DIR}"
+    )
 else:
-    logger.error(f"NO SE ENCONTRÓ EL DIRECTORIO STATIC: {STATIC_DIR}")
+    logger.error(
+        f"NO SE ENCONTRÓ EL DIRECTORIO STATIC: {STATIC_DIR}"
+    )
 
 
 logger.info("==========================================")
@@ -124,7 +161,10 @@ logger.info("Rutas de usuarios registradas")
 
 @app.get("/", include_in_schema=False)
 def root():
-    return {"status": "ok", "service": "UsersAPI"}
+    return {
+        "status": "ok",
+        "service": "UsersAPI",
+    }
 
 
 @app.head("/", include_in_schema=False)
@@ -134,7 +174,10 @@ def root_head():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    return {"status": "healthy", "service": "UsersAPI"}
+    return {
+        "status": "healthy",
+        "service": "UsersAPI",
+    }
 
 
 @app.head("/health", include_in_schema=False)
@@ -205,7 +248,10 @@ async def unhandled_exception_handler(
     request: Request,
     exc: Exception,
 ):
-    logger.exception("Error no controlado en %s", request.url.path)
+    logger.exception(
+        "Error no controlado en %s",
+        request.url.path,
+    )
 
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
