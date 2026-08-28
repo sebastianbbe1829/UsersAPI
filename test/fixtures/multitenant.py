@@ -122,16 +122,20 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
             )
         )
 
-    db.add(
-        UserTenantRoleDB(
-            user_tenant_id=user_tenant.id,
-            role_id=role.id,
-        )
+    user_tenant_role = UserTenantRoleDB(
+        user_tenant_id=user_tenant.id,
+        role_id=role.id,
     )
+    db.add(user_tenant_role)
 
     db.flush()
     db.refresh(user)
     db.refresh(user_tenant)
+
+    # Forzar la carga de la relación desde la BD. Esto evita depender del
+    # estado del identity map/lazy loading en los tests bajo RLS.
+    db.expire(user_tenant, ["roles"])
+    user_tenant.roles
 
     token = create_access_token(
         {
