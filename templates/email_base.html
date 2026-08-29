@@ -94,11 +94,11 @@
 
     <img
       src="{{ logo_url }}"
-      alt="Gestión Usuarios SBB"
+      alt="{{ tenant_name }}"
       width="220"
     >
 
-    <h1>UsersAPI Notification</h1>
+    <h1>{{ tenant_name }}</h1>
 
   </div>
 
@@ -152,7 +152,7 @@
   <div class="footer">
 
     <p>
-      Sent by {{ sender }} | UsersAPI
+      {{ tenant_name }}
     </p>
 
   </div>
