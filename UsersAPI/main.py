@@ -22,6 +22,7 @@ from .routes import (
     role_permission_routes,
     bootstrap_routes,
     permission_routes,
+    email_routes,
 )
 
 from .logging_config import logger
@@ -114,6 +115,10 @@ app = FastAPI(
         {
             "name": "Permisos",
             "description": "Operaciones sobre permisos",
+        },
+        {
+            "name": "Email",
+            "description": "Pruebas administrativas de correo transaccional",
         },
     ],
 )
@@ -215,45 +220,33 @@ logger.info("Rutas de bootstrap_routes registradas")
 app.include_router(permission_routes)
 logger.info("Rutas de permission_routes registradas")
 
+app.include_router(email_routes)
+logger.info("Rutas de email_routes registradas")
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ):
-    errores = []
-
-    for error in exc.errors():
-        error = dict(error)
-
-        if "input" in error:
-            error["input"] = str(error["input"])
-
-        if "ctx" in error:
-            error["ctx"] = {
-                key: str(value)
-                for key, value in error["ctx"].items()
-            }
-
-        errores.append(error)
-
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_CONTENT,
-        content={"detail": errores},
+        content={
+            "detail": exc.errors(),
+        },
     )
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(
+async def generic_exception_handler(
     request: Request,
     exc: Exception,
 ):
-    logger.exception(
-        "Error no controlado en %s",
-        request.url.path,
-    )
+    logger.exception("Unhandled application error", exc_info=exc)
 
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Error interno del servidor"},
+        content={
+            "detail": "Error interno del servidor.",
+        },
     )
