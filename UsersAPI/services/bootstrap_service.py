@@ -89,8 +89,6 @@ def bootstrap(
     # 1. VALIDAR TENANT
     # ========================================================
 
-    # Solo se bloquea el tenant que se está intentando crear.
-    # La existencia de otros tenants es completamente válida.
     existing_tenant = tenant_repository.get_by_slug(tenant_slug)
 
     if existing_tenant is not None:
@@ -148,9 +146,6 @@ def bootstrap(
         if existing_user is None:
             user = user_repository.add(user)
         else:
-            # El usuario global puede existir porque ya pertenece a
-            # otra empresa. El nombre global se conserva; los datos
-            # propios del tenant viven en UserTenant.
             user = existing_user
 
         # ====================================================
@@ -323,6 +318,7 @@ def bootstrap(
             dni=user.dni,
             token=user_tenant.activation_token,
             tenant_slug=tenant_slug,
+            template="activation",
         )
 
     except Exception as exc:
