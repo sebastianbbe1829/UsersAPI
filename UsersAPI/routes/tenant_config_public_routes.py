@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..models import TenantDB
 from ..repositories.tenant_config_repository import TenantConfigRepository
-from ..repositories.tenant_repository import TenantRepository
 from ..schemas import TenantConfigRead
 
 
@@ -23,13 +24,21 @@ async def obtener_config_tenant_publica_route(
     tenant_slug: str,
     db: Session = Depends(get_db),
 ):
-    tenant_repository = TenantRepository(db)
-    tenant = tenant_repository.get_by_slug(tenant_slug)
+    slug_normalizado = tenant_slug.strip().lower()
+
+    tenant = (
+        db.query(TenantDB)
+        .filter(
+            func.lower(func.trim(TenantDB.slug)) == slug_normalizado,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
 
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No se encontró el tenant solicitado.",
+            detail="No se encontró un tenant activo con el slug solicitado.",
         )
 
     config_repository = TenantConfigRepository(db)
