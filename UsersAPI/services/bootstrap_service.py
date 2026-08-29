@@ -308,16 +308,17 @@ def bootstrap(
     try:
         send_email(
             recipient=user_tenant.email,
-            subject="Activa tu cuenta en UsersAPI",
+            subject="Activa tu cuenta",
             message=(
                 f"Hola {user.name},\n\n"
-                "Tu cuenta de administrador ha sido creada correctamente.\n\n"
+                f"Tu cuenta de administrador en {tenant.name} ha sido creada correctamente.\n\n"
                 "Para activar tu cuenta utiliza el siguiente enlace de activación.\n\n"
                 "Este enlace es de un solo uso."
             ),
             dni=user.dni,
             token=user_tenant.activation_token,
             tenant_slug=tenant_slug,
+            tenant_name=tenant.name,
             template="activation",
         )
 
