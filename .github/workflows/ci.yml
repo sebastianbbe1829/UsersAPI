@@ -64,6 +64,20 @@ jobs:
   pytest:
     name: Pytest
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: users_api_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d users_api_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,8 +91,8 @@ jobs:
           pip install -r requirements.txt
       - name: Run Pytest
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BOOTSTRAP_DATABASE_URL: ${{ secrets.BOOTSTRAP_DATABASE_URL }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          SUPER_SECRET_KEY: ${{ secrets.SUPER_SECRET_KEY }}
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          SECRET_KEY: ci-secret-key
+          SUPER_SECRET_KEY: ci-super-secret-key
         run: pytest -q
