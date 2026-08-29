@@ -89,7 +89,7 @@ jobs:
 
       - name: Apply database migrations
         env:
-          DATABASE_URL: postgresql+psycopg://users_api_app:ci_users_api_app@localhost:5432/users_api_ci
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://users_api_bootstrap:ci_users_api_bootstrap@localhost:5432/users_api_ci
           DATABASE_ADMIN_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
         run: alembic upgrade head
@@ -110,9 +110,10 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql+psycopg://users_api_app:ci_users_api_app@localhost:5432/users_api_ci
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://users_api_bootstrap:ci_users_api_bootstrap@localhost:5432/users_api_ci
           DATABASE_ADMIN_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          BOOTSTRAP_TENANT_KEY: test-bootstrap-tenant-key
           SECRET_KEY: ci-secret-key
           SUPER_SECRET_KEY: ci-super-secret-key
         run: pytest -q
