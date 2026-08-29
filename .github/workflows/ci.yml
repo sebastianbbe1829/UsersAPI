@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+      - feature/public-tenant-ui-config
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Ruff
+        run: python -m pip install --upgrade pip ruff
+      - name: Run Ruff
+        run: ruff check .
+
+  mypy:
+    name: Mypy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mypy
+      - name: Run Mypy
+        run: mypy UsersAPI
+
+  bandit:
+    name: Bandit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Bandit
+        run: python -m pip install --upgrade pip bandit
+      - name: Run Bandit
+        run: bandit -r UsersAPI -ll
+
+  pytest:
+    name: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run Pytest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BOOTSTRAP_DATABASE_URL: ${{ secrets.BOOTSTRAP_DATABASE_URL }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          SUPER_SECRET_KEY: ${{ secrets.SUPER_SECRET_KEY }}
+        run: pytest -q
