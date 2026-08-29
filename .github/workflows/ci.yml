@@ -111,6 +111,7 @@ jobs:
       - name: Seed test permissions
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://users_api_bootstrap:ci_users_api_bootstrap@localhost:5432/users_api_ci
           PYTHONPATH: .
         run: python scripts/seed_permissions.py
 
