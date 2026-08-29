@@ -3,25 +3,25 @@ import secrets
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..controllers.bootstrap_tenant_controller import bootstrap_application
+from ..controllers.bootstrap_tenant_controller import bootstrap_tenant_application
 from ..database import get_bootstrap_db
-from ..schemas import BootstrapRequest, BootstrapResponse
+from ..schemas import BootstrapTenantRequest, BootstrapTenantResponse
 from ..settings import settings
 
 
-bootstrap_routes = APIRouter(
+bootstrap_tenant_routes = APIRouter(
     prefix="/bootstrap",
     tags=["Bootstrap"],
 )
 
 
-@bootstrap_routes.post(
+@bootstrap_tenant_routes.post(
     "",
-    response_model=BootstrapResponse,
+    response_model=BootstrapTenantResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def bootstrap_route(
-    datos: BootstrapRequest,
+    datos: BootstrapTenantRequest,
     x_bootstrap_tenant_key: str = Header(..., alias="X-Bootstrap-Tenant-Key"),
     db: Session = Depends(get_bootstrap_db),
 ):
@@ -48,7 +48,7 @@ def bootstrap_route(
             detail="Clave de bootstrap inválida.",
         )
 
-    return bootstrap_application(
+    return bootstrap_tenant_application(
         datos=datos,
         db=db,
     )

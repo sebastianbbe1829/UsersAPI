@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from ..models import GlobalUserDB, TenantDB
 from ..repositories.tenant_repository import TenantRepository
-from ..schemas import BootstrapRequest, TenantUpdate
-from ..services.bootstrap_service import bootstrap
+from ..schemas import BootstrapTenantRequest, TenantUpdate
+from .bootstrap_tenant_service import bootstrapTenant
 from ..logging_config import logger
 
 
@@ -49,12 +49,12 @@ def get_any_tenant(
 
 
 def provision_tenant(
-    datos: BootstrapRequest,
+    datos: BootstrapTenantRequest,
     db: Session,
 ):
     # Reutiliza exactamente la lógica de provisionamiento del bootstrap
     # técnico, pero esta vez dentro de una sesión SUPER autenticada.
-    return bootstrap(
+    return bootstrapTenant(
         db=db,
         tenant_name=datos.tenant_name,
         tenant_slug=datos.tenant_slug,

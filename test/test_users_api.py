@@ -171,10 +171,10 @@ def test_bootstrap_creates_tenant_and_admin(
     client: TestClient,
     monkeypatch,
 ):
-    from UsersAPI.services import bootstrap_service
+    from UsersAPI.services import bootstrap_tenant_service
 
-    monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
-    monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_email", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_whatsapp", lambda **kwargs: None)
 
     suffix = uuid4().hex[:10]
     payload = _bootstrap_payload(suffix)
@@ -210,10 +210,10 @@ def test_bootstrap_can_provision_multiple_tenants(
     monkeypatch,
 ):
     """Bootstrap se ejecuta por empresa; no es una inicialización global única."""
-    from UsersAPI.services import bootstrap_service
+    from UsersAPI.services import bootstrap_tenant_service
 
-    monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
-    monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_email", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_whatsapp", lambda **kwargs: None)
 
     first_suffix = uuid4().hex[:10]
     second_suffix = uuid4().hex[:10]
@@ -232,10 +232,10 @@ def test_bootstrap_rejects_duplicate_tenant_slug(
     client: TestClient,
     monkeypatch,
 ):
-    from UsersAPI.services import bootstrap_service
+    from UsersAPI.services import bootstrap_tenant_service
 
-    monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
-    monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_email", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_whatsapp", lambda **kwargs: None)
 
     suffix = uuid4().hex[:10]
     payload = _bootstrap_payload(suffix)

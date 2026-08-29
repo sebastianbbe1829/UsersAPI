@@ -15,7 +15,7 @@ from UsersAPI.models import (
     UserTenantRoleDB,
 )
 from UsersAPI.security.permission_definitions import PERMISSIONS
-from UsersAPI.services import bootstrap_service
+from UsersAPI.services import bootstrap_tenant_service
 from UsersAPI.settings import Settings
 
 
@@ -40,8 +40,8 @@ def configure_bootstrap(monkeypatch):
         Settings(bootstrap_tenant_key=BOOTSTRAP_TENANT_KEY),
     )
 
-    monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
-    monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_email", lambda **kwargs: None)
+    monkeypatch.setattr(bootstrap_tenant_service, "send_whatsapp", lambda **kwargs: None)
 
 
 def _bootstrap_headers(key: str = BOOTSTRAP_TENANT_KEY):
