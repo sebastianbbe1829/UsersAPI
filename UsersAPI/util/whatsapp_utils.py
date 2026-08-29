@@ -11,6 +11,7 @@ from ..settings import settings
 ACCESS_TOKEN = settings.whatsapp_token
 WHATSAPP_PHONE_ID = settings.whatsapp_phone_id
 WHATSAPP_MODE = settings.whatsapp_mode
+WHATSAPP_API_URL = settings.whatsapp_api_url
 
 
 # ============================================================
@@ -43,6 +44,10 @@ def send_whatsapp(
 ):
     """Envía un mensaje mediante WhatsApp Cloud API."""
 
+    if not WHATSAPP_API_URL:
+            logger.error("WHATSAPP_API_URL no está configurado")
+            return None
+
     if not ACCESS_TOKEN:
         logger.error("WHATSAPP_TOKEN no está configurado")
         return None
@@ -59,10 +64,7 @@ def send_whatsapp(
 
     normalized_number = format_number(to_number)
 
-    url = (
-        "https://graph.facebook.com/v25.0/"
-        f"{WHATSAPP_PHONE_ID}/messages"
-    )
+    url = f"{WHATSAPP_API_URL}{WHATSAPP_PHONE_ID}/messages"
 
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",

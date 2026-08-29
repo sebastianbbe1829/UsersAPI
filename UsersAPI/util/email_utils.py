@@ -17,7 +17,7 @@ EMAIL_FROM = settings.email_from
 EMAIL_FROM_NAME = settings.email_from_name
 FRONTEND_URL = settings.frontend_url
 BACKEND_URL = settings.backend_url
-BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+API_EMAIL_URL = settings.api_email_url
 
 
 # ============================================================
@@ -122,7 +122,7 @@ def send_email(
 
     try:
         response = requests.post(
-            BREVO_API_URL,
+            API_EMAIL_URL,
             headers={
                 "api-key": BREVO_API_KEY,
                 "Content-Type": "application/json",
@@ -181,7 +181,7 @@ def send_email(
 # EMAIL DE PRUEBA
 # ============================================================
 
-def send_test_email(
+def send_brevo_email(
     recipient: str,
     subject: str = "Prueba de correo - UsersAPI",
     message: str = "Este es un correo de prueba enviado desde UsersAPI utilizando Brevo.",

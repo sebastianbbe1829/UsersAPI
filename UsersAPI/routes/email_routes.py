@@ -4,10 +4,10 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from ..settings import settings
-from ..util.email_utils import send_test_email
+from ..util.email_utils import send_brevo_email
 
 
-class EmailTestRequest(BaseModel):
+class EmailRequest(BaseModel):
     recipient: str = Field(..., min_length=3, max_length=320)
     subject: str = Field(
         default="Prueba de correo - UsersAPI",
@@ -32,8 +32,8 @@ email_routes = APIRouter(
     status_code=status.HTTP_200_OK,
 )
 def test_email(
-    datos: EmailTestRequest,
-    x_email_key: str = Header(..., alias="X-Email-Test-Key"),
+    datos: EmailRequest,
+    x_email_key: str = Header(..., alias="X-Email-Key"),
 ):
     """Envía un correo de prueba sin crear usuarios ni modificar la BD.
 
@@ -52,11 +52,11 @@ def test_email(
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Clave de prueba de email inválida.",
+            detail="Clave de email inválida.",
         )
 
     try:
-        result = send_test_email(
+        result = send_brevo_email(
             recipient=datos.recipient,
             subject=datos.subject,
             message=datos.message,
