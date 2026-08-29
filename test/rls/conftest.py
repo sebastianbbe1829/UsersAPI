@@ -7,9 +7,9 @@ import psycopg
 
 @pytest.fixture(scope="session")
 def app_database_url():
-    url = os.getenv("DATABASE_URL")
+    url = os.getenv("APP_DATABASE_URL")
     if not url:
-        pytest.skip("DATABASE_URL no está configurada")
+        pytest.skip("APP_DATABASE_URL no está configurada")
     return url.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
