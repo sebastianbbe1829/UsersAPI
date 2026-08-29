@@ -20,7 +20,7 @@ def test_tenant_config_is_created_with_defaults(
     )
 
     tenant_id = tenant.id
-    grant_permissions(db_session, user_tenant, "TENANT_READ")
+    grant_permissions(db_session, user_tenant, "CONFIG_UI_READ")
 
     response = client.get(
         "/tenant-config",
@@ -55,7 +55,7 @@ def test_tenant_can_update_own_ui_config(
         name="Admin Config",
     )
 
-    grant_permissions(db_session, user_tenant, "TENANT_READ", "TENANT_UPDATE")
+    grant_permissions(db_session, user_tenant, "CONFIG_UI_READ", "CONFIG_UI_UPDATE")
 
     response = client.patch(
         "/tenant-config",
@@ -109,7 +109,7 @@ def test_tenant_config_update_isolated_from_another_tenant(
     )
     db_session.flush()
 
-    grant_permissions(db_session, user_tenant_a, "TENANT_READ", "TENANT_UPDATE")
+    grant_permissions(db_session, user_tenant_a, "CONFIG_UI_READ", "CONFIG_UI_UPDATE")
 
     response = client.patch(
         "/tenant-config",
@@ -141,19 +141,17 @@ def test_tenant_config_requires_permission(
         name="Admin Sin Permiso",
     )
 
-    grant_permissions(db_session, user_tenant, "TENANT_READ")
+    grant_permissions(db_session, user_tenant, "CONFIG_UI_READ")
 
-    # create_user_context crea el rol de prueba con todos los permisos base.
-    # Para probar realmente la autorización del PATCH, retiramos TENANT_UPDATE.
-    tenant_update_permission = (
+    config_update_permission = (
         db_session.query(PermissionDB)
-        .filter(PermissionDB.code == "TENANT_UPDATE")
+        .filter(PermissionDB.code == "CONFIG_UI_UPDATE")
         .one()
     )
     role_id = user_tenant.roles[0].role_id
     db_session.query(RolePermissionDB).filter(
         RolePermissionDB.role_id == role_id,
-        RolePermissionDB.permission_id == tenant_update_permission.id,
+        RolePermissionDB.permission_id == config_update_permission.id,
     ).delete(synchronize_session=False)
     db_session.flush()
     db_session.expire_all()
@@ -180,7 +178,7 @@ def test_tenant_config_rejects_invalid_colors(
         name="Admin Config",
     )
 
-    grant_permissions(db_session, user_tenant, "TENANT_UPDATE")
+    grant_permissions(db_session, user_tenant, "CONFIG_UI_UPDATE")
 
     response = client.patch(
         "/tenant-config",
