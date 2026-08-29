@@ -229,24 +229,39 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ):
+    errores = []
+
+    for error in exc.errors():
+        error = dict(error)
+
+        if "input" in error:
+            error["input"] = str(error["input"])
+
+        if "ctx" in error:
+            error["ctx"] = {
+                key: str(value)
+                for key, value in error["ctx"].items()
+            }
+
+        errores.append(error)
+
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_CONTENT,
-        content={
-            "detail": exc.errors(),
-        },
+        content={"detail": errores},
     )
 
 
 @app.exception_handler(Exception)
-async def generic_exception_handler(
+async def unhandled_exception_handler(
     request: Request,
     exc: Exception,
 ):
-    logger.exception("Unhandled application error", exc_info=exc)
+    logger.exception(
+        "Error no controlado en %s",
+        request.url.path,
+    )
 
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "detail": "Error interno del servidor.",
-        },
+        content={"detail": "Error interno del servidor"},
     )
