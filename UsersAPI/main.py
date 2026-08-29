@@ -16,6 +16,7 @@ from .routes import (
     global_auth_routes,
     tenant_routes,
     tenant_config_routes,
+    tenant_config_public_routes,
     user_tenant_routes,
     role_routes,
     user_tenant_role_routes,
@@ -201,6 +202,9 @@ logger.info("Rutas de tenants registradas")
 
 app.include_router(tenant_config_routes)
 logger.info("Rutas de configuración UI registradas")
+
+app.include_router(tenant_config_public_routes)
+logger.info("Rutas públicas de configuración UI registradas")
 
 app.include_router(user_tenant_routes)
 logger.info("Rutas de relaciones usuario-tenant registradas")

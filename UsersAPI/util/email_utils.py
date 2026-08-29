@@ -1,7 +1,7 @@
 import os
 
-from jinja2 import Environment, FileSystemLoader
 import requests
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from ..logging_config import logger
 from ..settings import settings
@@ -37,7 +37,8 @@ TEMPLATE_DIR = os.path.join(
 )
 
 env = Environment(
-    loader=FileSystemLoader(TEMPLATE_DIR)
+    loader=FileSystemLoader(TEMPLATE_DIR),
+    autoescape=select_autoescape(["html", "xml"]),
 )
 
 
@@ -99,18 +100,12 @@ def send_email(
     backend_url = BACKEND_URL.rstrip("/")
     logo_url = f"{backend_url}/static/logo.png"
 
-    # El nombre comercial del tenant es el que debe ver el usuario.
-    # Si un flujo todavía no lo proporciona, usamos el slug como
-    # fallback para no volver a mostrar el nombre técnico de la API.
     tenant_display_name = (
         tenant_name.strip()
         if tenant_name and tenant_name.strip()
         else tenant_slug
     )
 
-    # Compatibilidad con llamadas existentes que todavía envían
-    # subjects históricos con "UsersAPI". La comunicación final
-    # siempre queda orientada a la empresa/tenant.
     if "UsersAPI" in subject:
         if template == "activation":
             subject = f"Activa tu cuenta en {tenant_display_name}"

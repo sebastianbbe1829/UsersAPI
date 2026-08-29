@@ -3,6 +3,7 @@ from .auth_routes import auth_routers
 from .global_auth_routes import global_auth_routes
 from .tenant_routes import tenant_routes
 from .tenant_config_routes import tenant_config_routes
+from .tenant_config_public_routes import tenant_config_public_routes
 from .user_tenant_routes import user_tenant_routes
 from .role_routes import role_routes
 from .user_tenant_role_routes import user_tenant_role_routes
@@ -18,6 +19,7 @@ __all__ = [
     "global_auth_routes",
     "tenant_routes",
     "tenant_config_routes",
+    "tenant_config_public_routes",
     "user_tenant_routes",
     "role_routes",
     "user_tenant_role_routes",
