@@ -135,6 +135,7 @@ def create_user(
         )
 
     tenant_slug = tenant.slug
+    tenant_name = tenant.name
     actor = _actor_dni(current_user)
 
     existente = user_repository.get_by_dni(user.dni)
@@ -340,18 +341,18 @@ def create_user(
 
     if es_reactivacion:
         email_template = "reactivation"
-        email_subject = "Tu cuenta en UsersAPI fue reactivada"
+        email_subject = f"Tu cuenta en {tenant_name} fue reactivada"
         email_message = (
             f"Hola {nuevo_usuario.name}, "
-            "tu cuenta ha sido reactivada exitosamente. "
+            f"tu cuenta en {tenant_name} ha sido reactivada exitosamente. "
             "Para completar el proceso, utiliza el botón para reactivar tu cuenta."
         )
     else:
         email_template = "activation"
-        email_subject = "Bienvenido a UsersAPI"
+        email_subject = f"Activa tu cuenta en {tenant_name}"
         email_message = (
             f"Hola {nuevo_usuario.name}, "
-            "tu cuenta ha sido creada exitosamente."
+            f"tu cuenta en {tenant_name} ha sido creada exitosamente."
         )
 
     try:
@@ -476,6 +477,7 @@ def update_user(
         )
 
     tenant_slug = tenant.slug
+    tenant_name = tenant.name
 
     usuario = _get_user_entity(dni, tenant_id, user_repository)
     link = _tenant_link(usuario, tenant_id, user_tenant_repository)
@@ -530,10 +532,10 @@ def update_user(
     try:
         send_email(
             recipient=link.email,
-            subject="Tu cuenta en UsersAPI fue actualizada",
+            subject=f"Tu cuenta en {tenant_name} fue actualizada",
             message=(
                 f"Hola {usuario.name}, "
-                "la información de tu cuenta ha sido actualizada."
+                f"la información de tu cuenta en {tenant_name} ha sido actualizada."
             ),
             tenant_slug=tenant_slug,
             template="updated",
@@ -642,7 +644,6 @@ def export_users(
 #
 # POST /users/activate/{dni}/{token}
 # ============================================================
-
 def activate_user(
     dni: str,
     token: str,
