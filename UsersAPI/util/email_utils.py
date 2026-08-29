@@ -1,5 +1,4 @@
 import os
-import uuid
 
 from jinja2 import Environment, FileSystemLoader
 import requests
@@ -53,6 +52,7 @@ def send_email(
     dni: str | None = None,
     token: str | None = None,
     tenant_slug: str | None = None,
+    tenant_name: str | None = None,
     template: str = "default",
 ):
     """Envía un correo transaccional utilizando Brevo.
@@ -62,6 +62,8 @@ def send_email(
         - reactivation: reactivación de cuenta.
         - updated: actualización de usuario con acceso al login.
         - default: mensaje informativo sin botón.
+
+    La comunicación se presenta siempre desde el tenant/empresa.
     """
 
     allowed_templates = {
@@ -96,6 +98,29 @@ def send_email(
 
     backend_url = BACKEND_URL.rstrip("/")
     logo_url = f"{backend_url}/static/logo.png"
+
+    # El nombre comercial del tenant es el que debe ver el usuario.
+    # Si un flujo todavía no lo proporciona, usamos el slug como
+    # fallback para no volver a mostrar el nombre técnico de la API.
+    tenant_display_name = (
+        tenant_name.strip()
+        if tenant_name and tenant_name.strip()
+        else tenant_slug
+    )
+
+    if not tenant_display_name:
+        tenant_display_name = "tu empresa"
+
+    # Compatibilidad con llamadas existentes que todavía envían
+    # subjects históricos con "UsersAPI". La comunicación final
+    # siempre queda orientada a la empresa/tenant.
+    if "UsersAPI" in subject:
+        if template == "activation":
+            subject = f"Activa tu cuenta en {tenant_display_name}"
+        elif template == "reactivation":
+            subject = f"Reactiva tu cuenta en {tenant_display_name}"
+        elif template == "updated":
+            subject = f"Tu usuario en {tenant_display_name} fue actualizado"
 
     activation_url = None
     login_url = None
@@ -166,6 +191,7 @@ def send_email(
             activation_url=activation_url,
             login_url=login_url,
             logo_url=logo_url,
+            tenant_name=tenant_display_name,
             template=template,
         )
 
@@ -255,8 +281,8 @@ def send_email(
 
 def send_brevo_email(
     recipient: str,
-    subject: str = "Prueba de correo - UsersAPI",
-    message: str = "Este es un correo de prueba enviado desde UsersAPI utilizando Brevo.",
+    subject: str = "Prueba de correo",
+    message: str = "Este es un correo de prueba enviado desde el sistema.",
 ):
     """Envía el template por defecto sin botón.
 
