@@ -120,6 +120,7 @@
           Activar Cuenta
         </a>
       </div>
+
     {% elif template == "reactivation" %}
       <div class="button-container">
         <a
@@ -130,6 +131,7 @@
           Reactivar Cuenta
         </a>
       </div>
+
     {% elif template == "updated" %}
       <div class="button-container">
         <a
@@ -140,6 +142,9 @@
           Ingresar a la aplicación
         </a>
       </div>
+
+    {% elif template == "default" %}
+      {# Correo informativo sin botón #}
     {% endif %}
 
   </div>
