@@ -33,27 +33,26 @@ email_routes = APIRouter(
 )
 def test_email(
     datos: EmailTestRequest,
-    x_bootstrap_key: str = Header(..., alias="X-Bootstrap-Key"),
+    x_email_test_key: str = Header(..., alias="X-Email-Test-Key"),
 ):
     """Envía un correo de prueba sin crear usuarios ni modificar la BD.
 
-    El endpoint está protegido con la misma clave interna utilizada por
-    /bootstrap y debe utilizarse únicamente para pruebas administrativas.
+    El endpoint está protegido con una clave exclusiva para pruebas de email.
     """
 
-    if not settings.bootstrap_key:
+    if not settings.email_test_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="BOOTSTRAP_KEY no está configurada.",
+            detail="EMAIL_TEST_KEY no está configurada.",
         )
 
     if not secrets.compare_digest(
-        x_bootstrap_key,
-        settings.bootstrap_key,
+        x_email_test_key,
+        settings.email_test_key,
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Clave de bootstrap inválida.",
+            detail="Clave de prueba de email inválida.",
         )
 
     try:
