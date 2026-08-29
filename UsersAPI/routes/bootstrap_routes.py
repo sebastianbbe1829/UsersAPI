@@ -3,7 +3,7 @@ import secrets
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..controllers.bootstrap_controller import bootstrap_application
+from ..controllers.bootstrap_tenant_controller import bootstrap_application
 from ..database import get_bootstrap_db
 from ..schemas import BootstrapRequest, BootstrapResponse
 from ..settings import settings
