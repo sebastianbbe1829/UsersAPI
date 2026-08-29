@@ -50,12 +50,14 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          DATABASE_ADMIN_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
         run: alembic upgrade head
 
       - name: Run tests
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          DATABASE_ADMIN_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           SECRET_KEY: ci-secret-key
           SUPER_SECRET_KEY: ci-super-secret-key
         run: pytest -q
