@@ -97,7 +97,7 @@ PERMISSIONS = [
         "Crear permisos",
         "Permite crear permisos",
     ),
-      # ========================================================
+    # ========================================================
     # AUTENTICACIÓN
     # ========================================================
 
@@ -105,5 +105,23 @@ PERMISSIONS = [
         "AUTHENTICATE",
         "Autenticación",
         "Permite la autenticación en el sistema",
+    ),
+    # ========================================================
+    # CONFIG UI
+    # ========================================================
+    (
+        "CONFIG_UI_CREATE",
+        "Crear configuración de UI",
+        "Permite crear configuración de UI",
+    ),
+    (
+        "CONFIG_UI_READ",
+        "Consultar configuración de UI",
+        "Permite consultar la configuración de UI",
+    ),
+    (
+        "CONFIG_UI_UPDATE",
+        "Actualizar configuración de UI",
+        "Permite actualizar la configuración de UI",
     ),
 ]

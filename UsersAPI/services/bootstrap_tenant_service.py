@@ -38,7 +38,7 @@ from ..security.permission_definitions import PERMISSIONS
 # ============================================================
 
 
-def bootstrap(
+def bootstrapTenant(
     db: Session,
     tenant_name: str,
     tenant_slug: str,

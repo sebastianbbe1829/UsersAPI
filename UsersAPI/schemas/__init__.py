@@ -11,8 +11,8 @@ from .tenant import (
     TenantDeleteResponse,
     TenantRead,
     TenantUpdate,
-    BootstrapRequest,
-    BootstrapResponse,
+    BootstrapTenantRequest,
+    BootstrapTenantResponse,
 )
 
 from .tenant_config import (
@@ -107,6 +107,6 @@ __all__ = [
     "SuperBootstrapMfaVerifyResponse",
     "SuperLoginRequest",
     "SuperLoginResponse",
-    "BootstrapRequest",
-    "BootstrapResponse",
+    "BootstrapTenantRequest",
+    "BootstrapTenantResponse",
 ]

@@ -1,18 +1,18 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..schemas import BootstrapRequest, BootstrapResponse
-from ..services.bootstrap_service import bootstrap
+from ..schemas import BootstrapTenantRequest, BootstrapTenantResponse
+from ..services.bootstrap_tenant_service import bootstrapTenant
 
 
-def bootstrap_application(
-    datos: BootstrapRequest,
+def bootstrap_tenant_application(
+    datos: BootstrapTenantRequest,
     db: Session,
-) -> BootstrapResponse:
+) -> BootstrapTenantResponse:
 
     try:
 
-        result = bootstrap(
+        result = bootstrapTenant(
             db=db,
             tenant_name=datos.tenant_name,
             tenant_slug=datos.tenant_slug,
@@ -56,7 +56,7 @@ def bootstrap_application(
     # DE BootstrapResponse
     # ========================================================
 
-    return BootstrapResponse(
+    return BootstrapTenantResponse(
         tenant_id=tenant.id,
         tenant_name=tenant.name,
         tenant_slug=tenant.slug,

@@ -35,8 +35,13 @@ from .permission_service import (
     get_permission,
 )
 
+from .bootstrap_tenant_service import(
+    bootstrapTenant
+)
+
 
 __all__ = [
+    "bootstrapTenant",
     "list_permission",
     "get_permission",
     "create_access_token",

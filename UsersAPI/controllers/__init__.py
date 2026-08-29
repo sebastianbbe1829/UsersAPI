@@ -42,7 +42,7 @@ from .role_permission_controller import (
 )
 
 from .bootstrap_tenant_controller import (
-    bootstrap_application,
+    bootstrap_tenant_application,
 )
 
 from .permission_controller import (
@@ -78,5 +78,5 @@ __all__ = [
     "listar_permisos_rol",
     "eliminar_permiso_rol",
     "activate_user",
-    "bootstrap_application",
+    "bootstrap_tenant_application",
 ]

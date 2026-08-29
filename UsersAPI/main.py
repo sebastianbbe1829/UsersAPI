@@ -20,7 +20,7 @@ from .routes import (
     role_routes,
     user_tenant_role_routes,
     role_permission_routes,
-    bootstrap_routes,
+    bootstrap_tenant_routes,
     permission_routes,
     email_routes,
 )
@@ -214,8 +214,8 @@ logger.info("Rutas de usuarios-roles registradas")
 app.include_router(role_permission_routes)
 logger.info("Rutas de roles-permisos registradas")
 
-app.include_router(bootstrap_routes)
-logger.info("Rutas de bootstrap_routes registradas")
+app.include_router(bootstrap_tenant_routes)
+logger.info("Rutas de bootstrap_tenant_routes registradas")
 
 app.include_router(permission_routes)
 logger.info("Rutas de permission_routes registradas")

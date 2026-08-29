@@ -24,7 +24,7 @@ tenant_config_routes = APIRouter(
     response_model=TenantConfigRead,
     status_code=status.HTTP_200_OK,
     summary="Obtener configuración visual del tenant actual",
-    dependencies=[Depends(require_permission("TENANT_READ"))],
+    dependencies=[Depends(require_permission("CONFIG_UI_READ"))],
 )
 async def obtener_config_tenant_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
@@ -43,7 +43,7 @@ async def obtener_config_tenant_route(
     response_model=TenantConfigRead,
     status_code=status.HTTP_200_OK,
     summary="Actualizar configuración visual del tenant actual",
-    dependencies=[Depends(require_permission("TENANT_UPDATE"))],
+    dependencies=[Depends(require_permission("CONFIG_UI_UPDATE"))],
 )
 async def actualizar_config_tenant_route(
     datos: TenantConfigUpdate,

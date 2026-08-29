@@ -16,8 +16,8 @@ from ..controllers import super_tenant_controller
 from ..database import get_db, get_bootstrap_db
 from ..models import UserTenantDB
 from ..schemas import (
-    BootstrapRequest,
-    BootstrapResponse,
+    BootstrapTenantRequest,
+    BootstrapTenantResponse,
     TenantCreate,
     TenantDeleteResponse,
     TenantRead,
@@ -78,12 +78,12 @@ async def obtener_tenant_super_route(
 
 @tenant_routes.post(
     "/admin/provision",
-    response_model=BootstrapResponse,
+    response_model=BootstrapTenantResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Provisionar un nuevo tenant como SUPER",
 )
 async def crear_tenant_super_route(
-    datos: BootstrapRequest,
+    datos: BootstrapTenantRequest,
     x_super_mfa_otp: str = Header(..., alias="X-Super-MFA-OTP"),
     db: Session = Depends(get_bootstrap_db),
     current_user=Depends(get_current_user),

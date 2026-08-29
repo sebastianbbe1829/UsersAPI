@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from ..models import GlobalUserDB
-from ..schemas import BootstrapRequest, BootstrapResponse, TenantUpdate
+from ..schemas import BootstrapTenantRequest, BootstrapTenantResponse, TenantUpdate
 from ..services.super_tenant_service import (
     get_any_tenant,
     list_all_tenants,
@@ -27,7 +27,7 @@ def obtener_tenant_super(
 
 
 def crear_tenant_super(
-    datos: BootstrapRequest,
+    datos: BootstrapTenantRequest,
     otp: str,
     db: Session,
     current_user,
@@ -42,7 +42,7 @@ def crear_tenant_super(
     user_tenant = result["user_tenant"]
     role = result["role"]
 
-    return BootstrapResponse(
+    return BootstrapTenantResponse(
         tenant_id=tenant.id,
         tenant_name=tenant.name,
         tenant_slug=tenant.slug,
