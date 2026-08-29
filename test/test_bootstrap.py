@@ -19,13 +19,13 @@ from UsersAPI.services import bootstrap_service
 from UsersAPI.settings import Settings
 
 
-BOOTSTRAP_KEY = "test-bootstrap-key"
+BOOTSTRAP_TENANT_KEY = "test-bootstrap-tenant-key"
 
 
 @pytest.fixture(autouse=True)
 def configure_bootstrap(monkeypatch):
     """Configura la clave interna y desactiva servicios externos en tests."""
-    monkeypatch.setenv("BOOTSTRAP_KEY", BOOTSTRAP_KEY)
+    monkeypatch.setenv("BOOTSTRAP_TENANT_KEY", BOOTSTRAP_TENANT_KEY)
 
     # El paquete UsersAPI.routes expone bootstrap_routes como APIRouter.
     # Para reemplazar la referencia `settings` usada por la ruta debemos
@@ -37,14 +37,14 @@ def configure_bootstrap(monkeypatch):
     monkeypatch.setattr(
         bootstrap_routes_module,
         "settings",
-        Settings(bootstrap_key=BOOTSTRAP_KEY),
+        Settings(bootstrap_tenant_key=BOOTSTRAP_TENANT_KEY),
     )
 
     monkeypatch.setattr(bootstrap_service, "send_email", lambda **kwargs: None)
     monkeypatch.setattr(bootstrap_service, "send_whatsapp", lambda **kwargs: None)
 
 
-def _bootstrap_headers(key: str = BOOTSTRAP_KEY):
+def _bootstrap_headers(key: str = BOOTSTRAP_TENANT_KEY):
     return {"X-Bootstrap-Key": key}
 
 

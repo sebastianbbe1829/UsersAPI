@@ -22,6 +22,7 @@ from .routes import (
     role_permission_routes,
     bootstrap_routes,
     permission_routes,
+    email_routes,
 )
 
 from .logging_config import logger
@@ -114,6 +115,10 @@ app = FastAPI(
         {
             "name": "Permisos",
             "description": "Operaciones sobre permisos",
+        },
+        {
+            "name": "Email",
+            "description": "Pruebas administrativas de correo transaccional",
         },
     ],
 )
@@ -214,6 +219,9 @@ logger.info("Rutas de bootstrap_routes registradas")
 
 app.include_router(permission_routes)
 logger.info("Rutas de permission_routes registradas")
+
+app.include_router(email_routes)
+logger.info("Rutas de email_routes registradas")
 
 
 @app.exception_handler(RequestValidationError)

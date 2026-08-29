@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from jinja2 import Environment, FileSystemLoader
 import requests
@@ -11,10 +12,12 @@ from ..settings import settings
 # CONFIGURACIÓN
 # ============================================================
 
-MAILERSEND_API_KEY = settings.mailersend_api_key
+BREVO_API_KEY = settings.brevo_api_key
 EMAIL_FROM = settings.email_from
+EMAIL_FROM_NAME = settings.email_from_name
 FRONTEND_URL = settings.frontend_url
 BACKEND_URL = settings.backend_url
+API_EMAIL_URL = settings.api_email_url
 
 
 # ============================================================
@@ -51,16 +54,16 @@ def send_email(
     token: str,
     tenant_slug: str,
 ):
-    """Envía un correo electrónico utilizando MailerSend."""
+    """Envía un correo transaccional utilizando Brevo."""
 
     logger.info(
         f"Preparing to send email to {recipient} "
         f"with subject '{subject}'"
     )
 
-    if not MAILERSEND_API_KEY:
-        logger.error("MAILERSEND_API_KEY is not configured")
-        raise RuntimeError("MAILERSEND_API_KEY is not configured")
+    if not BREVO_API_KEY:
+        logger.error("BREVO_API_KEY is not configured")
+        raise RuntimeError("BREVO_API_KEY is not configured")
 
     if not EMAIL_FROM:
         logger.error("EMAIL_FROM is not configured")
@@ -119,21 +122,21 @@ def send_email(
 
     try:
         response = requests.post(
-            "https://api.mailersend.com/v1/email",
+            API_EMAIL_URL,
             headers={
-                "Authorization": f"Bearer {MAILERSEND_API_KEY}",
+                "api-key": BREVO_API_KEY,
                 "Content-Type": "application/json",
                 "Accept": "application/json"
             },
             json={
-                "from": {
+                "sender": {
                     "email": EMAIL_FROM,
-                    "name": "UsersAPI"
+                    "name": EMAIL_FROM_NAME
                 },
                 "to": [{"email": recipient}],
                 "subject": subject,
-                "html": html_content,
-                "text": (
+                "htmlContent": html_content,
+                "textContent": (
                     f"{message}\n\n"
                     f"Activar cuenta:\n"
                     f"{activation_url}"
@@ -142,16 +145,17 @@ def send_email(
             timeout=30
         )
 
-        if response.status_code != 202:
+        if response.status_code != 201:
             logger.error(
-                f"MailerSend error {response.status_code}: {response.text}"
+                f"Brevo error {response.status_code}: {response.text}"
             )
             response.raise_for_status()
 
-        message_id = response.headers.get("x-message-id")
+        response_data = response.json()
+        message_id = response_data.get("messageId")
 
         logger.info(
-            f"Email sent successfully to {recipient} via MailerSend | "
+            f"Email sent successfully to {recipient} via Brevo | "
             f"message_id={message_id}"
         )
 
@@ -161,13 +165,37 @@ def send_email(
         }
 
     except requests.exceptions.Timeout:
-        logger.exception("Timeout sending email through MailerSend")
-        raise RuntimeError("Timeout connecting to MailerSend")
+        logger.exception("Timeout sending email through Brevo")
+        raise RuntimeError("Timeout connecting to Brevo")
 
     except requests.exceptions.RequestException:
-        logger.exception("HTTP error sending email through MailerSend")
+        logger.exception("HTTP error sending email through Brevo")
         raise
 
     except Exception:
-        logger.exception("Error sending email through MailerSend")
+        logger.exception("Error sending email through Brevo")
         raise
+
+
+# ============================================================
+# EMAIL DE PRUEBA
+# ============================================================
+
+def send_brevo_email(
+    recipient: str,
+    subject: str = "Prueba de correo - UsersAPI",
+    message: str = "Este es un correo de prueba enviado desde UsersAPI utilizando Brevo.",
+):
+    """Envía el mismo template de producción con datos ficticios.
+
+    No crea usuarios, tenants ni registros en la base de datos.
+    """
+
+    return send_email(
+        recipient=recipient,
+        subject=subject,
+        message=message,
+        dni="TEST",
+        token=str(uuid.uuid4()),
+        tenant_slug="demo",
+    )

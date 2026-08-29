@@ -22,7 +22,7 @@ bootstrap_routes = APIRouter(
 )
 def bootstrap_route(
     datos: BootstrapRequest,
-    x_bootstrap_key: str = Header(..., alias="X-Bootstrap-Key"),
+    x_bootstrap_tenant_key: str = Header(..., alias="X-Bootstrap-Tenant-Key"),
     db: Session = Depends(get_bootstrap_db),
 ):
     """Provisiona una nueva empresa mediante una clave interna.
@@ -30,18 +30,18 @@ def bootstrap_route(
     Bootstrap no utiliza JWT ni tenant porque su función es precisamente
     crear el tenant y su contexto administrativo inicial. La autorización
     del proceso se realiza mediante una clave secreta centralizada en
-    settings y configurada mediante BOOTSTRAP_KEY.
+    settings y configurada mediante BOOTSTRAP_TENANT_KEY.
     """
 
-    if not settings.bootstrap_key:
+    if not settings.bootstrap_tenant_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="BOOTSTRAP_KEY no está configurada.",
+            detail="BOOTSTRAP_TENANT_KEY no está configurada.",
         )
 
     if not secrets.compare_digest(
-        x_bootstrap_key,
-        settings.bootstrap_key,
+        x_bootstrap_tenant_key,
+        settings.bootstrap_tenant_key,
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
