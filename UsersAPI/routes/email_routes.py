@@ -33,22 +33,22 @@ email_routes = APIRouter(
 )
 def test_email(
     datos: EmailTestRequest,
-    x_email_test_key: str = Header(..., alias="X-Email-Test-Key"),
+    x_email_key: str = Header(..., alias="X-Email-Test-Key"),
 ):
     """Envía un correo de prueba sin crear usuarios ni modificar la BD.
 
     El endpoint está protegido con una clave exclusiva para pruebas de email.
     """
 
-    if not settings.email_test_key:
+    if not settings.email_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="EMAIL_TEST_KEY no está configurada.",
+            detail="EMAIL_KEY no está configurada.",
         )
 
     if not secrets.compare_digest(
-        x_email_test_key,
-        settings.email_test_key,
+        x_email_key,
+        settings.email_key,
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

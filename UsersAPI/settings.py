@@ -28,7 +28,7 @@ class Settings:
     # BOOTSTRAP
     # ========================================================
 
-    bootstrap_key: str = os.getenv("BOOTSTRAP_KEY", "")
+    bootstrap_tenant_key: str = os.getenv("BOOTSTRAP_TENANT_KEY", "")
 
     # ========================================================
     # SUPER
@@ -47,7 +47,7 @@ class Settings:
     brevo_api_key: str = os.getenv("BREVO_API_KEY", "")
     email_from: str = os.getenv("EMAIL_FROM", "")
     email_from_name: str = os.getenv("EMAIL_FROM_NAME", "UsersAPI")
-    email_test_key: str = os.getenv("EMAIL_TEST_KEY", "")
+    email_key: str = os.getenv("EMAIL_KEY", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "")
     backend_url: str = os.getenv("BACKEND_URL", "")
 

@@ -163,7 +163,7 @@ def _bootstrap_payload(suffix: str) -> dict:
 
 
 def _bootstrap_headers() -> dict:
-    return {"X-Bootstrap-Key": settings.bootstrap_key}
+    return {"X-Bootstrap-Tenant-Key": settings.bootstrap_tenant_key}
 
 
 def test_bootstrap_creates_tenant_and_admin(
