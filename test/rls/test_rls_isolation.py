@@ -72,8 +72,9 @@ def test_cross_tenant_insert_is_blocked(app_conn, bootstrap_conn, tenant_ids):
         with app_conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO users_api.user_tenants (user_id, tenant_id, status)
-                VALUES (%s, %s, 0)
+                INSERT INTO users_api.user_tenants
+                    (user_id, tenant_id, status, created_by)
+                VALUES (%s, %s, 0, 'pytest')
                 """,
                 (user_id, tenant_b),
             )
