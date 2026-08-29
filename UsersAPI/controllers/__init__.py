@@ -22,7 +22,7 @@ from .tenant_controller import (
 )
 
 from .role_controller import (
-    listar_roles,   
+    listar_roles,
     obtener_rol,
     actualizar_rol,
     eliminar_rol,
@@ -41,7 +41,7 @@ from .role_permission_controller import (
     eliminar_permiso_rol,
 )
 
-from .bootstrap_controller import (
+from .bootstrap_tenant_controller import (
     bootstrap_application,
 )
 

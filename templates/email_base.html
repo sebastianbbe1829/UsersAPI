@@ -90,26 +90,17 @@
 
 <body>
 
-  <!-- ================================================== -->
-  <!-- HEADER -->
-  <!-- ================================================== -->
-
   <div class="header">
 
     <img
       src="{{ logo_url }}"
-      alt="Gestión Usuarios SBB"
+      alt="{{ tenant_name }}"
       width="220"
     >
 
-    <h1>UsersAPI Notification</h1>
+    <h1>{{ tenant_name }}</h1>
 
   </div>
-
-
-  <!-- ================================================== -->
-  <!-- CONTENIDO -->
-  <!-- ================================================== -->
 
   <div class="container">
 
@@ -119,29 +110,49 @@
       {{ message }}
     </p>
 
-    <div class="button-container">
+    {% if template == "activation" %}
+      <div class="button-container">
+        <a
+          href="{{ activation_url }}"
+          class="button"
+          target="_blank"
+        >
+          Activar Cuenta
+        </a>
+      </div>
 
-      <a
-        href="{{ activation_url }}"
-        class="button"
-        target="_blank"
-      >
-        Activar Cuenta
-      </a>
+    {% elif template == "reactivation" %}
+      <div class="button-container">
+        <a
+          href="{{ activation_url }}"
+          class="button"
+          target="_blank"
+        >
+          Reactivar Cuenta
+        </a>
+      </div>
 
-    </div>
+    {% elif template == "updated" %}
+      <div class="button-container">
+        <a
+          href="{{ login_url }}"
+          class="button"
+          target="_blank"
+        >
+          Ingresar a la aplicación
+        </a>
+      </div>
+
+    {% elif template == "default" %}
+      {# Correo informativo sin botón #}
+    {% endif %}
 
   </div>
-
-
-  <!-- ================================================== -->
-  <!-- FOOTER -->
-  <!-- ================================================== -->
 
   <div class="footer">
 
     <p>
-      Sent by {{ sender }} | UsersAPI
+      {{ tenant_name }}
     </p>
 
   </div>

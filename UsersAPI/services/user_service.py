@@ -135,10 +135,12 @@ def create_user(
         )
 
     tenant_slug = tenant.slug
+    tenant_name = tenant.name
     actor = _actor_dni(current_user)
 
     existente = user_repository.get_by_dni(user.dni)
     nuevo_usuario: UserDB
+    es_reactivacion = False
 
     if existente is not None:
         nuevo_usuario = existente
@@ -200,6 +202,7 @@ def create_user(
 
         else:
             if link_existente.status == 3:
+                es_reactivacion = True
                 nuevo_usuario.name = user.name
                 activation_token = str(uuid.uuid4())
                 ahora = datetime.now()
@@ -336,24 +339,40 @@ def create_user(
         },
     )
 
+    if es_reactivacion:
+        email_template = "reactivation"
+        email_subject = f"Tu cuenta en {tenant_name} fue reactivada"
+        email_message = (
+            f"Hola {nuevo_usuario.name}, "
+            f"tu cuenta en {tenant_name} ha sido reactivada exitosamente. "
+            "Para completar el proceso, utiliza el botón para reactivar tu cuenta."
+        )
+    else:
+        email_template = "activation"
+        email_subject = f"Activa tu cuenta en {tenant_name}"
+        email_message = (
+            f"Hola {nuevo_usuario.name}, "
+            f"tu cuenta en {tenant_name} ha sido creada exitosamente."
+        )
+
     try:
         send_email(
             recipient=nuevo_user_tenant.email,
-            subject="Bienvenido a UsersAPI",
-            message=(
-                f"Hola {nuevo_usuario.name}, "
-                "tu cuenta ha sido creada exitosamente."
-            ),
+            subject=email_subject,
+            message=email_message,
             dni=nuevo_usuario.dni,
             token=nuevo_user_tenant.activation_token,
+            tenant_name=tenant_name,
             tenant_slug=tenant_slug,
+            template=email_template,
         )
         logger.info(
-            "Correo de bienvenida enviado",
+            "Correo de usuario enviado",
             extra={
                 "dni": nuevo_usuario.dni,
                 "email": nuevo_user_tenant.email,
                 "tenant_id": tenant_id,
+                "template": email_template,
             },
         )
     except Exception as exc:
@@ -459,6 +478,7 @@ def update_user(
         )
 
     tenant_slug = tenant.slug
+    tenant_name = tenant.name
 
     usuario = _get_user_entity(dni, tenant_id, user_repository)
     link = _tenant_link(usuario, tenant_id, user_tenant_repository)
@@ -513,14 +533,14 @@ def update_user(
     try:
         send_email(
             recipient=link.email,
-            subject="Tu cuenta en UsersAPI fue actualizada",
+            subject=f"Tu cuenta en {tenant_name} fue actualizada",
             message=(
                 f"Hola {usuario.name}, "
-                "la información de tu cuenta ha sido actualizada."
+                f"la información de tu cuenta en {tenant_name} ha sido actualizada."
             ),
-            dni=usuario.dni,
-            token=link.activation_token,
             tenant_slug=tenant_slug,
+            tenant_name=tenant_name,
+            template="updated",
         )
     except Exception as exc:
         logger.warning(
@@ -626,7 +646,6 @@ def export_users(
 #
 # POST /users/activate/{dni}/{token}
 # ============================================================
-
 def activate_user(
     dni: str,
     token: str,
