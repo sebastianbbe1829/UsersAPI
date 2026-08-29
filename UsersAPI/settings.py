@@ -44,8 +44,9 @@ class Settings:
     # EMAIL
     # ========================================================
 
-    mailersend_api_key: str = os.getenv("MAILERSEND_API_KEY", "")
+    brevo_api_key: str = os.getenv("BREVO_API_KEY", "")
     email_from: str = os.getenv("EMAIL_FROM", "")
+    email_from_name: str = os.getenv("EMAIL_FROM_NAME", "UsersAPI")
     frontend_url: str = os.getenv("FRONTEND_URL", "")
     backend_url: str = os.getenv("BACKEND_URL", "")
 
