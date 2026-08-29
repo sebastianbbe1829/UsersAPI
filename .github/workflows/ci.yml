@@ -108,9 +108,15 @@ jobs:
           GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA users_api TO users_api_bootstrap;
           SQL
 
+      - name: Seed test permissions
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+        run: python scripts/seed_permissions.py
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          APP_DATABASE_URL: postgresql+psycopg://users_api_app:ci_users_api_app@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://users_api_bootstrap:ci_users_api_bootstrap@localhost:5432/users_api_ci
           DATABASE_ADMIN_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_TENANT_KEY: test-bootstrap-tenant-key
