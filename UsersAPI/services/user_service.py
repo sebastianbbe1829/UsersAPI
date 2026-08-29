@@ -362,6 +362,7 @@ def create_user(
             message=email_message,
             dni=nuevo_usuario.dni,
             token=nuevo_user_tenant.activation_token,
+            tenant_name=tenant_name,
             tenant_slug=tenant_slug,
             template=email_template,
         )
@@ -538,6 +539,7 @@ def update_user(
                 f"la información de tu cuenta en {tenant_name} ha sido actualizada."
             ),
             tenant_slug=tenant_slug,
+            tenant_name=tenant_name,
             template="updated",
         )
     except Exception as exc:

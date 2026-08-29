@@ -46,6 +46,7 @@ def _send_welcome_notifications(
     user_tenant: UserTenantDB,
     reactivated: bool = False,
 ):
+
     """
     Envía correo y WhatsApp.
 
@@ -67,6 +68,15 @@ def _send_welcome_notifications(
             f"tu cuenta ha sido creada exitosamente."
         )
 
+
+    tenant_id = user_tenant.tenant_id
+
+    tenant = tenant_repository.get_by_id(
+        tenant_id=tenant_id
+    )
+    tenant_slug = tenant.slug
+    tenant_name = tenant.name
+
     try:
         send_email(
             recipient=user_tenant.email,
@@ -74,6 +84,8 @@ def _send_welcome_notifications(
             message=email_message,
             dni=user.dni,
             token=user_tenant.activation_token,
+            tenant_slug=tenant_slug,
+            tenant_name=tenant_name,
         )
 
         logger.info(

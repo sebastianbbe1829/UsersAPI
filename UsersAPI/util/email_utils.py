@@ -108,9 +108,6 @@ def send_email(
         else tenant_slug
     )
 
-    if not tenant_display_name:
-        tenant_display_name = "tu empresa"
-
     # Compatibilidad con llamadas existentes que todavía envían
     # subjects históricos con "UsersAPI". La comunicación final
     # siempre queda orientada a la empresa/tenant.
