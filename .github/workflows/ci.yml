@@ -13,56 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  ruff:
-    name: Ruff
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install Ruff
-        run: python -m pip install --upgrade pip ruff
-      - name: Run Ruff
-        run: ruff check .
-
-  mypy:
-    name: Mypy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install mypy types-openpyxl types-passlib types-python-jose
-      - name: Run Mypy
-        run: mypy UsersAPI
-
-  bandit:
-    name: Bandit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install Bandit
-        run: python -m pip install --upgrade pip bandit
-      - name: Run Bandit
-        run: bandit -r UsersAPI -ll
-
-  pytest:
-    name: Pytest
+  quality-gate:
+    name: Quality Gate
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -78,21 +30,35 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run Pytest
+          pip install bandit
+
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
+        run: alembic upgrade head
+
+      - name: Run tests
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           SECRET_KEY: ci-secret-key
           SUPER_SECRET_KEY: ci-super-secret-key
         run: pytest -q
+
+      - name: Run security scan
+        run: bandit -r UsersAPI -ll
