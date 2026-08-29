@@ -50,15 +50,36 @@ def send_email(
     recipient: str,
     subject: str,
     message: str,
-    dni: str,
-    token: str,
-    tenant_slug: str,
+    dni: str | None = None,
+    token: str | None = None,
+    tenant_slug: str | None = None,
+    template: str = "default",
 ):
-    """Envía un correo transaccional utilizando Brevo."""
+    """Envía un correo transaccional utilizando Brevo.
+
+    Templates soportados:
+        - activation: activación de cuenta.
+        - reactivation: reactivación de cuenta.
+        - updated: actualización de usuario con acceso al login.
+        - default: mensaje informativo sin botón.
+    """
+
+    allowed_templates = {
+        "activation",
+        "reactivation",
+        "updated",
+        "default",
+    }
+
+    if template not in allowed_templates:
+        raise ValueError(
+            f"Email template inválido: {template}. "
+            f"Valores permitidos: {', '.join(sorted(allowed_templates))}"
+        )
 
     logger.info(
         f"Preparing to send email to {recipient} "
-        f"with subject '{subject}'"
+        f"with subject '{subject}' template='{template}'"
     )
 
     if not BREVO_API_KEY:
@@ -69,27 +90,59 @@ def send_email(
         logger.error("EMAIL_FROM is not configured")
         raise RuntimeError("EMAIL_FROM is not configured")
 
-    if not FRONTEND_URL:
-        logger.error("FRONTEND_URL is not configured")
-        raise RuntimeError("FRONTEND_URL is not configured")
-
     if not BACKEND_URL:
         logger.error("BACKEND_URL is not configured")
         raise RuntimeError("BACKEND_URL is not configured")
 
-    frontend_url = FRONTEND_URL.rstrip("/")
     backend_url = BACKEND_URL.rstrip("/")
-
-    activation_url = (
-        f"{frontend_url}"
-        f"/{tenant_slug}"
-        f"/users/activate/{dni}/{token}"
-    )
-
     logo_url = f"{backend_url}/static/logo.png"
 
-    logger.info(f"Activation URL: {activation_url}")
-    logger.info(f"Logo URL: {logo_url}")
+    activation_url = None
+    login_url = None
+
+    if template in {"activation", "reactivation"}:
+        if not FRONTEND_URL:
+            logger.error("FRONTEND_URL is not configured")
+            raise RuntimeError("FRONTEND_URL is not configured")
+
+        if not tenant_slug:
+            raise RuntimeError(
+                "tenant_slug is required for activation emails"
+            )
+
+        if not dni:
+            raise RuntimeError(
+                "dni is required for activation emails"
+            )
+
+        if not token:
+            raise RuntimeError(
+                "token is required for activation emails"
+            )
+
+        frontend_url = FRONTEND_URL.rstrip("/")
+        activation_url = (
+            f"{frontend_url}"
+            f"/{tenant_slug}"
+            f"/users/activate/{dni}/{token}"
+        )
+
+        logger.info(f"Activation URL: {activation_url}")
+
+    if template == "updated":
+        if not FRONTEND_URL:
+            logger.error("FRONTEND_URL is not configured")
+            raise RuntimeError("FRONTEND_URL is not configured")
+
+        if not tenant_slug:
+            raise RuntimeError(
+                "tenant_slug is required for updated emails"
+            )
+
+        frontend_url = FRONTEND_URL.rstrip("/")
+        login_url = f"{frontend_url}/{tenant_slug}/login"
+
+        logger.info(f"Login URL: {login_url}")
 
     template_path = os.path.join(
         TEMPLATE_DIR,
@@ -101,9 +154,9 @@ def send_email(
         raise RuntimeError(f"Email template not found: {template_path}")
 
     try:
-        template = env.get_template("email_base.html")
+        email_template = env.get_template("email_base.html")
 
-        html_content = template.render(
+        html_content = email_template.render(
             sender=EMAIL_FROM,
             recipient=recipient,
             subject=subject,
@@ -111,7 +164,9 @@ def send_email(
             dni=dni,
             token=token,
             activation_url=activation_url,
-            logo_url=logo_url
+            login_url=login_url,
+            logo_url=logo_url,
+            template=template,
         )
 
         logger.debug("Email HTML template rendered successfully")
@@ -119,6 +174,27 @@ def send_email(
     except Exception:
         logger.exception("Error loading or rendering HTML email template")
         raise
+
+    if template == "activation":
+        text_content = (
+            f"{message}\n\n"
+            f"Activar cuenta:\n"
+            f"{activation_url}"
+        )
+    elif template == "reactivation":
+        text_content = (
+            f"{message}\n\n"
+            f"Reactivar cuenta:\n"
+            f"{activation_url}"
+        )
+    elif template == "updated":
+        text_content = (
+            f"{message}\n\n"
+            f"Ingresar a la aplicación:\n"
+            f"{login_url}"
+        )
+    else:
+        text_content = message
 
     try:
         response = requests.post(
@@ -136,11 +212,7 @@ def send_email(
                 "to": [{"email": recipient}],
                 "subject": subject,
                 "htmlContent": html_content,
-                "textContent": (
-                    f"{message}\n\n"
-                    f"Activar cuenta:\n"
-                    f"{activation_url}"
-                )
+                "textContent": text_content,
             },
             timeout=30
         )
@@ -156,7 +228,7 @@ def send_email(
 
         logger.info(
             f"Email sent successfully to {recipient} via Brevo | "
-            f"message_id={message_id}"
+            f"message_id={message_id} template={template}"
         )
 
         return {
@@ -186,7 +258,7 @@ def send_brevo_email(
     subject: str = "Prueba de correo - UsersAPI",
     message: str = "Este es un correo de prueba enviado desde UsersAPI utilizando Brevo.",
 ):
-    """Envía el mismo template de producción con datos ficticios.
+    """Envía el template por defecto sin botón.
 
     No crea usuarios, tenants ni registros en la base de datos.
     """
@@ -195,7 +267,5 @@ def send_brevo_email(
         recipient=recipient,
         subject=subject,
         message=message,
-        dni="TEST",
-        token=str(uuid.uuid4()),
-        tenant_slug="demo",
+        template="default",
     )
