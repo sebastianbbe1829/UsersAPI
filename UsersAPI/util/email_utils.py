@@ -14,7 +14,7 @@ from ..settings import settings
 BREVO_API_KEY = settings.brevo_api_key
 EMAIL_FROM = settings.email_from
 EMAIL_FROM_NAME = settings.email_from_name
-FRONTEND_URL = settings.frontEND_url
+FRONTEND_URL = settings.frontend_url
 BACKEND_URL = settings.backend_url
 API_EMAIL_URL = settings.api_email_url
 
