@@ -1,5 +1,6 @@
 from .user_routes import user_routes
 from .auth_routes import auth_routers
+from .password_recovery_routes import password_recovery_routes
 from .global_auth_routes import global_auth_routes
 from .tenant_routes import tenant_routes
 from .tenant_config_routes import tenant_config_routes
@@ -18,7 +19,7 @@ from .extinguisher_inspection_routes import extinguisher_inspection_routes, exti
 from .extinguisher_inspection_item_routes import extinguisher_inspection_item_routes
 
 __all__ = [
-    "user_routes", "auth_routers", "global_auth_routes", "tenant_routes", "tenant_config_routes", "tenant_config_public_routes",
+    "user_routes", "auth_routers", "password_recovery_routes", "global_auth_routes", "tenant_routes", "tenant_config_routes", "tenant_config_public_routes",
     "user_tenant_routes", "role_routes", "user_tenant_role_routes", "role_permission_routes", "bootstrap_tenant_routes",
     "permission_routes", "email_routes", "otp_routes", "extinguisher_routes", "extinguisher_type_routes", "extinguisher_inspection_routes",
     "extinguisher_nested_inspection_routes", "extinguisher_inspection_item_routes",
