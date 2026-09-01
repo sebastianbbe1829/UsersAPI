@@ -6,28 +6,6 @@ from UsersAPI.models.otp import OTPCodeDB
 from test.fixtures.multitenant import create_user_context
 
 
-def test_request_password_recovery_sends_otp_for_existing_user(
-    db_session: Session,
-    client: TestClient,
-    monkeypatch,
-):
-    user, tenant, _, _ = create_user_context(db_session)
-    sent = {}
-
-    monkeypatch.setattr(
-        "UsersAPI.services.otp_service.send_email",
-        lambda **kwargs: sent.update(kwargs),
-    )
-
-    response = client.post(
-        f"/auth/password-recovery/{tenant.slug}/request",
-        json={"email": user.email if hasattr(user, "email") else ""},
-    )
-
-    # create_user_context stores the email on user_tenant, not UserDB.
-    assert response.status_code == 422
-
-
 def test_request_password_recovery_sends_otp_for_existing_user_tenant(
     db_session: Session,
     client: TestClient,
@@ -47,7 +25,10 @@ def test_request_password_recovery_sends_otp_for_existing_user_tenant(
     )
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Código de recuperación enviado correctamente."
+    assert response.json()["message"] == (
+        "Si el correo pertenece a un usuario activo, "
+        "recibirás un código para recuperar tu contraseña."
+    )
     assert response.json()["expires_at"]
     assert sent["recipient"] == user_tenant.email
     assert sent["template"] == "otp"
@@ -66,7 +47,10 @@ def test_request_password_recovery_does_not_reveal_unknown_email(
     )
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Si el correo está registrado, recibirás un código de recuperación."
+    assert response.json()["message"] == (
+        "Si el correo pertenece a un usuario activo, "
+        "recibirás un código para recuperar tu contraseña."
+    )
     assert response.json()["expires_at"] is not None
     assert db_session.query(OTPCodeDB).count() == 0
 
@@ -115,7 +99,7 @@ def test_password_recovery_rejects_invalid_otp_without_changing_password(
     client: TestClient,
     monkeypatch,
 ):
-    user, tenant, user_tenant, _ = create_user_context(
+    _, tenant, user_tenant, _ = create_user_context(
         db_session,
         password="oldpass",
     )
@@ -149,7 +133,7 @@ def test_password_recovery_cannot_reuse_otp(
     client: TestClient,
     monkeypatch,
 ):
-    user, tenant, user_tenant, _ = create_user_context(db_session)
+    _, tenant, user_tenant, _ = create_user_context(db_session)
     sent = {}
 
     monkeypatch.setattr(
@@ -201,7 +185,7 @@ def test_password_recovery_is_isolated_by_tenant(
     client: TestClient,
     monkeypatch,
 ):
-    user_a, tenant_a, user_tenant_a, _ = create_user_context(db_session)
+    _, _, user_tenant_a, _ = create_user_context(db_session)
     _, tenant_b, _, _ = create_user_context(db_session)
 
     monkeypatch.setattr(
