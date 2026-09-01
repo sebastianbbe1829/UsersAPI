@@ -67,7 +67,7 @@ async def obtener_revision(
 
 
 @extinguisher_inspection_routes.post(
-    "/extinguishers/{extinguisher_id}",
+    "/{extinguisher_id}",
     response_model=ExtinguisherInspectionRead,
     status_code=status.HTTP_201_CREATED,
     summary="Crear revisión de extintor",
