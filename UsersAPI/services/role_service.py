@@ -24,7 +24,7 @@ def create_role(
 
     repo = RoleRepository(db)
 
-    code = code.strip().lower()
+    code = code.strip().upper()
     name = name.strip()
 
 
