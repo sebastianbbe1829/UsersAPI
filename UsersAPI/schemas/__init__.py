@@ -9,7 +9,7 @@ from .auth import LoginRequest, LoginResponse, TokenUserResponse, TokenTenantRes
 from .global_auth import SuperBootstrapMfaVerifyRequest, SuperBootstrapMfaVerifyResponse, SuperBootstrapRequest, SuperBootstrapResponse, SuperLoginRequest, SuperLoginResponse
 from .permission import PermissionCreate, PermissionRead, PermissionResponse
 from .extinguisher import ExtinguisherCreate, ExtinguisherDeleteResponse, ExtinguisherRead, ExtinguisherUpdate
-from .extinguisher_type import ExtinguisherTypeCreate, ExtinguisherTypeRead
+from .extinguisher_type import ExtinguisherTypeCreate, ExtinguisherTypeRead, ExtinguisherTypeUpdate
 
 __all__ = [
     "PermissionCreate", "PermissionRead", "PermissionResponse", "UserCreate", "UserDeleteResponse", "UserRead", "UserUpdate", "UserActivateResponse",
@@ -17,5 +17,5 @@ __all__ = [
     "RoleCreate", "RoleDeleteResponse", "RoleRead", "RoleUpdate", "UserTenantRoleCreate", "UserTenantRoleRead", "UserTenantRoleDeleteResponse",
     "RolePermissionCreate", "RolePermissionRead", "RolePermissionDeleteResponse", "LoginRequest", "LoginResponse", "TokenUserResponse", "TokenTenantResponse", "TokenValidationResponse",
     "SuperBootstrapRequest", "SuperBootstrapResponse", "SuperBootstrapMfaVerifyRequest", "SuperBootstrapMfaVerifyResponse", "SuperLoginRequest", "SuperLoginResponse",
-    "BootstrapTenantRequest", "BootstrapTenantResponse", "ExtinguisherCreate", "ExtinguisherDeleteResponse", "ExtinguisherRead", "ExtinguisherUpdate", "ExtinguisherTypeCreate", "ExtinguisherTypeRead",
+    "BootstrapTenantRequest", "BootstrapTenantResponse", "ExtinguisherCreate", "ExtinguisherDeleteResponse", "ExtinguisherRead", "ExtinguisherUpdate", "ExtinguisherTypeCreate", "ExtinguisherTypeRead", "ExtinguisherTypeUpdate",
 ]
