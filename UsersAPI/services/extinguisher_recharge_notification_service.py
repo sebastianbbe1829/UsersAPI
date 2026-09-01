@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, text
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -16,6 +16,7 @@ from ..logging_config import logger
 
 
 ADMIN_ROLE_CODES = ("ADMIN",)
+NOTIFICATION_LOG_TABLE = "users_api.extinguisher_recharge_notification_log"
 
 
 class ExtinguisherRechargeNotificationService:
@@ -23,6 +24,30 @@ class ExtinguisherRechargeNotificationService:
 
     def __init__(self, db: Session):
         self.db = db
+        self._ensure_notification_log_table()
+
+    def _ensure_notification_log_table(self) -> None:
+        """Crea el registro de idempotencia si aún no existe.
+
+        El job puede ejecutarse más de una vez durante la ventana de respaldo.
+        Este registro garantiza que un mismo tenant/administrador/fecha reciba
+        como máximo una notificación exitosa.
+        """
+        self.db.execute(
+            text(
+                f"""
+                CREATE TABLE IF NOT EXISTS {NOTIFICATION_LOG_TABLE} (
+                    notification_date DATE NOT NULL,
+                    tenant_id BIGINT NOT NULL,
+                    recipient VARCHAR(320) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    sent_at TIMESTAMPTZ NULL,
+                    PRIMARY KEY (notification_date, tenant_id, recipient)
+                )
+                """
+            )
+        )
+        self.db.commit()
 
     def run(self, notification_date: date | None = None) -> dict:
         target_date = notification_date or date.today()
@@ -95,6 +120,17 @@ class ExtinguisherRechargeNotificationService:
             )
 
             for recipient in recipients:
+                recipient_key = recipient.strip().lower()
+                if self._already_sent(target_date, tenant_id, recipient_key):
+                    logger.info(
+                        "Recharge notification already sent for date=%s tenant_id=%s recipient=%s",
+                        target_date,
+                        tenant_id,
+                        recipient,
+                    )
+                    continue
+
+                self._mark_pending(target_date, tenant_id, recipient_key)
                 try:
                     send_email(
                         recipient=recipient,
@@ -104,6 +140,7 @@ class ExtinguisherRechargeNotificationService:
                         tenant_name=data["tenant_name"],
                         template="default",
                     )
+                    self._mark_sent(target_date, tenant_id, recipient_key)
                     sent += 1
                 except Exception:
                     errors += 1
@@ -124,6 +161,65 @@ class ExtinguisherRechargeNotificationService:
 
         logger.info("Daily extinguisher recharge notification finished: %s", result)
         return result
+
+    def _already_sent(self, target_date: date, tenant_id: int, recipient: str) -> bool:
+        status = self.db.execute(
+            text(
+                f"""
+                SELECT status
+                FROM {NOTIFICATION_LOG_TABLE}
+                WHERE notification_date = :notification_date
+                  AND tenant_id = :tenant_id
+                  AND recipient = :recipient
+                """
+            ),
+            {
+                "notification_date": target_date,
+                "tenant_id": tenant_id,
+                "recipient": recipient,
+            },
+        ).scalar_one_or_none()
+        return status == "sent"
+
+    def _mark_pending(self, target_date: date, tenant_id: int, recipient: str) -> None:
+        self.db.execute(
+            text(
+                f"""
+                INSERT INTO {NOTIFICATION_LOG_TABLE}
+                    (notification_date, tenant_id, recipient, status)
+                VALUES
+                    (:notification_date, :tenant_id, :recipient, 'pending')
+                ON CONFLICT (notification_date, tenant_id, recipient)
+                DO UPDATE SET status = 'pending'
+                WHERE {NOTIFICATION_LOG_TABLE}.status <> 'sent'
+                """
+            ),
+            {
+                "notification_date": target_date,
+                "tenant_id": tenant_id,
+                "recipient": recipient,
+            },
+        )
+        self.db.commit()
+
+    def _mark_sent(self, target_date: date, tenant_id: int, recipient: str) -> None:
+        self.db.execute(
+            text(
+                f"""
+                UPDATE {NOTIFICATION_LOG_TABLE}
+                SET status = 'sent', sent_at = NOW()
+                WHERE notification_date = :notification_date
+                  AND tenant_id = :tenant_id
+                  AND recipient = :recipient
+                """
+            ),
+            {
+                "notification_date": target_date,
+                "tenant_id": tenant_id,
+                "recipient": recipient,
+            },
+        )
+        self.db.commit()
 
     def _get_admin_recipients(self, tenant_id: int) -> list[str]:
         rows = self.db.execute(
