@@ -16,7 +16,8 @@ ENABLED = os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED", "true").lower
 ADVISORY_LOCK_ID = 824731905
 
 
-async def _run_once() -> None:
+def run_extinguisher_recharge_notification_job() -> dict:
+    """Ejecuta inmediatamente el job para pruebas o ejecución externa."""
     db = BootstrapSessionLocal()
     locked = False
     try:
@@ -28,13 +29,14 @@ async def _run_once() -> None:
         )
 
         if not locked:
-            logger.info("Recharge notification job skipped because another instance is running")
-            return
+            return {
+                "status": "skipped",
+                "reason": "another_instance_is_running",
+            }
 
         result = ExtinguisherRechargeNotificationService(db).run()
         logger.info("Daily extinguisher recharge notification result: %s", result)
-    except Exception:
-        logger.exception("Daily extinguisher recharge notification failed")
+        return result
     finally:
         if locked:
             try:
@@ -45,6 +47,13 @@ async def _run_once() -> None:
             except Exception:
                 logger.exception("Could not release recharge notification advisory lock")
         db.close()
+
+
+async def _run_once() -> None:
+    try:
+        run_extinguisher_recharge_notification_job()
+    except Exception:
+        logger.exception("Daily extinguisher recharge notification failed")
 
 
 def _next_run(now: datetime) -> datetime:
