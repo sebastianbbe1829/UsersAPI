@@ -29,3 +29,7 @@ class ExtinguisherDB(Base):
     updated_at = Column(DateTime, nullable=True)
 
     extinguisher_type = relationship("ExtinguisherTypeDB")
+
+    @property
+    def hydrostatic_test_required(self) -> bool:
+        return self.inspections_since_hydrostatic_test >= 4
