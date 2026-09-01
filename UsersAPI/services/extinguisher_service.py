@@ -171,7 +171,6 @@ def delete_extinguisher(
 
     extinguisher.active = False
     extinguisher.updated_at = datetime.now()
-    db.commit()
 
     return {
         "message": "Extintor desactivado correctamente",
