@@ -19,19 +19,19 @@ otp_routes = APIRouter(
 )
 
 
-def _validate_email_key(x_email_key: str) -> None:
-    if not settings.email_key:
+def _validate_otp_api_key(x_otp_api_key: str) -> None:
+    if not settings.otp_api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="EMAIL_KEY no está configurada.",
+            detail="OTP_API_KEY no está configurada.",
         )
 
     import secrets
 
-    if not secrets.compare_digest(x_email_key, settings.email_key):
+    if not secrets.compare_digest(x_otp_api_key, settings.otp_api_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Clave de email inválida.",
+            detail="Clave de OTP inválida.",
         )
 
 
@@ -43,15 +43,15 @@ def _validate_email_key(x_email_key: str) -> None:
 def create_otp(
     datos: OTPGenerateRequest,
     db: Session = Depends(get_db),
-    x_email_key: str = Header(..., alias="X-Email-Key"),
+    x_otp_api_key: str = Header(..., alias="X-OTP-API-Key"),
 ):
     """Genera un OTP para pruebas y futuros flujos transaccionales.
 
     El código nunca se devuelve en la respuesta HTTP; se envía al destino
-    indicado por correo. El endpoint queda protegido por X-Email-Key para no
-    convertirlo en un generador público de correos.
+    indicado por correo. El endpoint está protegido por una clave propia
+    de OTP, independiente de la autenticación del servicio de email.
     """
-    _validate_email_key(x_email_key)
+    _validate_otp_api_key(x_otp_api_key)
 
     try:
         otp, code = generate_otp(
@@ -97,9 +97,9 @@ def create_otp(
 def verify_otp(
     datos: OTPValidateRequest,
     db: Session = Depends(get_db),
-    x_email_key: str = Header(..., alias="X-Email-Key"),
+    x_otp_api_key: str = Header(..., alias="X-OTP-API-Key"),
 ):
-    _validate_email_key(x_email_key)
+    _validate_otp_api_key(x_otp_api_key)
 
     valid = validate_otp(
         db,
