@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      background-color: #ffffff;
+      margin: 30px auto;
+      padding: 35px 25px;
+      border-radius: 8px;
+      max-width: 600px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      color: #004080;
+      margin: 0 0 20px 0;
+      font-size: 24px;
+    }
+
+    p {
+      color: #333333;
+      line-height: 1.6;
+      font-size: 15px;
+      white-space: pre-line;
+      text-align: left;
+    }
+
+    .otp {
+      display: inline-block;
+      margin: 20px 0;
+      padding: 16px 28px;
+      background-color: #f0f4f8;
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      color: #004080;
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 8px;
+      line-height: 1;
+    }
+
+    .expiration {
+      color: #666666;
+      font-size: 13px;
+      margin-top: 5px;
+      text-align: center;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #999999;
+      margin: 30px auto 20px auto;
+      max-width: 600px;
+    }
+
+    .footer p {
+      color: #999999;
+      font-size: 12px;
+      margin: 0;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>{{ subject or "Código de verificación" }}</h1>
+
+    {% if message %}
+      <p>{{ message }}</p>
+    {% endif %}
+
+    <div class="otp">{{ otp_code }}</div>
+
+    <div class="expiration">
+      Este código vence en {{ otp_expire_minutes }} minutos.
+    </div>
+
+    <p>
+      Si no solicitaste este código, puedes ignorar este mensaje.
+    </p>
+
+  </div>
+
+  <div class="footer">
+    <p>Este es un mensaje automático. Por favor, no respondas a este correo.</p>
+  </div>
+
+</body>
+</html>
