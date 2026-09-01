@@ -57,6 +57,7 @@ def make_payload(hydrostatic=False):
         observations="Sin novedades",
         hydrostatic_test_performed=hydrostatic,
         hydrostatic_test_date=date(2026, 9, 1) if hydrostatic else None,
+        next_hydrostatic_test_date=date(2031, 9, 1) if hydrostatic else None,
         items=[
             {"inspection_item_id": item_id, "result": "GOOD"}
             for item_id in range(1, 8)
@@ -118,6 +119,7 @@ def test_fifth_inspection_without_hydrostatic_is_rejected_and_counter_stays_at_f
 def test_fifth_inspection_with_hydrostatic_resets_counter_and_starts_new_cycle():
     db = FakeSession()
     hydrostatic_date = date(2026, 9, 1)
+    next_hydrostatic_date = date(2031, 9, 1)
     extinguisher = SimpleNamespace(
         id=10, tenant_id=1, inspections_since_hydrostatic_test=4,
         inspection_cycle=1, last_hydrostatic_test_date=None, updated_at=None,
@@ -137,6 +139,7 @@ def test_fifth_inspection_with_hydrostatic_resets_counter_and_starts_new_cycle()
     assert inspection.inspection_cycle == 1
     assert inspection.hydrostatic_test_performed is True
     assert inspection.hydrostatic_test_date == hydrostatic_date
+    assert inspection.next_hydrostatic_test_date == next_hydrostatic_date
     assert extinguisher.inspections_since_hydrostatic_test == 0
     assert extinguisher.inspection_cycle == 2
     assert extinguisher.last_hydrostatic_test_date == hydrostatic_date

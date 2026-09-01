@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from fastapi import FastAPI, Request
@@ -15,6 +16,7 @@ from .routes import (
     extinguisher_nested_inspection_routes, extinguisher_inspection_item_routes,
 )
 from .logging_config import logger
+from .services.extinguisher_recharge_job import daily_extinguisher_recharge_job
 from fastapi.middleware.cors import CORSMiddleware
 
 CURRENT_FILE = os.path.abspath(__file__)
@@ -57,21 +59,58 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=Fals
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+_daily_job_stop_event: asyncio.Event | None = None
+_daily_job_task: asyncio.Task | None = None
+
+
+@app.on_event("startup")
+async def start_daily_extinguisher_recharge_job():
+    global _daily_job_stop_event, _daily_job_task
+    _daily_job_stop_event = asyncio.Event()
+    _daily_job_task = asyncio.create_task(
+        daily_extinguisher_recharge_job(_daily_job_stop_event)
+    )
+    logger.info("Daily extinguisher recharge notification worker started")
+
+
+@app.on_event("shutdown")
+async def stop_daily_extinguisher_recharge_job():
+    global _daily_job_stop_event, _daily_job_task
+    if _daily_job_stop_event:
+        _daily_job_stop_event.set()
+    if _daily_job_task:
+        try:
+            await asyncio.wait_for(_daily_job_task, timeout=5)
+        except asyncio.TimeoutError:
+            _daily_job_task.cancel()
+            try:
+                await _daily_job_task
+            except asyncio.CancelledError:
+                pass
+    _daily_job_stop_event = None
+    _daily_job_task = None
+    logger.info("Daily extinguisher recharge notification worker stopped")
+
+
 @app.get("/", include_in_schema=False)
 def root():
     return {"status": "ok", "service": "UsersAPI"}
+
 
 @app.head("/", include_in_schema=False)
 def root_head():
     return
 
+
 @app.get("/health", include_in_schema=False)
 def health():
     return {"status": "healthy", "service": "UsersAPI"}
 
+
 @app.head("/health", include_in_schema=False)
 def health_head():
     return
+
 
 app.include_router(user_routes)
 app.include_router(auth_routers)
@@ -92,6 +131,7 @@ app.include_router(extinguisher_inspection_routes)
 app.include_router(extinguisher_nested_inspection_routes)
 app.include_router(extinguisher_inspection_item_routes)
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errores = []
@@ -103,6 +143,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             error["ctx"] = {key: str(value) for key, value in error["ctx"].items()}
         errores.append(error)
     return JSONResponse(status_code=HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": errores})
+
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
