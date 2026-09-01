@@ -17,6 +17,7 @@ from .extinguisher_inspection import (
     ExtinguisherInspectionResultCreate,
     ExtinguisherInspectionResultRead,
 )
+from .otp import OTPGenerateRequest, OTPGenerateResponse, OTPValidateRequest, OTPValidateResponse
 
 __all__ = [
     "PermissionCreate", "PermissionRead", "PermissionResponse", "UserCreate", "UserDeleteResponse", "UserRead", "UserUpdate", "UserActivateResponse",
@@ -26,4 +27,5 @@ __all__ = [
     "SuperBootstrapRequest", "SuperBootstrapResponse", "SuperBootstrapMfaVerifyRequest", "SuperBootstrapMfaVerifyResponse", "SuperLoginRequest", "SuperLoginResponse",
     "BootstrapTenantRequest", "BootstrapTenantResponse", "ExtinguisherCreate", "ExtinguisherDeleteResponse", "ExtinguisherRead", "ExtinguisherUpdate", "ExtinguisherTypeCreate", "ExtinguisherTypeRead", "ExtinguisherTypeUpdate",
     "ExtinguisherInspectionCreate", "ExtinguisherInspectionItemRead", "ExtinguisherInspectionRead", "ExtinguisherInspectionResultCreate", "ExtinguisherInspectionResultRead",
+    "OTPGenerateRequest", "OTPGenerateResponse", "OTPValidateRequest", "OTPValidateResponse",
 ]
