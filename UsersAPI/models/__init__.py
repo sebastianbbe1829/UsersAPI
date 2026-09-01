@@ -14,11 +14,10 @@ from .extinguisher_inspection import (
     ExtinguisherInspectionItemDB,
     ExtinguisherInspectionResultDB,
 )
-from .extinguisher_recharge import ExtinguisherRechargeDB
 
 __all__ = [
     "UserDB", "TenantDB", "TenantConfigDB", "UserTenantDB", "GlobalUserDB", "RoleDB",
     "PermissionDB", "RolePermissionDB", "UserTenantRoleDB", "ExtinguisherDB",
     "ExtinguisherTypeDB", "ExtinguisherInspectionDB", "ExtinguisherInspectionItemDB",
-    "ExtinguisherInspectionResultDB", "ExtinguisherRechargeDB",
+    "ExtinguisherInspectionResultDB",
 ]
