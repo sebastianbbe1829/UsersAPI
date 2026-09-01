@@ -56,6 +56,7 @@ class Settings:
     # OTP
     # ========================================================
 
+    otp_api_key: str = os.getenv("OTP_API_KEY", "")
     otp_length: int = int(os.getenv("OTP_LENGTH", "6"))
     otp_expire_minutes: int = int(os.getenv("OTP_EXPIRE_MINUTES", "10"))
     otp_max_attempts: int = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
