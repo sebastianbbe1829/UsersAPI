@@ -35,4 +35,5 @@ jobs:
           EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED: 'true'
           EXTINGUISHER_RECHARGE_NOTIFICATION_TIME: '07:00'
           JOB_TIMEZONE: 'America/Bogota'
+          PYTHONPATH: .
         run: python scripts/jobs/run_extinguisher_recharge_notifications.py
