@@ -50,7 +50,15 @@ class Settings:
     email_key: str = os.getenv("EMAIL_KEY", "")
     frontend_url: str = os.getenv("FRONTEND_URL", "")
     backend_url: str = os.getenv("BACKEND_URL", "")
-    api_email_url : str = os.getenv("API_EMAIL_URL", "")
+    api_email_url: str = os.getenv("API_EMAIL_URL", "")
+
+    # ========================================================
+    # OTP
+    # ========================================================
+
+    otp_length: int = int(os.getenv("OTP_LENGTH", "6"))
+    otp_expire_minutes: int = int(os.getenv("OTP_EXPIRE_MINUTES", "10"))
+    otp_max_attempts: int = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
 
     # ========================================================
     # WHATSAPP
@@ -59,7 +67,7 @@ class Settings:
     whatsapp_token: str = os.getenv("WHATSAPP_TOKEN", "")
     whatsapp_phone_id: str = os.getenv("WHATSAPP_PHONE_ID", "")
     whatsapp_mode: str = os.getenv("WHATSAPP_MODE", "template")
-    whatsapp_api_url : str = os.getenv("WHATSAPP_API_URL", "")
+    whatsapp_api_url: str = os.getenv("WHATSAPP_API_URL", "")
 
 
 settings = Settings()
