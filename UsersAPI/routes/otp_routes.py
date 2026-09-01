@@ -64,12 +64,11 @@ def create_otp(
             recipient=datos.destination,
             subject="Código de verificación OTP",
             message=(
-                "Tu código de verificación es:\n\n"
-                f"{code}\n\n"
-                f"Este código vence en {settings.otp_expire_minutes} minutos.\n"
-                "Si no solicitaste este código, puedes ignorar este correo."
+                "Hemos generado un código de verificación para tu solicitud."
             ),
             template="otp",
+            otp_code=code,
+            otp_expire_minutes=settings.otp_expire_minutes,
         )
 
         db.commit()
