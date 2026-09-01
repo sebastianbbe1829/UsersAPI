@@ -52,7 +52,6 @@ def create_extinguisher(
 
     try:
         repo.add(extinguisher)
-        db.commit()
         db.refresh(extinguisher)
     except IntegrityError as exc:
         db.rollback()
@@ -141,7 +140,6 @@ def update_extinguisher(
 
     try:
         repo.update(extinguisher)
-        db.commit()
         db.refresh(extinguisher)
     except IntegrityError as exc:
         db.rollback()
