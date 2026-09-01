@@ -9,7 +9,7 @@ from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT, HTTP_500_INTERNAL_S
 
 from .database import engine
 from .routes import (
-    user_routes, auth_routers, global_auth_routes, tenant_routes, tenant_config_routes,
+    user_routes, auth_routers, password_recovery_routes, global_auth_routes, tenant_routes, tenant_config_routes,
     tenant_config_public_routes, user_tenant_routes, role_routes, user_tenant_role_routes,
     role_permission_routes, bootstrap_tenant_routes, permission_routes, email_routes,
     otp_routes, extinguisher_routes, extinguisher_type_routes, extinguisher_inspection_routes,
@@ -36,6 +36,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "Usuarios", "description": "Operaciones sobre usuarios"},
         {"name": "Autenticación", "description": "Autenticación de usuarios y generación de tokens JWT"},
+        {"name": "Recuperación de contraseña", "description": "Recuperación de contraseña mediante OTP"},
         {"name": "Autenticación SUPER", "description": "Autenticación global del usuario SUPER con MFA"},
         {"name": "Tenants", "description": "Operaciones sobre tenants"},
         {"name": "Configuración UI", "description": "Configuración visual parametrizable por tenant"},
@@ -113,6 +114,7 @@ def health_head():
 
 app.include_router(user_routes)
 app.include_router(auth_routers)
+app.include_router(password_recovery_routes)
 app.include_router(global_auth_routes)
 app.include_router(tenant_routes)
 app.include_router(tenant_config_routes)
