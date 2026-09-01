@@ -26,3 +26,8 @@ class ExtinguisherTypeRepository:
         self.db.add(item)
         self.db.flush()
         return item
+
+    def update(self, item: ExtinguisherTypeDB) -> ExtinguisherTypeDB:
+        self.db.add(item)
+        self.db.flush()
+        return item
