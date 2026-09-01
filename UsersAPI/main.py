@@ -12,7 +12,7 @@ from .routes import (
     tenant_config_public_routes, user_tenant_routes, role_routes, user_tenant_role_routes,
     role_permission_routes, bootstrap_tenant_routes, permission_routes, email_routes,
     extinguisher_routes, extinguisher_type_routes, extinguisher_inspection_routes,
-    extinguisher_nested_inspection_routes,
+    extinguisher_nested_inspection_routes, extinguisher_inspection_item_routes,
 )
 from .logging_config import logger
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +47,7 @@ app = FastAPI(
         {"name": "Extintores", "description": "Inventario y gestión de extintores por tenant"},
         {"name": "Tipos de extintor", "description": "Catálogo global de tipos de extintor"},
         {"name": "Revisiones de extintores", "description": "Histórico y control de revisiones de extintores"},
+        {"name": "Ítems de revisión", "description": "Catálogo de ítems utilizados en las revisiones de extintores"},
     ],
 )
 
@@ -89,6 +90,7 @@ app.include_router(extinguisher_routes)
 app.include_router(extinguisher_type_routes)
 app.include_router(extinguisher_inspection_routes)
 app.include_router(extinguisher_nested_inspection_routes)
+app.include_router(extinguisher_inspection_item_routes)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
