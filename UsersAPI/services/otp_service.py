@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from ..models.otp import OTPCodeDB
+from ..repositories.otp_repository import OTPRepository
 from ..settings import settings
+from ..util.email_utils import send_email
 
 
 def _normalize_destination(destination: str) -> str:
@@ -26,8 +28,8 @@ def generate_otp(
     *,
     destination: str,
     purpose: str,
-) -> tuple[OTPCodeDB, str]:
-    """Genera un OTP y deja inválidos los OTP anteriores del mismo flujo."""
+) -> datetime:
+    """Genera y envía un OTP. La transacción la gestiona get_db()."""
     destination = _normalize_destination(destination)
     purpose = purpose.strip().lower()
 
@@ -36,35 +38,36 @@ def generate_otp(
     if not purpose:
         raise ValueError("purpose es obligatorio")
 
+    repository = OTPRepository(db)
     now = datetime.utcnow()
 
-    previous_codes = (
-        db.query(OTPCodeDB)
-        .filter(
-            OTPCodeDB.destination == destination,
-            OTPCodeDB.purpose == purpose,
-            OTPCodeDB.consumed_at.is_(None),
-        )
-        .all()
-    )
-
+    previous_codes = repository.get_active_all(destination, purpose)
     for previous in previous_codes:
         previous.consumed_at = now
+        repository.update(previous)
 
     code = f"{secrets.randbelow(10 ** settings.otp_length):0{settings.otp_length}d}"
+    expires_at = now + timedelta(minutes=settings.otp_expire_minutes)
 
     otp = OTPCodeDB(
         purpose=purpose,
         destination=destination,
         code_hash=_hash_code(code),
-        expires_at=now + timedelta(minutes=settings.otp_expire_minutes),
+        expires_at=expires_at,
         max_attempts=settings.otp_max_attempts,
     )
+    repository.add(otp)
 
-    db.add(otp)
-    db.flush()
+    send_email(
+        recipient=destination,
+        subject="Código de verificación OTP",
+        message="Hemos generado un código de verificación para tu solicitud.",
+        template="otp",
+        otp_code=code,
+        otp_expire_minutes=settings.otp_expire_minutes,
+    )
 
-    return otp, code
+    return expires_at
 
 
 def validate_otp(
@@ -74,21 +77,13 @@ def validate_otp(
     purpose: str,
     code: str,
 ) -> bool:
-    """Valida un OTP sin revelar si falló por código, expiración o consumo."""
+    """Valida un OTP. La transacción la gestiona get_db()."""
     destination = _normalize_destination(destination)
     purpose = purpose.strip().lower()
     code = code.strip()
 
-    otp = (
-        db.query(OTPCodeDB)
-        .filter(
-            OTPCodeDB.destination == destination,
-            OTPCodeDB.purpose == purpose,
-            OTPCodeDB.consumed_at.is_(None),
-        )
-        .order_by(OTPCodeDB.created_at.desc(), OTPCodeDB.id.desc())
-        .first()
-    )
+    repository = OTPRepository(db)
+    otp = repository.get_active(destination, purpose)
 
     if not otp:
         return False
@@ -96,7 +91,6 @@ def validate_otp(
     now = datetime.utcnow()
 
     if otp.expires_at <= now or otp.attempts >= otp.max_attempts:
-        db.commit()
         return False
 
     otp.attempts += 1
@@ -109,5 +103,5 @@ def validate_otp(
     if valid:
         otp.consumed_at = now
 
-    db.commit()
+    repository.update(otp)
     return valid
