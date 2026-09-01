@@ -3,6 +3,8 @@ import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import text
+
 from ..database import BootstrapSessionLocal
 from ..logging_config import logger
 from .extinguisher_recharge_notification_service import ExtinguisherRechargeNotificationService
@@ -11,16 +13,37 @@ from .extinguisher_recharge_notification_service import ExtinguisherRechargeNoti
 TIMEZONE = os.getenv("JOB_TIMEZONE", "America/Bogota")
 RUN_TIME = os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATION_TIME", "07:00")
 ENABLED = os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
+ADVISORY_LOCK_ID = 824731905
 
 
 async def _run_once() -> None:
     db = BootstrapSessionLocal()
+    locked = False
     try:
+        locked = bool(
+            db.execute(
+                text("SELECT pg_try_advisory_lock(:lock_id)"),
+                {"lock_id": ADVISORY_LOCK_ID},
+            ).scalar()
+        )
+
+        if not locked:
+            logger.info("Recharge notification job skipped because another instance is running")
+            return
+
         result = ExtinguisherRechargeNotificationService(db).run()
         logger.info("Daily extinguisher recharge notification result: %s", result)
     except Exception:
         logger.exception("Daily extinguisher recharge notification failed")
     finally:
+        if locked:
+            try:
+                db.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": ADVISORY_LOCK_ID},
+                )
+            except Exception:
+                logger.exception("Could not release recharge notification advisory lock")
         db.close()
 
 
