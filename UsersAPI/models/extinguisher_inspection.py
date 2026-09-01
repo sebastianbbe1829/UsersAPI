@@ -32,6 +32,7 @@ class ExtinguisherInspectionDB(Base):
     observations = Column(Text, nullable=True)
     hydrostatic_test_performed = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     hydrostatic_test_date = Column(Date, nullable=True)
+    next_hydrostatic_test_date = Column(Date, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     results = relationship(
