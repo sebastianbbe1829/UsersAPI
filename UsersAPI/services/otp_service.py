@@ -28,6 +28,8 @@ def generate_otp(
     *,
     destination: str,
     purpose: str,
+    subject: str = "Código de verificación OTP",
+    message: str = "Hemos generado un código de verificación para tu solicitud.",
 ) -> datetime:
     """Genera y envía un OTP. La transacción la gestiona get_db()."""
     destination = _normalize_destination(destination)
@@ -60,8 +62,8 @@ def generate_otp(
 
     send_email(
         recipient=destination,
-        subject="Código de verificación OTP",
-        message="Hemos generado un código de verificación para tu solicitud.",
+        subject=subject,
+        message=message,
         template="otp",
         otp_code=code,
         otp_expire_minutes=settings.otp_expire_minutes,

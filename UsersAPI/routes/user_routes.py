@@ -12,6 +12,10 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from ..controllers import user_controller
+from ..controllers.activation_otp_controller import (
+    request_activation_otp,
+    verify_activation_otp,
+)
 from ..database import get_db
 from ..controllers import get_current_user
 from ..schemas import (
@@ -19,7 +23,11 @@ from ..schemas import (
     UserDeleteResponse,
     UserRead,
     UserUpdate,
-    UserActivateResponse,
+)
+from ..schemas.activation_otp import (
+    ActivationOTPGenerateResponse,
+    ActivationOTPValidateRequest,
+    ActivationOTPValidateResponse,
 )
 from ..security.dependencies import get_current_tenant
 from ..security.permissions import require_permission
@@ -237,26 +245,42 @@ async def eliminar_usuario(
 
 
 @user_routes.post(
-    "/activate/{dni}/{token}/",
-    response_model=UserActivateResponse,
+    "/activate/{dni}/{token}/otp",
+    response_model=ActivationOTPGenerateResponse,
     status_code=status.HTTP_200_OK,
-    summary="Activar usuario por token",
+    summary="Solicitar OTP para activar usuario",
 )
-async def activate_user(
-    dni: str = Path(
-        ...,
-        description="DNI del usuario a activar",
-    ),
-    token: str = Path(
-        ...,
-        description="Token de activación enviado por correo",
-    ),
+async def solicitar_otp_activacion(
+    dni: str = Path(..., description="DNI del usuario a activar"),
+    token: str = Path(..., description="Token de activación enviado por correo"),
     db: Session = Depends(get_db),
 ):
-    """Activar usuario validando token de activación."""
+    """Generar y enviar el OTP requerido para completar la activación."""
 
-    return user_controller.activar_usuario(
-        dni,
-        token,
-        db,
+    return request_activation_otp(
+        dni=dni,
+        token=token,
+        db=db,
+    )
+
+
+@user_routes.post(
+    "/activate/{dni}/{token}/otp/validate",
+    response_model=ActivationOTPValidateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Validar OTP y activar usuario",
+)
+async def validar_otp_activacion(
+    datos: ActivationOTPValidateRequest,
+    dni: str = Path(..., description="DNI del usuario a activar"),
+    token: str = Path(..., description="Token de activación enviado por correo"),
+    db: Session = Depends(get_db),
+):
+    """Validar el OTP y activar la cuenta únicamente si el código es correcto."""
+
+    return verify_activation_otp(
+        dni=dni,
+        token=token,
+        datos=datos,
+        db=db,
     )
