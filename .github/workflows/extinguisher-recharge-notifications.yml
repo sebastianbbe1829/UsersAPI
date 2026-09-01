@@ -1,0 +1,31 @@
+name: Extinguisher Recharge Notifications
+
+on:
+  schedule:
+    # 07:00 America/Bogota (UTC-5)
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run extinguisher recharge notifications
+        env:
+          EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED: 'true'
+          EXTINGUISHER_RECHARGE_NOTIFICATION_TIME: '07:00'
+          JOB_TIMEZONE: 'America/Bogota'
+        run: python scripts/jobs/run_extinguisher_recharge_notifications.py
