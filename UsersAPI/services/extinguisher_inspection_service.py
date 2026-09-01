@@ -83,6 +83,7 @@ def create_inspection(
         observations=datos.observations,
         hydrostatic_test_performed=hydrostatic_performed,
         hydrostatic_test_date=datos.hydrostatic_test_date,
+        next_hydrostatic_test_date=datos.next_hydrostatic_test_date,
     )
     repo.add(inspection)
 
@@ -100,6 +101,7 @@ def create_inspection(
         extinguisher.inspections_since_hydrostatic_test = 0
         extinguisher.inspection_cycle += 1
         extinguisher.last_hydrostatic_test_date = datos.hydrostatic_test_date
+        extinguisher.next_hydrostatic_test_date = datos.next_hydrostatic_test_date
     else:
         extinguisher.inspections_since_hydrostatic_test = current_count + 1
 
