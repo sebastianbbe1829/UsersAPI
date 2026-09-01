@@ -1,8 +1,10 @@
 from datetime import datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..database import set_rls_tenant
 from ..repositories.user_repository import UserRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
 from .otp_service import generate_otp, validate_otp
@@ -12,11 +14,42 @@ from .user_service import activate_user
 ACTIVATION_OTP_PURPOSE = "account_activation"
 
 
+def _set_activation_tenant_context(
+    token: str,
+    db: Session,
+) -> None:
+    tenant_id = db.execute(
+        text(
+            """
+            SELECT users_api.resolve_tenant_id_by_activation_token(
+                :activation_token
+            )
+            """
+        ),
+        {
+            "activation_token": token,
+        },
+    ).scalar()
+
+    if tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de activación inválido",
+        )
+
+    set_rls_tenant(
+        db,
+        tenant_id,
+    )
+
+
 def _get_activation_context(
     dni: str,
     token: str,
     db: Session,
 ):
+    _set_activation_tenant_context(token, db)
+
     user_tenant_repository = UserTenantRepository(db)
     user_repository = UserRepository(db)
 
