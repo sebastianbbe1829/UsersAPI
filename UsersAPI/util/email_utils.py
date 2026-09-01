@@ -40,6 +40,8 @@ def send_email(
     tenant_slug: str | None = None,
     tenant_name: str | None = None,
     template: str = "default",
+    otp_code: str | None = None,
+    otp_expire_minutes: int | None = None,
 ):
     """Envía un correo transaccional utilizando Brevo."""
 
@@ -111,12 +113,15 @@ def send_email(
         frontend_url = FRONTEND_URL.rstrip("/")
         login_url = f"{frontend_url}/{tenant_slug}/login"
 
-    template_path = os.path.join(TEMPLATE_DIR, "email_base.html")
+    template_filename = (
+        "email_otp.html" if template == "otp" else "email_base.html"
+    )
+    template_path = os.path.join(TEMPLATE_DIR, template_filename)
     if not os.path.isfile(template_path):
         raise RuntimeError(f"Email template not found: {template_path}")
 
     try:
-        email_template = env.get_template("email_base.html")
+        email_template = env.get_template(template_filename)
         html_content = email_template.render(
             sender=EMAIL_FROM,
             recipient=recipient,
@@ -129,6 +134,12 @@ def send_email(
             logo_url=logo_url,
             tenant_name=tenant_display_name,
             template=template,
+            otp_code=otp_code,
+            otp_expire_minutes=(
+                otp_expire_minutes
+                if otp_expire_minutes is not None
+                else settings.otp_expire_minutes
+            ),
         )
     except Exception:
         logger.exception("Error loading or rendering HTML email template")
@@ -140,6 +151,8 @@ def send_email(
         text_content = f"{message}\n\nReactivar cuenta:\n{activation_url}"
     elif template == "updated":
         text_content = f"{message}\n\nIngresar a la aplicación:\n{login_url}"
+    elif template == "otp":
+        text_content = message
     else:
         text_content = message
 
