@@ -35,8 +35,8 @@ jobs:
           EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           API_EMAIL_URL: ${{ secrets.API_EMAIL_URL }}
-          EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED: 'true'
-          EXTINGUISHER_RECHARGE_NOTIFICATION_TIME: '07:00'
-          JOB_TIMEZONE: 'America/Bogota'
+          EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED: ${{ vars.EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED }}
+          EXTINGUISHER_RECHARGE_NOTIFICATION_TIME: ${{ vars.EXTINGUISHER_RECHARGE_NOTIFICATION_TIME }}
+          JOB_TIMEZONE: ${{ vars.JOB_TIMEZONE }}
           PYTHONPATH: .
         run: python scripts/jobs/run_extinguisher_recharge_notifications.py
