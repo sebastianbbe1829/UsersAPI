@@ -21,9 +21,13 @@ class ExtinguisherInspectionResultCreate(BaseModel):
     observation: str | None = None
 
 
-class ExtinguisherInspectionResultRead(ExtinguisherInspectionResultCreate):
+class ExtinguisherInspectionResultRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     id: int
+    inspection_item_id: int
+    result: str
+    observation: str | None
     inspection_item: ExtinguisherInspectionItemRead
 
 
@@ -60,8 +64,3 @@ class ExtinguisherInspectionRead(BaseModel):
     hydrostatic_test_date: date | None
     created_at: datetime
     results: list[ExtinguisherInspectionResultRead]
-
-
-class ExtinguisherInspectionCreateResponse(ExtinguisherInspectionRead):
-    inspections_since_hydrostatic_test: int
-    hydrostatic_test_required: bool
