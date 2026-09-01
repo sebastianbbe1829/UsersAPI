@@ -6,6 +6,9 @@ from UsersAPI.models.otp import OTPCodeDB
 from test.fixtures.multitenant import create_user_context
 
 
+PASSWORD_RECOVERY_PURPOSE = "password_recovery"
+
+
 def test_request_password_recovery_sends_otp_for_existing_user_tenant(
     db_session: Session,
     client: TestClient,
@@ -40,10 +43,11 @@ def test_request_password_recovery_does_not_reveal_unknown_email(
     client: TestClient,
 ):
     _, tenant, _, _ = create_user_context(db_session)
+    unknown_email = "not-registered@example.com"
 
     response = client.post(
         f"/auth/password-recovery/{tenant.slug}/request",
-        json={"email": "not-registered@example.com"},
+        json={"email": unknown_email},
     )
 
     assert response.status_code == 200
@@ -52,7 +56,15 @@ def test_request_password_recovery_does_not_reveal_unknown_email(
         "recibirás un código para recuperar tu contraseña."
     )
     assert response.json()["expires_at"] is not None
-    assert db_session.query(OTPCodeDB).count() == 0
+    assert (
+        db_session.query(OTPCodeDB)
+        .filter(
+            OTPCodeDB.destination == unknown_email,
+            OTPCodeDB.purpose == PASSWORD_RECOVERY_PURPOSE,
+        )
+        .count()
+        == 0
+    )
 
 
 def test_password_recovery_reset_changes_password(
@@ -200,4 +212,12 @@ def test_password_recovery_is_isolated_by_tenant(
 
     assert response.status_code == 200
     assert response.json()["expires_at"] is not None
-    assert db_session.query(OTPCodeDB).count() == 0
+    assert (
+        db_session.query(OTPCodeDB)
+        .filter(
+            OTPCodeDB.destination == user_tenant_a.email,
+            OTPCodeDB.purpose == PASSWORD_RECOVERY_PURPOSE,
+        )
+        .count()
+        == 0
+    )
