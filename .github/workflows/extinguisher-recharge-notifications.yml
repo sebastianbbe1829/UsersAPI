@@ -25,6 +25,13 @@ jobs:
 
       - name: Run extinguisher recharge notifications
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BOOTSTRAP_DATABASE_URL: ${{ secrets.BOOTSTRAP_DATABASE_URL }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          API_EMAIL_URL: ${{ secrets.API_EMAIL_URL }}
           EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED: 'true'
           EXTINGUISHER_RECHARGE_NOTIFICATION_TIME: '07:00'
           JOB_TIMEZONE: 'America/Bogota'
