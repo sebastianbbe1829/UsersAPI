@@ -13,7 +13,6 @@ from ..models import (
 )
 from ..util.email_utils import send_email
 from ..logging_config import logger
-from ..settings import settings
 
 
 ADMIN_ROLE_CODES = ("ADMIN",)
@@ -154,11 +153,10 @@ class ExtinguisherRechargeNotificationService:
         target_date: date,
         extinguishers: list[dict],
     ) -> str:
-        application_name = (
-            settings.email_from_name.strip()
-            if settings.email_from_name and settings.email_from_name.strip()
-            else "Gestión de Extintores"
-        )
+        # El nombre que identifica la aplicación en este correo debe ser
+        # siempre el del tenant que recibe la notificación. No usamos un
+        # nombre global/fijo de aplicación (por ejemplo, "Info Fenix").
+        application_name = (tenant_name or "Gestión de Extintores").strip()
 
         lines = [
             f"Buenos días, {tenant_name}.",
