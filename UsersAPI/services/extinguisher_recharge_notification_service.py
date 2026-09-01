@@ -8,25 +8,19 @@ from ..models import (
     ExtinguisherTypeDB,
     RoleDB,
     TenantDB,
-    UserDB,
     UserTenantDB,
     UserTenantRoleDB,
 )
 from ..util.email_utils import send_email
 from ..logging_config import logger
+from ..settings import settings
 
 
 ADMIN_ROLE_CODES = ("ADMIN",)
 
 
 class ExtinguisherRechargeNotificationService:
-    """Envía el aviso diario de extintores cuya recarga vence hoy.
-
-    El proceso utiliza la conexión de bootstrap porque debe revisar todos
-    los tenants sin romper el aislamiento RLS de las conexiones normales.
-    El envío de correo reutiliza send_email(), por lo que mantiene la
-    configuración y proveedor de correo existente.
-    """
+    """Envía el aviso diario de extintores cuya recarga vence hoy."""
 
     def __init__(self, db: Session):
         self.db = db
@@ -45,10 +39,7 @@ class ExtinguisherRechargeNotificationService:
                 ExtinguisherTypeDB,
                 ExtinguisherTypeDB.id == ExtinguisherDB.extinguisher_type_id,
             )
-            .join(
-                TenantDB,
-                TenantDB.id == ExtinguisherDB.tenant_id,
-            )
+            .join(TenantDB, TenantDB.id == ExtinguisherDB.tenant_id)
             .where(
                 and_(
                     ExtinguisherDB.active.is_(True),
@@ -88,14 +79,17 @@ class ExtinguisherRechargeNotificationService:
 
             if not recipients:
                 logger.warning(
-                    "No active ADMIN email found for tenant_id=%s; "
-                    "recharge notification skipped",
+                    "No active ADMIN email found for tenant_id=%s; recharge notification skipped",
                     tenant_id,
                 )
                 skipped += 1
                 continue
 
-            message = self._build_message(data["tenant_name"], target_date, data["extinguishers"])
+            message = self._build_message(
+                data["tenant_name"],
+                target_date,
+                data["extinguishers"],
+            )
             subject = (
                 f"Alerta: {len(data['extinguishers'])} extintor(es) "
                 f"con recarga vencida hoy - {data['tenant_name']}"
@@ -139,10 +133,7 @@ class ExtinguisherRechargeNotificationService:
                 UserTenantRoleDB,
                 UserTenantRoleDB.user_tenant_id == UserTenantDB.id,
             )
-            .join(
-                RoleDB,
-                RoleDB.id == UserTenantRoleDB.role_id,
-            )
+            .join(RoleDB, RoleDB.id == UserTenantRoleDB.role_id)
             .where(
                 and_(
                     UserTenantDB.tenant_id == tenant_id,
@@ -158,7 +149,17 @@ class ExtinguisherRechargeNotificationService:
         return [email.strip() for email in rows if email and email.strip()]
 
     @staticmethod
-    def _build_message(tenant_name: str, target_date: date, extinguishers: list[dict]) -> str:
+    def _build_message(
+        tenant_name: str,
+        target_date: date,
+        extinguishers: list[dict],
+    ) -> str:
+        application_name = (
+            settings.email_from_name.strip()
+            if settings.email_from_name and settings.email_from_name.strip()
+            else "Gestión de Extintores"
+        )
+
         lines = [
             f"Buenos días, {tenant_name}.",
             "",
@@ -179,11 +180,13 @@ class ExtinguisherRechargeNotificationService:
             line += f" | Fecha: {item['next_recharge_date'].isoformat()}"
             lines.append(line)
 
-        lines.extend([
-            "",
-            "Por favor, realiza la gestión correspondiente de recarga y actualiza la información en el sistema.",
-            "",
-            "Este es un mensaje automático generado por UsersAPI.",
-        ])
+        lines.extend(
+            [
+                "",
+                "Por favor, realiza la gestión correspondiente de recarga y actualiza la información en el sistema.",
+                "",
+                f"Este es un mensaje automático generado por {application_name}.",
+            ]
+        )
 
         return "\n".join(lines)
