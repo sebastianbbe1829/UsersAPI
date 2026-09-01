@@ -10,6 +10,13 @@ from .global_auth import SuperBootstrapMfaVerifyRequest, SuperBootstrapMfaVerify
 from .permission import PermissionCreate, PermissionRead, PermissionResponse
 from .extinguisher import ExtinguisherCreate, ExtinguisherDeleteResponse, ExtinguisherRead, ExtinguisherUpdate
 from .extinguisher_type import ExtinguisherTypeCreate, ExtinguisherTypeRead, ExtinguisherTypeUpdate
+from .extinguisher_inspection import (
+    ExtinguisherInspectionCreate,
+    ExtinguisherInspectionItemRead,
+    ExtinguisherInspectionRead,
+    ExtinguisherInspectionResultCreate,
+    ExtinguisherInspectionResultRead,
+)
 
 __all__ = [
     "PermissionCreate", "PermissionRead", "PermissionResponse", "UserCreate", "UserDeleteResponse", "UserRead", "UserUpdate", "UserActivateResponse",
@@ -18,4 +25,5 @@ __all__ = [
     "RolePermissionCreate", "RolePermissionRead", "RolePermissionDeleteResponse", "LoginRequest", "LoginResponse", "TokenUserResponse", "TokenTenantResponse", "TokenValidationResponse",
     "SuperBootstrapRequest", "SuperBootstrapResponse", "SuperBootstrapMfaVerifyRequest", "SuperBootstrapMfaVerifyResponse", "SuperLoginRequest", "SuperLoginResponse",
     "BootstrapTenantRequest", "BootstrapTenantResponse", "ExtinguisherCreate", "ExtinguisherDeleteResponse", "ExtinguisherRead", "ExtinguisherUpdate", "ExtinguisherTypeCreate", "ExtinguisherTypeRead", "ExtinguisherTypeUpdate",
+    "ExtinguisherInspectionCreate", "ExtinguisherInspectionItemRead", "ExtinguisherInspectionRead", "ExtinguisherInspectionResultCreate", "ExtinguisherInspectionResultRead",
 ]
