@@ -17,6 +17,9 @@ def test_generate_otp_normalizes_destination_and_purpose_and_sends_code(
     monkeypatch,
 ):
     sent = {}
+    destination = unique_destination()
+    raw_destination = f"  {destination.upper()} "
+    expected_destination = destination.lower()
 
     def fake_send_email(**kwargs):
         sent.update(kwargs)
@@ -25,20 +28,20 @@ def test_generate_otp_normalizes_destination_and_purpose_and_sends_code(
 
     expires_at = generate_otp(
         db_session,
-        destination="  USER@Example.COM ",
+        destination=raw_destination,
         purpose=" PASSWORD_RECOVERY ",
     )
 
     otp = (
         db_session.query(OTPCodeDB)
         .filter(
-            OTPCodeDB.destination == "user@example.com",
+            OTPCodeDB.destination == expected_destination,
             OTPCodeDB.purpose == "password_recovery",
         )
         .one()
     )
 
-    assert otp.destination == "user@example.com"
+    assert otp.destination == expected_destination
     assert otp.purpose == "password_recovery"
     assert otp.code_hash == _hash_code(sent["otp_code"])
     assert otp.expires_at == expires_at
