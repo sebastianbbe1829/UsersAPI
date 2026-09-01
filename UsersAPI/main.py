@@ -12,7 +12,7 @@ from .routes import (
     user_routes, auth_routers, global_auth_routes, tenant_routes, tenant_config_routes,
     tenant_config_public_routes, user_tenant_routes, role_routes, user_tenant_role_routes,
     role_permission_routes, bootstrap_tenant_routes, permission_routes, email_routes,
-    extinguisher_routes, extinguisher_type_routes, extinguisher_inspection_routes,
+    otp_routes, extinguisher_routes, extinguisher_type_routes, extinguisher_inspection_routes,
     extinguisher_nested_inspection_routes, extinguisher_inspection_item_routes,
 )
 from .logging_config import logger
@@ -46,6 +46,7 @@ app = FastAPI(
         {"name": "Bootstrap", "description": "Inicialización de tenants y configuración inicial del sistema"},
         {"name": "Permisos", "description": "Operaciones sobre permisos"},
         {"name": "Email", "description": "Pruebas administrativas de correo transaccional"},
+        {"name": "OTP", "description": "Generación y validación de códigos OTP temporales"},
         {"name": "Extintores", "description": "Inventario y gestión de extintores por tenant"},
         {"name": "Tipos de extintor", "description": "Catálogo global de tipos de extintor"},
         {"name": "Revisiones de extintores", "description": "Histórico y control de revisiones de extintores"},
@@ -67,9 +68,7 @@ _daily_job_task: asyncio.Task | None = None
 async def start_daily_extinguisher_recharge_job():
     global _daily_job_stop_event, _daily_job_task
     _daily_job_stop_event = asyncio.Event()
-    _daily_job_task = asyncio.create_task(
-        daily_extinguisher_recharge_job(_daily_job_stop_event)
-    )
+    _daily_job_task = asyncio.create_task(daily_extinguisher_recharge_job(_daily_job_stop_event))
     logger.info("Daily extinguisher recharge notification worker started")
 
 
@@ -125,6 +124,7 @@ app.include_router(role_permission_routes)
 app.include_router(bootstrap_tenant_routes)
 app.include_router(permission_routes)
 app.include_router(email_routes)
+app.include_router(otp_routes)
 app.include_router(extinguisher_routes)
 app.include_router(extinguisher_type_routes)
 app.include_router(extinguisher_inspection_routes)
