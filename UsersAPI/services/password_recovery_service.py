@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import text
@@ -8,6 +8,7 @@ from ..database import set_rls_tenant
 from ..logging_config import logger
 from ..models import TenantDB, UserTenantDB
 from ..repositories.user_tenant_repository import UserTenantRepository
+from ..settings import settings
 from .auth_service import get_password_hash
 from .otp_service import generate_otp, validate_otp
 
@@ -36,7 +37,7 @@ def request_password_recovery(
     email: str,
     db: Session,
 ):
-    """Solicita un OTP de recuperación sin revelar si el correo existe."""
+    """Solicita un OTP sin revelar si el correo existe en el tenant."""
     tenant_id = _resolve_tenant(tenant_slug, db)
     email = email.strip().lower()
 
@@ -59,7 +60,8 @@ def request_password_recovery(
             tenant_id,
             email,
         )
-        return None
+        # Mantiene la misma forma de respuesta sin generar ni enviar un OTP.
+        return datetime.utcnow() + timedelta(minutes=settings.otp_expire_minutes)
 
     return generate_otp(
         db,
