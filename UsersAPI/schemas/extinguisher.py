@@ -2,10 +2,12 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .extinguisher_type import ExtinguisherTypeRead
+
 
 class ExtinguisherCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
-    extinguisher_type: str = Field(..., min_length=1, max_length=50)
+    extinguisher_type_id: int = Field(..., gt=0)
     capacity: str | None = Field(None, max_length=30)
     location: str | None = Field(None, max_length=150)
     last_recharge_date: date | None = None
@@ -18,7 +20,7 @@ class ExtinguisherCreate(BaseModel):
 
 class ExtinguisherUpdate(BaseModel):
     code: str | None = Field(None, min_length=1, max_length=50)
-    extinguisher_type: str | None = Field(None, min_length=1, max_length=50)
+    extinguisher_type_id: int | None = Field(None, gt=0)
     capacity: str | None = Field(None, max_length=30)
     location: str | None = Field(None, max_length=150)
     last_recharge_date: date | None = None
@@ -36,7 +38,8 @@ class ExtinguisherRead(BaseModel):
     id: int
     tenant_id: int
     code: str
-    extinguisher_type: str
+    extinguisher_type_id: int
+    extinguisher_type: ExtinguisherTypeRead
     capacity: str | None
     location: str | None
     last_recharge_date: date | None
