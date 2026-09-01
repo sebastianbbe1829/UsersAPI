@@ -13,9 +13,11 @@ from .permission_routes import permission_routes
 from .email_routes import email_routes
 from .extinguisher_routes import extinguisher_routes
 from .extinguisher_type_routes import extinguisher_type_routes
+from .extinguisher_inspection_routes import extinguisher_inspection_routes, extinguisher_nested_inspection_routes
 
 __all__ = [
     "user_routes", "auth_routers", "global_auth_routes", "tenant_routes", "tenant_config_routes", "tenant_config_public_routes",
     "user_tenant_routes", "role_routes", "user_tenant_role_routes", "role_permission_routes", "bootstrap_tenant_routes",
-    "permission_routes", "email_routes", "extinguisher_routes", "extinguisher_type_routes",
+    "permission_routes", "email_routes", "extinguisher_routes", "extinguisher_type_routes", "extinguisher_inspection_routes",
+    "extinguisher_nested_inspection_routes",
 ]

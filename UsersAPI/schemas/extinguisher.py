@@ -46,6 +46,9 @@ class ExtinguisherRead(BaseModel):
     next_recharge_date: date | None
     last_hydrostatic_test_date: date | None
     next_hydrostatic_test_date: date | None
+    inspections_since_hydrostatic_test: int
+    inspection_cycle: int
+    hydrostatic_test_required: bool
     status: str
     is_stock: bool
     active: bool

@@ -20,6 +20,8 @@ class ExtinguisherDB(Base):
     next_recharge_date = Column(Date, nullable=True)
     last_hydrostatic_test_date = Column(Date, nullable=True)
     next_hydrostatic_test_date = Column(Date, nullable=True)
+    inspections_since_hydrostatic_test = Column(Integer, nullable=False, default=0, server_default=text("0"))
+    inspection_cycle = Column(Integer, nullable=False, default=1, server_default=text("1"))
     status = Column(String(30), nullable=False, default="ACTIVE", server_default=text("'ACTIVE'"))
     is_stock = Column(Boolean, nullable=False, default=False, server_default=text("false"))
     active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
@@ -27,3 +29,7 @@ class ExtinguisherDB(Base):
     updated_at = Column(DateTime, nullable=True)
 
     extinguisher_type = relationship("ExtinguisherTypeDB")
+
+    @property
+    def hydrostatic_test_required(self) -> bool:
+        return self.inspections_since_hydrostatic_test >= 4
