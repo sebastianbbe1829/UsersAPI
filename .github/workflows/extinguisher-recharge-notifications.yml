@@ -2,8 +2,11 @@ name: Extinguisher Recharge Notifications
 
 on:
   schedule:
-    # 07:00 America/Bogota (UTC-5)
+    # Primary: 07:00 America/Bogota (UTC-5)
     - cron: '0 12 * * *'
+    # Fallbacks: retry during the same Colombia morning if GitHub delays/misses the primary schedule.
+    - cron: '20 12 * * *'
+    - cron: '40 12 * * *'
   workflow_dispatch:
 
 jobs:
