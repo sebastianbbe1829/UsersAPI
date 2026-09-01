@@ -24,6 +24,7 @@ from .routes import (
     bootstrap_tenant_routes,
     permission_routes,
     email_routes,
+    extinguisher_routes,
 )
 
 from .logging_config import logger
@@ -120,6 +121,10 @@ app = FastAPI(
         {
             "name": "Email",
             "description": "Pruebas administrativas de correo transaccional",
+        },
+        {
+            "name": "Extintores",
+            "description": "Inventario y gestión de extintores por tenant",
         },
     ],
 )
@@ -226,6 +231,9 @@ logger.info("Rutas de permission_routes registradas")
 
 app.include_router(email_routes)
 logger.info("Rutas de email_routes registradas")
+
+app.include_router(extinguisher_routes)
+logger.info("Rutas de extintores registradas")
 
 
 @app.exception_handler(RequestValidationError)

@@ -124,4 +124,27 @@ PERMISSIONS = [
         "Actualizar configuración de UI",
         "Permite actualizar la configuración de UI",
     ),
+    # ========================================================
+    # EXTINTORES
+    # ========================================================
+    (
+        "EXTINGUISHER_READ",
+        "Consultar extintores",
+        "Permite consultar extintores",
+    ),
+    (
+        "EXTINGUISHER_CREATE",
+        "Crear extintores",
+        "Permite crear extintores",
+    ),
+    (
+        "EXTINGUISHER_UPDATE",
+        "Actualizar extintores",
+        "Permite actualizar extintores",
+    ),
+    (
+        "EXTINGUISHER_DELETE",
+        "Desactivar extintores",
+        "Permite desactivar extintores",
+    ),
 ]

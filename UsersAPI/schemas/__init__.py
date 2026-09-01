@@ -68,6 +68,13 @@ from .permission import (
     PermissionResponse,
 )
 
+from .extinguisher import (
+    ExtinguisherCreate,
+    ExtinguisherDeleteResponse,
+    ExtinguisherRead,
+    ExtinguisherUpdate,
+)
+
 __all__ = [
     "PermissionCreate",
     "PermissionRead",
@@ -109,4 +116,8 @@ __all__ = [
     "SuperLoginResponse",
     "BootstrapTenantRequest",
     "BootstrapTenantResponse",
+    "ExtinguisherCreate",
+    "ExtinguisherDeleteResponse",
+    "ExtinguisherRead",
+    "ExtinguisherUpdate",
 ]

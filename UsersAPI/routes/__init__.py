@@ -11,6 +11,7 @@ from .role_permission_routes import role_permission_routes
 from .bootstrap_tenant_routes import bootstrap_tenant_routes
 from .permission_routes import permission_routes
 from .email_routes import email_routes
+from .extinguisher_routes import extinguisher_routes
 
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "bootstrap_tenant_routes",
     "permission_routes",
     "email_routes",
+    "extinguisher_routes",
 ]
