@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from .settings import settings
-
+from .logging_config import logger
 
 # ============================================================
 # DATABASE URL - APLICACIÓN NORMAL
@@ -84,7 +84,7 @@ BootstrapSessionLocal = sessionmaker(
 # ============================================================
 
 Base = declarative_base()
-
+logger.debug("Base de datos y sesiones configuradas correctamente")
 
 # ============================================================
 # RLS - CONTEXTO DEL TENANT
