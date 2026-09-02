@@ -12,7 +12,7 @@ Reglas de migración:
 - El CSV usa ';' como separador.
 - REVISION 1..4 con X determina la última revisión conocida.
 - No se crean revisiones históricas que no estén en el CSV.
-- Si no existe fecha de revisión, se usa CURRENT_DATE de PostgreSQL.
+- La fecha de la revisión inicial se registra como CURRENT_DATE de PostgreSQL.
 - La revisión importada no tiene inspector conocido.
 - Los pares bueno/malo se convierten a GOOD/BAD/NA.
 - Un mismo código de extintor no puede existir previamente en el tenant.
@@ -77,14 +77,12 @@ class MigrationError(ValueError):
 
 
 def normalize_header(value: str) -> str:
-    """Normaliza encabezados sin alterar el nombre funcional esperado."""
+    """Normaliza espacios y BOM sin cambiar el nombre funcional."""
     return re.sub(r"\s+", " ", value.strip().replace("\ufeff", ""))
 
 
 def normalize_value(value: str | None) -> str:
-    if value is None:
-        return ""
-    return value.strip()
+    return "" if value is None else value.strip()
 
 
 def is_marked(value: str | None) -> bool:
@@ -137,7 +135,12 @@ def get_revision_number(row: dict[str, str], row_number: int) -> int:
     return marked[0]
 
 
-def get_item_result(row: dict[str, str], good_column: str, bad_column: str, row_number: int) -> str:
+def get_item_result(
+    row: dict[str, str],
+    good_column: str,
+    bad_column: str,
+    row_number: int,
+) -> str:
     good = is_marked(row.get(good_column))
     bad = is_marked(row.get(bad_column))
 
@@ -153,47 +156,17 @@ def get_item_result(row: dict[str, str], good_column: str, bad_column: str, row_
 
 
 def get_overall_result(item_results: list[str]) -> str:
-    """Deriva un estado global sin inventar un estado de fuera de servicio."""
+    """Deriva el estado global usando únicamente los indicadores disponibles."""
     if "BAD" in item_results:
         return "REQUIERE_MANTENIMIENTO"
     return "APTO"
 
 
-def append_migration_observation(original: str | None, revision_date_missing: bool) -> str:
-    parts = []
+def append_migration_observation(original: str | None) -> str:
     original = normalize_value(original)
     if original:
-        parts.append(original)
-
-    if revision_date_missing:
-        parts.append(MIGRATION_OBSERVATION)
-    else:
-        parts.append("Carga inicial por migración; inspector y antecedentes históricos no disponibles.")
-
-    return " ".join(parts)
-
-
-def resolve_type(db: Session, value: str, row_number: int) -> ExtinguisherTypeDB:
-    normalized = normalize_value(value).upper()
-    if not normalized:
-        raise MigrationError(f"Fila {row_number}: TIPO EXTINTOR es obligatorio.")
-
-    item = (
-        db.query(ExtinguisherTypeDB)
-        .filter(
-            ExtinguisherTypeDB.active.is_(True),
-            (ExtinguisherTypeDB.code == normalized)
-            | (ExtinguisherTypeDB.name.ilike(normalized)),
-        )
-        .first()
-    )
-
-    if item is None:
-        raise MigrationError(
-            f"Fila {row_number}: tipo de extintor no encontrado en el catálogo: '{value}'."
-        )
-
-    return item
+        return f"{original} {MIGRATION_OBSERVATION}"
+    return MIGRATION_OBSERVATION
 
 
 def validate_headers(headers: list[str]) -> None:
@@ -219,7 +192,7 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
     try:
         set_rls_tenant(db, tenant_id)
 
-        with csv_path.open("r", encoding="utf-8-sig-sig", newline="") as file:
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
             reader = csv.DictReader(file, delimiter=";")
             if reader.fieldnames is None:
                 raise MigrationError("El CSV no tiene encabezados.")
@@ -227,18 +200,25 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
             reader.fieldnames = [normalize_header(field) for field in reader.fieldnames]
             validate_headers(reader.fieldnames)
 
-            # CURRENT_DATE queda determinado por PostgreSQL para toda la carga.
+            # La fecha de migración proviene de PostgreSQL, equivalente a SYSDATE
+            # para esta carga, y es la misma para todas las filas.
             migration_date = db.execute(text("SELECT CURRENT_DATE")).scalar_one()
 
-            # Cargamos el catálogo una vez y evitamos consultas repetidas por fila.
-            types = db.query(ExtinguisherTypeDB).filter(ExtinguisherTypeDB.active.is_(True)).all()
+            types = (
+                db.query(ExtinguisherTypeDB)
+                .filter(ExtinguisherTypeDB.active.is_(True))
+                .all()
+            )
             type_by_code = {item.code.strip().upper(): item for item in types}
             type_by_name = {item.name.strip().upper(): item for item in types}
 
             inspection_items = (
                 db.query(ExtinguisherInspectionItemDB)
                 .filter(ExtinguisherInspectionItemDB.active.is_(True))
-                .order_by(ExtinguisherInspectionItemDB.display_order, ExtinguisherInspectionItemDB.id)
+                .order_by(
+                    ExtinguisherInspectionItemDB.display_order,
+                    ExtinguisherInspectionItemDB.id,
+                )
                 .all()
             )
             item_by_code = {item.code: item for item in inspection_items}
@@ -251,7 +231,11 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                 )
 
             for row_number, raw_row in enumerate(reader, start=2):
-                row = {normalize_header(k): normalize_value(v) for k, v in raw_row.items() if k is not None}
+                row = {
+                    normalize_header(k): normalize_value(v)
+                    for k, v in raw_row.items()
+                    if k is not None
+                }
 
                 code = normalize_value(row.get("ID"))
                 if not code:
@@ -271,31 +255,23 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                         f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
                     )
 
-                extinguisher_type = type_by_code.get(normalize_value(row.get("TIPO EXTINTOR")).upper())
+                type_value = normalize_value(row.get("TIPO EXTINTOR")).upper()
+                extinguisher_type = type_by_code.get(type_value)
                 if extinguisher_type is None:
-                    extinguisher_type = type_by_name.get(normalize_value(row.get("TIPO EXTINTOR")).upper())
+                    extinguisher_type = type_by_name.get(type_value)
                 if extinguisher_type is None:
                     raise MigrationError(
-                        f"Fila {row_number}: tipo de extintor no encontrado en el catálogo: "
-                        f"'{row.get('TIPO EXTINTOR', '')}'."
+                        f"Fila {row_number}: tipo de extintor no encontrado en el catálogo: '{row.get('TIPO EXTINTOR', '')}'."
                     )
 
                 revision_number = get_revision_number(row, row_number)
-                revision_date = parse_date(row.get("FECHA REVISION"), "FECHA REVISION", row_number)
-                revision_date_missing = revision_date is None
-                if revision_date is None:
-                    revision_date = migration_date
 
-                item_results = []
-                for item_code, (good_column, bad_column) in ITEM_COLUMNS.items():
-                    result = get_item_result(row, good_column, bad_column, row_number)
-                    item_results.append(result)
-
+                item_results = [
+                    get_item_result(row, good_column, bad_column, row_number)
+                    for good_column, bad_column in ITEM_COLUMNS.values()
+                ]
                 overall_result = get_overall_result(item_results)
-                observations = append_migration_observation(
-                    row.get("OBSERVACIONES"),
-                    revision_date_missing,
-                )
+                observations = append_migration_observation(row.get("OBSERVACIONES"))
 
                 extinguisher = ExtinguisherDB(
                     tenant_id=tenant_id,
@@ -303,8 +279,12 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                     extinguisher_type_id=extinguisher_type.id,
                     capacity=normalize_value(row.get("CAPACIDAD")) or None,
                     location=normalize_value(row.get("UBICACION")) or None,
-                    last_recharge_date=parse_date(row.get("Ultima recarga"), "Ultima recarga", row_number),
-                    next_recharge_date=parse_date(row.get("Proxima recarga"), "Proxima recarga", row_number),
+                    last_recharge_date=parse_date(
+                        row.get("Ultima recarga"), "Ultima recarga", row_number
+                    ),
+                    next_recharge_date=parse_date(
+                        row.get("Proxima recarga"), "Proxima recarga", row_number
+                    ),
                     last_hydrostatic_test_date=parse_date(
                         row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
                         "FECHA PRUEBA HIDROSTATICA Ultima",
@@ -327,7 +307,7 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                 inspection = ExtinguisherInspectionDB(
                     tenant_id=tenant_id,
                     extinguisher_id=extinguisher.id,
-                    inspection_date=revision_date,
+                    inspection_date=migration_date,
                     inspector_user_id=None,
                     inspection_number=revision_number,
                     inspection_cycle=1,
@@ -370,7 +350,12 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Carga inicial de extintores desde CSV")
     parser.add_argument("--tenant-id", type=int, required=True, help="ID del tenant destino")
-    parser.add_argument("--csv", type=Path, required=True, help="Ruta al CSV separado por punto y coma")
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        required=True,
+        help="Ruta al CSV separado por punto y coma",
+    )
     args = parser.parse_args()
 
     try:
