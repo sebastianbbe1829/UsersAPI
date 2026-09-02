@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+import unicodedata
 from datetime import date, datetime
 from pathlib import Path
 
@@ -71,6 +72,15 @@ MIGRATION_OBSERVATION = (
     "se registra fecha de migración. Información histórica no disponible."
 )
 
+TYPE_ALIASES = {
+    "PQS": "POLVO_QUIMICO_SECO",
+    "POLVO QUIMICO SECO": "POLVO_QUIMICO_SECO",
+    "POLVO QUIMICO SECO PQS": "POLVO_QUIMICO_SECO",
+    "DIOXIDO DE CARBONO": "CO2",
+    "CO2": "CO2",
+    "AGENTE LIMPIO": "AGENTE_LIMPIO",
+}
+
 
 class MigrationError(ValueError):
     """Error controlado de validación de una fila del CSV."""
@@ -83,6 +93,15 @@ def normalize_header(value: str) -> str:
 
 def normalize_value(value: str | None) -> str:
     return "" if value is None else value.strip()
+
+
+def catalog_key(value: str | None) -> str:
+    """Normaliza nombres/códigos para comparar datos humanos del CSV."""
+    value = normalize_value(value).upper()
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(char for char in value if unicodedata.category(char) != "Mn")
+    value = re.sub(r"[^A-Z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def is_marked(value: str | None) -> bool:
@@ -178,6 +197,28 @@ def validate_headers(headers: list[str]) -> None:
         )
 
 
+def resolve_type(
+    type_by_code: dict[str, ExtinguisherTypeDB],
+    type_by_name: dict[str, ExtinguisherTypeDB],
+    value: str,
+    row_number: int,
+) -> ExtinguisherTypeDB:
+    raw = normalize_value(value)
+    if not raw:
+        raise MigrationError(f"Fila {row_number}: TIPO EXTINTOR es obligatorio.")
+
+    key = catalog_key(raw)
+    code_key = catalog_key(TYPE_ALIASES.get(key, raw))
+    item = type_by_code.get(code_key) or type_by_name.get(key)
+
+    if item is None:
+        raise MigrationError(
+            f"Fila {row_number}: tipo de extintor no encontrado en el catálogo: '{value}'."
+        )
+
+    return item
+
+
 def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
     if tenant_id <= 0:
         raise MigrationError("tenant_id debe ser mayor que cero.")
@@ -209,8 +250,8 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                 .filter(ExtinguisherTypeDB.active.is_(True))
                 .all()
             )
-            type_by_code = {item.code.strip().upper(): item for item in types}
-            type_by_name = {item.name.strip().upper(): item for item in types}
+            type_by_code = {catalog_key(item.code): item for item in types}
+            type_by_name = {catalog_key(item.name): item for item in types}
 
             inspection_items = (
                 db.query(ExtinguisherInspectionItemDB)
@@ -255,14 +296,12 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                         f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
                     )
 
-                type_value = normalize_value(row.get("TIPO EXTINTOR")).upper()
-                extinguisher_type = type_by_code.get(type_value)
-                if extinguisher_type is None:
-                    extinguisher_type = type_by_name.get(type_value)
-                if extinguisher_type is None:
-                    raise MigrationError(
-                        f"Fila {row_number}: tipo de extintor no encontrado en el catálogo: '{row.get('TIPO EXTINTOR', '')}'."
-                    )
+                extinguisher_type = resolve_type(
+                    type_by_code,
+                    type_by_name,
+                    row.get("TIPO EXTINTOR", ""),
+                    row_number,
+                )
 
                 revision_number = get_revision_number(row, row_number)
 
