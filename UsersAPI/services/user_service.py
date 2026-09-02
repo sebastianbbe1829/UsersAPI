@@ -18,88 +18,12 @@ from ..util.whatsapp_utils import send_whatsapp
 from .auth_service import get_password_hash
 from ..repositories.tenant_repository import TenantRepository
 from ..database import set_rls_tenant
-
-
-# ============================================================
-# UTILIDADES
-# ============================================================
-
-def _actor_dni(
-    current_user: UserTenantDB | GlobalUserDB | None,
-) -> str:
-    if current_user is None:
-        return "bootstrap"
-
-    if isinstance(current_user, GlobalUserDB):
-        return current_user.email
-
-    return current_user.user.dni
-
-
-def _user_payload(
-    user: UserDB,
-    link: UserTenantDB,
-    message: str | None = None,
-):
-    payload = {
-        "dni": user.dni,
-        "name": user.name,
-        "email": link.email,
-        "phone": link.phone,
-        "status": link.status,
-        "id": user.id,
-    }
-
-    if message is not None:
-        payload["message"] = message
-
-    return payload
-
-
-# ============================================================
-# OBTENER RELACIÓN USER_TENANT
-# ============================================================
-
-def _tenant_link(
-    user: UserDB,
-    tenant_id: int,
-    user_tenant_repository: UserTenantRepository,
-) -> UserTenantDB:
-    link = user_tenant_repository.get_by_user_and_tenant(
-        user.id,
-        tenant_id,
-    )
-
-    if link is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no pertenece al tenant",
-        )
-
-    return link
-
-
-# ============================================================
-# OBTENER USUARIO POR DNI + TENANT
-# ============================================================
-
-def _get_user_entity(
-    dni: str,
-    tenant_id: int,
-    user_repository: UserRepository,
-) -> UserDB:
-    usuario = user_repository.get_by_dni_in_tenant(
-        dni,
-        tenant_id,
-    )
-
-    if usuario is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no encontrado",
-        )
-
-    return usuario
+from .user_service_helpers import (
+    _actor_dni,
+    _get_user_entity,
+    _tenant_link,
+    _user_payload,
+)
 
 
 # ============================================================
