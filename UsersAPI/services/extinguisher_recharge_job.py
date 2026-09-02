@@ -16,8 +16,43 @@ ENABLED = os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED", "true").lower
 ADVISORY_LOCK_ID = 824731905
 
 
-def run_extinguisher_recharge_notification_job() -> dict:
-    """Ejecuta inmediatamente el job para pruebas o ejecución externa."""
+def _scheduled_target(now: datetime) -> datetime:
+    hour, minute = [int(value) for value in RUN_TIME.split(":", 1)]
+    return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
+def _next_run(now: datetime) -> datetime:
+    target = _scheduled_target(now)
+    if target <= now:
+        target += timedelta(days=1)
+    return target
+
+
+def run_extinguisher_recharge_notification_job(*, wait_for_schedule: bool = False) -> dict:
+    """Ejecuta el job, opcionalmente respetando la hora configurada en JOB_TIMEZONE."""
+    if wait_for_schedule:
+        timezone = ZoneInfo(TIMEZONE)
+        now = datetime.now(timezone)
+        target = _scheduled_target(now)
+        if now < target:
+            delay = (target - now).total_seconds()
+            logger.info(
+                "Extinguisher recharge notification triggered before configured time; "
+                "waiting %.0f seconds until %s (%s)",
+                delay,
+                RUN_TIME,
+                TIMEZONE,
+            )
+            import time
+            time.sleep(delay)
+        else:
+            logger.info(
+                "Extinguisher recharge notification triggered at/after configured time "
+                "(%s %s); executing now",
+                RUN_TIME,
+                TIMEZONE,
+            )
+
     db = BootstrapSessionLocal()
     locked = False
     try:
@@ -54,14 +89,6 @@ async def _run_once() -> None:
         run_extinguisher_recharge_notification_job()
     except Exception:
         logger.exception("Daily extinguisher recharge notification failed")
-
-
-def _next_run(now: datetime) -> datetime:
-    hour, minute = [int(value) for value in RUN_TIME.split(":", 1)]
-    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if target <= now:
-        target += timedelta(days=1)
-    return target
 
 
 async def daily_extinguisher_recharge_job(stop_event: asyncio.Event) -> None:
