@@ -31,6 +31,7 @@ from ..settings import settings
 SECRET_KEY = settings.secret_key
 ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+AUTH_SCHEME = "bearer"
 
 
 # PasswordHasher de argon2-cffi reemplaza Passlib.
@@ -378,7 +379,7 @@ def login_user(
 
     return {
         "access_token": access_token,
-        "token_type": "bearer",
+        "token_type": AUTH_SCHEME,
     }
 
 
