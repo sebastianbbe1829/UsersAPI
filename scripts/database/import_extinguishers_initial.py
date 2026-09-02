@@ -175,10 +175,12 @@ def get_item_result(
 
 
 def get_overall_result(item_results: list[str]) -> str:
-    """Deriva el estado global usando únicamente los indicadores disponibles."""
+    """Deriva el estado sin considerar datos desconocidos como aptos."""
     if "BAD" in item_results:
         return "REQUIERE_MANTENIMIENTO"
-    return "APTO"
+    if all(result == "GOOD" for result in item_results):
+        return "APTO"
+    return "REQUIERE_MANTENIMIENTO"
 
 
 def append_migration_observation(original: str | None) -> str:
