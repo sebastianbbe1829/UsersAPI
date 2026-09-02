@@ -23,6 +23,7 @@ INITIAL_TYPES = [
     ("AGUA", "Agua"),
     ("ESPUMA", "Espuma"),
     ("AGENTE_LIMPIO", "Agente limpio"),
+    ("TIPO_K", "Tipo K"),
 ]
 
 

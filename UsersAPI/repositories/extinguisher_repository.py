@@ -24,7 +24,10 @@ class ExtinguisherRepository:
         )
         if not include_inactive:
             query = query.filter(ExtinguisherDB.active.is_(True))
-        return query.order_by(ExtinguisherDB.id).all()
+        return query.order_by(
+            ExtinguisherDB.next_recharge_date.asc().nullslast(),
+            ExtinguisherDB.id.asc(),
+        ).all()
 
     def get_by_id_and_tenant(
         self,
