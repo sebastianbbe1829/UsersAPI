@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..database import set_rls_tenant
