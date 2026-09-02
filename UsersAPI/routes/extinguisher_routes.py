@@ -25,6 +25,11 @@ async def exportar_extintores(db: Session = Depends(get_db), current_user: UserT
     return extinguisher_controller.exportar_extintores(db, current_user, user_tenant)
 
 
+@extinguisher_routes.get("/search", response_model=list[ExtinguisherRead], status_code=status.HTTP_200_OK, summary="Buscar extintores", dependencies=[Depends(require_permission("EXTINGUISHER_READ"))])
+async def buscar_extintores(search: str = Query("", max_length=100), limit: int = Query(20, ge=1, le=50), db: Session = Depends(get_db), user_tenant: UserTenantDB = Depends(get_current_tenant)):
+    return extinguisher_controller.buscar_extintores(db, cast(int, user_tenant.tenant_id), search, limit)
+
+
 @extinguisher_routes.get("", response_model=list[ExtinguisherRead], status_code=status.HTTP_200_OK, summary="Listar extintores", dependencies=[Depends(require_permission("EXTINGUISHER_READ"))])
 async def listar_extintores(include_inactive: bool = Query(False), db: Session = Depends(get_db), user_tenant: UserTenantDB = Depends(get_current_tenant)):
     return extinguisher_controller.listar_extintores(db, cast(int, user_tenant.tenant_id), include_inactive)

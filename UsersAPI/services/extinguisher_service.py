@@ -56,6 +56,10 @@ def list_extinguishers(db: Session, tenant_id: int, include_inactive: bool = Fal
     return ExtinguisherRepository(db).get_all_by_tenant(tenant_id, include_inactive)
 
 
+def search_extinguishers(db: Session, tenant_id: int, search: str = "", limit: int = 20):
+    return ExtinguisherRepository(db).search_by_tenant(tenant_id, search, limit)
+
+
 def get_extinguisher(extinguisher_id: int, db: Session, tenant_id: int):
     extinguisher = ExtinguisherRepository(db).get_by_id_and_tenant(extinguisher_id, tenant_id)
     if extinguisher is None:
