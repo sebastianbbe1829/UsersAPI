@@ -9,6 +9,17 @@ from ..schemas import (
     LoginResponse,
     TokenValidationResponse,
 )
+from ..security.rate_limiter import (
+    LOGIN_ACCOUNT_LIMIT,
+    LOGIN_ACCOUNT_WINDOW,
+    LOGIN_IP_LIMIT,
+    LOGIN_IP_WINDOW,
+    SUPER_LOGIN_LIMIT,
+    SUPER_LOGIN_WINDOW,
+    SUPER_MFA_LIMIT,
+    SUPER_MFA_WINDOW,
+    rate_limiter,
+)
 
 
 auth_routers = APIRouter(
@@ -16,19 +27,6 @@ auth_routers = APIRouter(
     tags=["Autenticación"],
 )
 
-
-# ============================================================
-# LOGIN
-# POST /auth/login
-#
-# Endpoint público.
-#
-# super_mode=False:
-#     Login normal del tenant.
-#
-# super_mode=True:
-#     Login SUPER + MFA.
-# ============================================================
 
 @auth_routers.post(
     "/login",
@@ -40,8 +38,38 @@ def login(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    client_ip = rate_limiter.client_ip(request)
+    username = rate_limiter.normalize(datos.username)
 
-    client_ip = request.client.host if request.client else None
+    if datos.super_mode:
+        rate_limiter.check(
+            f"login:super:ip:{client_ip}",
+            SUPER_LOGIN_LIMIT,
+            SUPER_LOGIN_WINDOW,
+        )
+        rate_limiter.check(
+            f"login:super:account:{username}",
+            SUPER_LOGIN_LIMIT,
+            SUPER_LOGIN_WINDOW,
+        )
+        if datos.otp:
+            rate_limiter.check(
+                f"login:super:mfa:{username}",
+                SUPER_MFA_LIMIT,
+                SUPER_MFA_WINDOW,
+            )
+    else:
+        rate_limiter.check(
+            f"login:ip:{client_ip}",
+            LOGIN_IP_LIMIT,
+            LOGIN_IP_WINDOW,
+        )
+        tenant = rate_limiter.normalize(datos.tenant)
+        rate_limiter.check(
+            f"login:account:{tenant}:{username}",
+            LOGIN_ACCOUNT_LIMIT,
+            LOGIN_ACCOUNT_WINDOW,
+        )
 
     return auth_controller.login_user(
         datos,
@@ -49,17 +77,6 @@ def login(
         client_ip=client_ip,
     )
 
-
-# ============================================================
-# VALIDAR TOKEN
-# GET /auth/validate
-#
-# Requiere un JWT válido y no expirado.
-#
-# get_current_user realiza la validación criptográfica completa
-# del JWT, incluyendo la expiración. Después se ejecuta la
-# consulta de validación para devolver la información del token.
-# ============================================================
 
 @auth_routers.get(
     "/validate",
@@ -71,7 +88,6 @@ def validate(
     _current_user: UserTenantDB | GlobalUserDB = Depends(auth_controller.get_current_user),
     db: Session = Depends(get_db),
 ):
-
     return auth_controller.validate_token(
         token,
         db,
