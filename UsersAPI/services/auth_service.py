@@ -3,7 +3,6 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from argon2 import PasswordHasher
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import ExpiredSignatureError, JWTError, jwt
@@ -23,6 +22,7 @@ from ..models import (
 from ..schemas import LoginRequest
 from ..settings import settings
 from .auth_context_service import get_current_user_from_token
+from .password_service import get_password_hash, pwd_context, verify_password
 
 
 # ============================================================
@@ -34,49 +34,9 @@ ALGORITHM = settings.algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 AUTH_SCHEME = "bearer"
 
-
-# PasswordHasher de argon2-cffi reemplaza Passlib.
-# Mantiene Argon2 como algoritmo de almacenamiento y verificación
-# sin depender del módulo crypt eliminado de Python 3.13.
-pwd_context = PasswordHasher()
-
-
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="auth/login",
 )
-
-
-# ============================================================
-# PASSWORD
-# ============================================================
-
-
-def verify_password(
-    plain_password: str,
-    hashed_password: str,
-) -> bool:
-
-    try:
-        return pwd_context.verify(
-            hashed_password,
-            plain_password,
-        )
-
-    except Exception as exc:
-
-        logger.error(
-            "Error validando password: %s",
-            exc,
-        )
-
-        return False
-
-
-def get_password_hash(
-    password: str,
-) -> str:
-
-    return pwd_context.hash(password)
 
 
 # ============================================================
