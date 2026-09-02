@@ -19,13 +19,13 @@ El código sigue una separación en capas:
 
 ```
 routes/        → definición de endpoints HTTP, validación de permisos
-controllers/    → orquestación entre routes y services
-services/       → lógica de negocio
-repositories/   → acceso a datos (SQLAlchemy)
-models/         → modelos ORM
-schemas/        → esquemas Pydantic (request/response)
-security/       → dependencias de autenticación y RBAC
-util/           → utilidades (Excel, email, WhatsApp)
+controllers/   → orquestación entre routes y services
+services/      → lógica de negocio
+repositories/  → acceso a datos (SQLAlchemy)
+models/        → modelos ORM
+schemas/       → esquemas Pydantic (request/response)
+security/      → dependencias de autenticación y RBAC
+util/          → utilidades (Excel, email, WhatsApp)
 ```
 
 ## Requisitos
@@ -39,7 +39,7 @@ util/           → utilidades (Excel, email, WhatsApp)
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
+.venv\\Scripts\\activate     # Windows
 pip install -r requirements.txt
 ```
 
@@ -119,7 +119,15 @@ Documentación interactiva disponible en:
 pytest -q
 ```
 
-El proyecto cuenta con más de 90 pruebas, incluyendo suites dedicadas a aislamiento multi-tenant, políticas RLS y autenticación del usuario SUPER (`test/rls/`, `test/super/`).
+El proyecto cuenta con más de 90 pruebas, incluyendo suites dedicadas a aislamiento multi-tenant, políticas RLS, autenticación del usuario SUPER y protección contra fuerza bruta (`test/security/`).
+
+## Rate limiting
+
+Los endpoints sensibles de autenticación, MFA, recuperación de contraseña y bootstrap SUPER utilizan un rate limiter de ventanas deslizantes en memoria. Las restricciones combinan identificadores por IP y por cuenta cuando corresponde, y los bloqueos responden con HTTP `429` y `Retry-After`.
+
+En la configuración actual de producción, la API se ejecuta como una instancia del servicio Web en Render, por lo que el almacenamiento en memoria es suficiente para mantener el contador coherente dentro de esa instancia. El limiter no confía directamente en `X-Forwarded-For` ni `X-Real-IP`; utiliza `request.client.host` hasta que exista una cadena de proxies confiables explícitamente configurada y validada.
+
+**Escalamiento horizontal:** si la API pasa a ejecutarse en múltiples instancias/procesos independientes, cada instancia tendría su propio contador. En ese escenario, el rate limiter debe migrarse a un almacenamiento compartido, por ejemplo Redis, para conservar límites consistentes entre instancias.
 
 ## Endpoints principales
 
@@ -159,6 +167,7 @@ El proyecto cuenta con más de 90 pruebas, incluyendo suites dedicadas a aislami
 - Comparación de secretos sensibles con `hmac.compare_digest` para evitar timing attacks.
 - Secretos MFA cifrados en reposo con Fernet.
 - Aislamiento de datos por tenant mediante RLS a nivel de PostgreSQL.
+- Rate limiting para endpoints sensibles de autenticación, recuperación, MFA y bootstrap.
 - Escaneo estático de seguridad con `bandit` en cada ejecución de CI.
 
 ## Autor
