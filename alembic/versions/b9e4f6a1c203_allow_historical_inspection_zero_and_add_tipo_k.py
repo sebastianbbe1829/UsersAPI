@@ -1,8 +1,7 @@
 """allow historical inspection number zero and ensure Tipo K catalog entry
 
 Revision ID: b9e4f6a1c203
-Revises: c3f8a1d6b204
-Depends On: 9d7e8f1a2b30
+Revises: c3f8a1d6b204, 9d7e8f1a2b30
 Create Date: 2026-09-02
 """
 
@@ -13,9 +12,9 @@ import sqlalchemy as sa
 
 
 revision: str = "b9e4f6a1c203"
-down_revision: Union[str, Sequence[str], None] = "c3f8a1d6b204"
+down_revision: Union[str, Sequence[str], None] = ("c3f8a1d6b204", "9d7e8f1a2b30")
 branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = "9d7e8f1a2b30"
+depends_on: Union[str, Sequence[str], None] = None
 
 SCHEMA = "users_api"
 
