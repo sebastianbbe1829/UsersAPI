@@ -15,7 +15,7 @@ from ..schemas import LoginRequest
 from .auth_context_service import get_current_user_from_token
 from .authorization_service import get_user_permissions, user_can_authenticate
 from .jwt_service import ALGORITHM, SECRET_KEY, create_access_token
-from .password_service import verify_password
+from .password_service import get_password_hash, verify_password
 
 
 # ============================================================
