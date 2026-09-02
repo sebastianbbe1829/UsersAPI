@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import re
 import unicodedata
 from datetime import date, datetime
@@ -108,6 +109,20 @@ def normalize_header(value: str) -> str:
 
 def normalize_value(value: str | None) -> str:
     return "" if value is None else value.strip()
+
+
+def read_csv_text(csv_path: Path) -> str:
+    """Lee CSVs UTF-8, UTF-8 con BOM o Windows-1252."""
+    raw = csv_path.read_bytes()
+    for encoding in ("utf-8-sig", "utf-8", "cp1252"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+
+    raise MigrationError(
+        f"No se pudo determinar una codificación compatible para el CSV: {csv_path}"
+    )
 
 
 def catalog_key(value: str | None) -> str:
@@ -309,63 +324,62 @@ def validate_csv(csv_path: Path, tenant_id: int) -> tuple[int, list[str]]:
         }
         seen_codes: set[str] = set()
 
-        with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
-            reader = csv.DictReader(file, delimiter=";")
-            if reader.fieldnames is None:
-                raise MigrationError("El CSV no tiene encabezados.")
+        reader = csv.DictReader(io.StringIO(read_csv_text(csv_path)), delimiter=";")
+        if reader.fieldnames is None:
+            raise MigrationError("El CSV no tiene encabezados.")
 
-            reader.fieldnames = [normalize_header(field) for field in reader.fieldnames]
-            validate_headers(reader.fieldnames)
+        reader.fieldnames = [normalize_header(field) for field in reader.fieldnames]
+        validate_headers(reader.fieldnames)
 
-            for row_number, raw_row in enumerate(reader, start=2):
-                row_count += 1
-                try:
-                    row = {
-                        normalize_header(k): normalize_value(v)
-                        for k, v in raw_row.items()
-                        if k is not None
-                    }
+        for row_number, raw_row in enumerate(reader, start=2):
+            row_count += 1
+            try:
+                row = {
+                    normalize_header(k): normalize_value(v)
+                    for k, v in raw_row.items()
+                    if k is not None
+                }
 
-                    code = normalize_value(row.get("ID"))
-                    if not code:
-                        raise MigrationError(f"Fila {row_number}: ID es obligatorio.")
-                    code = code.upper()
+                code = normalize_value(row.get("ID"))
+                if not code:
+                    raise MigrationError(f"Fila {row_number}: ID es obligatorio.")
+                code = code.upper()
 
-                    if code in existing_codes:
-                        raise MigrationError(
-                            f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
-                        )
-                    if code in seen_codes:
-                        raise MigrationError(
-                            f"Fila {row_number}: el ID '{code}' está repetido dentro del CSV."
-                        )
-                    seen_codes.add(code)
-
-                    resolve_type(
-                        type_by_code,
-                        type_by_name,
-                        row.get("TIPO EXTINTOR", ""),
-                        row_number,
+                if code in existing_codes:
+                    raise MigrationError(
+                        f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
                     )
-
-                    get_revision_number(row, row_number)
-                    for good_column, bad_column in ITEM_COLUMNS.values():
-                        get_item_result(row, good_column, bad_column, row_number)
-
-                    parse_date(row.get("Ultima recarga"), "Ultima recarga", row_number)
-                    parse_date(row.get("Proxima recarga"), "Proxima recarga", row_number)
-                    parse_date(
-                        row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
-                        "FECHA PRUEBA HIDROSTATICA Ultima",
-                        row_number,
+                if code in seen_codes:
+                    raise MigrationError(
+                        f"Fila {row_number}: el ID '{code}' está repetido dentro del CSV."
                     )
-                    parse_date(
-                        row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
-                        "FECHA PRUEBA HIDROSTATICA Proxima",
-                        row_number,
-                    )
-                except MigrationError as exc:
-                    errors.append(str(exc))
+                seen_codes.add(code)
+
+                resolve_type(
+                    type_by_code,
+                    type_by_name,
+                    row.get("TIPO EXTINTOR", ""),
+                    row_number,
+                )
+
+                get_revision_number(row, row_number)
+                for good_column, bad_column in ITEM_COLUMNS.values():
+                    get_item_result(row, good_column, bad_column, row_number)
+
+                parse_date(row.get("Ultima recarga"), "Ultima recarga", row_number)
+                parse_date(row.get("Proxima recarga"), "Proxima recarga", row_number)
+                parse_date(
+                    row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
+                    "FECHA PRUEBA HIDROSTATICA Ultima",
+                    row_number,
+                )
+                parse_date(
+                    row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
+                    "FECHA PRUEBA HIDROSTATICA Proxima",
+                    row_number,
+                )
+            except MigrationError as exc:
+                errors.append(str(exc))
 
         return row_count, errors
     finally:
@@ -388,98 +402,97 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
     try:
         set_rls_tenant(db, tenant_id)
 
-        with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
-            reader = csv.DictReader(file, delimiter=";")
-            reader.fieldnames = [normalize_header(field) for field in reader.fieldnames or []]
+        reader = csv.DictReader(io.StringIO(read_csv_text(csv_path)), delimiter=";")
+        reader.fieldnames = [normalize_header(field) for field in reader.fieldnames or []]
 
-            migration_date = db.execute(text("SELECT CURRENT_DATE")).scalar_one()
-            type_by_code, type_by_name, item_by_code = _load_catalogs(db)
+        migration_date = db.execute(text("SELECT CURRENT_DATE")).scalar_one()
+        type_by_code, type_by_name, item_by_code = _load_catalogs(db)
 
-            for row_number, raw_row in enumerate(reader, start=2):
-                row = {
-                    normalize_header(k): normalize_value(v)
-                    for k, v in raw_row.items()
-                    if k is not None
-                }
+        for row_number, raw_row in enumerate(reader, start=2):
+            row = {
+                normalize_header(k): normalize_value(v)
+                for k, v in raw_row.items()
+                if k is not None
+            }
 
-                code = normalize_value(row.get("ID")).upper()
-                extinguisher_type = resolve_type(
-                    type_by_code,
-                    type_by_name,
-                    row.get("TIPO EXTINTOR", ""),
+            code = normalize_value(row.get("ID")).upper()
+            extinguisher_type = resolve_type(
+                type_by_code,
+                type_by_name,
+                row.get("TIPO EXTINTOR", ""),
+                row_number,
+            )
+            revision_number = get_revision_number(row, row_number)
+            item_results = [
+                get_item_result(row, good_column, bad_column, row_number)
+                for good_column, bad_column in ITEM_COLUMNS.values()
+            ]
+            overall_result = get_overall_result(item_results)
+            observations = append_migration_observation(row.get("OBSERVACIONES"))
+
+            extinguisher = ExtinguisherDB(
+                tenant_id=tenant_id,
+                code=code,
+                extinguisher_type_id=extinguisher_type.id,
+                capacity=normalize_value(row.get("CAPACIDAD")) or None,
+                location=normalize_value(row.get("UBICACION")) or None,
+                last_recharge_date=parse_date(
+                    row.get("Ultima recarga"), "Ultima recarga", row_number
+                ),
+                next_recharge_date=parse_date(
+                    row.get("Proxima recarga"), "Proxima recarga", row_number
+                ),
+                last_hydrostatic_test_date=parse_date(
+                    row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
+                    "FECHA PRUEBA HIDROSTATICA Ultima",
                     row_number,
-                )
-                revision_number = get_revision_number(row, row_number)
-                item_results = [
-                    get_item_result(row, good_column, bad_column, row_number)
-                    for good_column, bad_column in ITEM_COLUMNS.values()
-                ]
-                overall_result = get_overall_result(item_results)
-                observations = append_migration_observation(row.get("OBSERVACIONES"))
+                ),
+                next_hydrostatic_test_date=parse_date(
+                    row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
+                    "FECHA PRUEBA HIDROSTATICA Proxima",
+                    row_number,
+                ),
+                inspections_since_hydrostatic_test=revision_number,
+                inspection_cycle=1,
+                status="ACTIVE",
+                is_stock=False,
+                active=True,
+            )
+            db.add(extinguisher)
+            db.flush()
 
-                extinguisher = ExtinguisherDB(
-                    tenant_id=tenant_id,
-                    code=code,
-                    extinguisher_type_id=extinguisher_type.id,
-                    capacity=normalize_value(row.get("CAPACIDAD")) or None,
-                    location=normalize_value(row.get("UBICACION")) or None,
-                    last_recharge_date=parse_date(
-                        row.get("Ultima recarga"), "Ultima recarga", row_number
-                    ),
-                    next_recharge_date=parse_date(
-                        row.get("Proxima recarga"), "Proxima recarga", row_number
-                    ),
-                    last_hydrostatic_test_date=parse_date(
-                        row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
-                        "FECHA PRUEBA HIDROSTATICA Ultima",
-                        row_number,
-                    ),
-                    next_hydrostatic_test_date=parse_date(
-                        row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
-                        "FECHA PRUEBA HIDROSTATICA Proxima",
-                        row_number,
-                    ),
-                    inspections_since_hydrostatic_test=revision_number,
-                    inspection_cycle=1,
-                    status="ACTIVE",
-                    is_stock=False,
-                    active=True,
-                )
-                db.add(extinguisher)
-                db.flush()
+            inspection = ExtinguisherInspectionDB(
+                tenant_id=tenant_id,
+                extinguisher_id=extinguisher.id,
+                inspection_date=migration_date,
+                inspector_user_id=None,
+                inspection_number=revision_number,
+                inspection_cycle=1,
+                result=overall_result,
+                observations=observations,
+                hydrostatic_test_performed=False,
+                hydrostatic_test_date=None,
+                next_hydrostatic_test_date=None,
+            )
+            db.add(inspection)
+            db.flush()
 
-                inspection = ExtinguisherInspectionDB(
-                    tenant_id=tenant_id,
-                    extinguisher_id=extinguisher.id,
-                    inspection_date=migration_date,
-                    inspector_user_id=None,
-                    inspection_number=revision_number,
-                    inspection_cycle=1,
-                    result=overall_result,
-                    observations=observations,
-                    hydrostatic_test_performed=False,
-                    hydrostatic_test_date=None,
-                    next_hydrostatic_test_date=None,
-                )
-                db.add(inspection)
-                db.flush()
-
-                for item_code, result in zip(ITEM_COLUMNS, item_results):
-                    db.add(
-                        ExtinguisherInspectionResultDB(
-                            inspection_id=inspection.id,
-                            inspection_item_id=item_by_code[item_code].id,
-                            result=result,
-                            observation=(
-                                "Dato no disponible en la fuente de migración."
-                                if result == "NA"
-                                else None
-                            ),
-                        )
+            for item_code, result in zip(ITEM_COLUMNS, item_results):
+                db.add(
+                    ExtinguisherInspectionResultDB(
+                        inspection_id=inspection.id,
+                        inspection_item_id=item_by_code[item_code].id,
+                        result=result,
+                        observation=(
+                            "Dato no disponible en la fuente de migración."
+                            if result == "NA"
+                            else None
+                        ),
                     )
+                )
 
-                created_extinguishers += 1
-                created_inspections += 1
+            created_extinguishers += 1
+            created_inspections += 1
 
         db.commit()
         return created_extinguishers, created_inspections
