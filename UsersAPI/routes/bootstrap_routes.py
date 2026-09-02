@@ -38,7 +38,7 @@ def bootstrap_route(
 
     if bootstrap_key is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Falta la clave de bootstrap.",
         )
 

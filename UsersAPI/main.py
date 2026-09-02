@@ -55,10 +55,11 @@ app = FastAPI(
 
 origins = ["http://localhost:5173", "https://gestion-usuarios.sebastianbbe.workers.dev"]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+logger.debug("Configuración de CORS establecida para los orígenes: %s", origins)
 
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
+logger.debug("Directorio de archivos estáticos montado en /static: %s", STATIC_DIR)
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -81,25 +82,45 @@ def health_head():
 
 
 app.include_router(user_routes)
+logger.debug("Rutas de usuarios registradas")
 app.include_router(auth_routers)
+logger.debug("Rutas de autenticación registradas")
 app.include_router(password_recovery_routes)
+logger.debug("Rutas de recuperación de contraseña registradas")
 app.include_router(global_auth_routes)
+logger.debug("Rutas de autenticación global registradas")
 app.include_router(tenant_routes)
+logger.debug("Rutas de tenants registradas")
 app.include_router(tenant_config_routes)
+logger.debug("Rutas de configuración de tenants registradas")
 app.include_router(tenant_config_public_routes)
+logger.debug("Rutas de configuración pública de tenants registradas")
 app.include_router(user_tenant_routes)
+logger.debug("Rutas de usuarios en tenants registradas")
 app.include_router(role_routes)
+logger.debug("Rutas de roles registradas")
 app.include_router(user_tenant_role_routes)
+logger.debug("Rutas de roles de usuarios en tenants registradas")
 app.include_router(role_permission_routes)
+logger.debug("Rutas de permisos de roles registradas")
 app.include_router(bootstrap_tenant_routes)
+logger.debug("Rutas de bootstrap de tenants registradas")
 app.include_router(permission_routes)
+logger.debug("Rutas de permisos registradas")
 app.include_router(email_routes)
+logger.debug("Rutas de correos electrónicos registradas")
 app.include_router(otp_routes)
+logger.debug("Rutas de OTP registradas")
 app.include_router(extinguisher_routes)
+logger.debug("Rutas de extintores registradas")
 app.include_router(extinguisher_type_routes)
+logger.debug("Rutas de tipos de extintores registradas")
 app.include_router(extinguisher_inspection_routes)
+logger.debug("Rutas de inspecciones de extintores registradas")
 app.include_router(extinguisher_nested_inspection_routes)
+logger.debug("Rutas de inspecciones anidadas de extintores registradas")
 app.include_router(extinguisher_inspection_item_routes)
+logger.debug("Rutas de ítems de inspección de extintores registradas")
 
 
 @app.exception_handler(RequestValidationError)

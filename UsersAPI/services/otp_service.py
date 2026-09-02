@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -41,7 +41,7 @@ def generate_otp(
         raise ValueError("purpose es obligatorio")
 
     repository = OTPRepository(db)
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     previous_codes = repository.get_active_all(destination, purpose)
     for previous in previous_codes:
@@ -90,7 +90,7 @@ def validate_otp(
     if not otp:
         return False
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     if otp.expires_at <= now or otp.attempts >= otp.max_attempts:
         return False
