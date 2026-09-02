@@ -7,9 +7,9 @@ from ..models import GlobalUserDB, UserTenantDB
 from ..schemas import LoginRequest, SuperLoginRequest
 from ..settings import settings
 
+from ..services.auth_context_service import get_current_user_from_token
 from ..services.auth_service import (
     create_access_token as create_access_token_service,
-    get_current_user as get_current_user_service,
     get_password_hash as get_password_hash_service,
     login_user as login_user_service,
     oauth2_scheme,
@@ -47,12 +47,12 @@ def get_current_user(
             options={"verify_exp": False},
         )
     except JWTError:
-        return get_current_user_service(token, db)
+        return get_current_user_from_token(token, db)
 
     if payload.get("user_type") == "SUPER":
         return get_current_super_user(token, db)
 
-    return get_current_user_service(token, db)
+    return get_current_user_from_token(token, db)
 
 
 def login_user(
