@@ -1,6 +1,8 @@
 import base64
 import io
-from datetime import date
+import os
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -13,6 +15,7 @@ from ..models import ExtinguisherDB, ExtinguisherTypeDB, RoleDB, TenantDB, UserT
 from ..util.email_utils import send_email
 
 ADMIN_ROLE_CODES = ("ADMIN",)
+REPORT_TIMEZONE = os.getenv("JOB_TIMEZONE", "America/Bogota")
 _NOTIFICATION_METADATA = MetaData()
 NOTIFICATION_LOG_TABLE = Table(
     "extinguisher_recharge_notification_log", _NOTIFICATION_METADATA,
@@ -29,7 +32,7 @@ class ExtinguisherRechargeNotificationService:
         self.db = db
 
     def run(self, notification_date: date | None = None) -> dict:
-        target_date = notification_date or date.today()
+        target_date = notification_date or datetime.now(ZoneInfo(REPORT_TIMEZONE)).date()
         rows = self.db.execute(
             select(ExtinguisherDB, ExtinguisherTypeDB.name.label("type_name"), TenantDB.name.label("tenant_name"), TenantDB.slug.label("tenant_slug"))
             .join(ExtinguisherTypeDB, ExtinguisherTypeDB.id == ExtinguisherDB.extinguisher_type_id)
