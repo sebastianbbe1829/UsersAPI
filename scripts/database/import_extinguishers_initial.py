@@ -15,15 +15,17 @@ Uso:
 
 Reglas de migración:
 - El CSV usa ';' como separador.
-- REVISION 1..4 con X determina la última revisión conocida.
-- No se crean revisiones históricas que no estén en el CSV.
-- La fecha de la revisión inicial se registra como CURRENT_DATE de PostgreSQL.
+- REVISION 1..4 con X determina la revisión conocida.
+- Si ninguna revisión está marcada, se usa revisión 0 para identificarla como desconocida.
+- La revisión 0 representa información histórica de revisión desconocida proveniente de migración inicial.
+- La fecha de la inspección se registra como CURRENT_DATE de PostgreSQL.
+- Las fechas históricas no interpretables se guardan como NULL y su texto original pasa a OBSERVACIONES.
 - La revisión importada no tiene inspector conocido.
 - Los pares bueno/malo se convierten a GOOD/BAD/NA.
 - Un mismo código de extintor no puede existir previamente en el tenant.
 - La carga completa es transaccional: si una fila falla, no se importa ninguna.
-- Las fechas MM/YYYY se normalizan a 01/MM/YYYY.
-- Las fechas que contienen únicamente YYYY se normalizan a 01/01/YYYY.
+- Las fechas MM/YYYY se normalizan al primer día de ese mes.
+- Las fechas que contienen únicamente YYYY se normalizan al 01/01/YYYY.
 - --dry-run valida sin insertar ni modificar datos.
 """
 
@@ -77,16 +79,21 @@ REQUIRED_COLUMNS = {
 
 MIGRATION_OBSERVATION = (
     "Carga inicial por migración. Fecha de la revisión original no disponible; "
-    "se registra fecha de migración. Información histórica no disponible."
+    "se registra fecha de migración."
+)
+
+UNKNOWN_REVISION_OBSERVATION = (
+    "Revisión histórica no identificada en la fuente original; se registra revisión 0."
 )
 
 # Equivalencias entre los valores del CSV y el catálogo actual.
-# MULTIPRO se interpreta como PQS (polvo químico seco multipropósito).
+# MULTIPRO y MULTIPO se interpretan como PQS.
 # H2O se interpreta como Agua.
 TYPE_ALIASES = {
     "PQS": "POLVO_QUIMICO_SECO",
     "POLVO QUIMICO SECO": "POLVO_QUIMICO_SECO",
     "POLVO QUIMICO SECO PQS": "POLVO_QUIMICO_SECO",
+    "MULTIPO": "POLVO_QUIMICO_SECO",
     "MULTIPRO": "POLVO_QUIMICO_SECO",
     "MULTIPROPOSITO": "POLVO_QUIMICO_SECO",
     "MULTIPROPOSITO PQS": "POLVO_QUIMICO_SECO",
@@ -141,26 +148,20 @@ def is_marked(value: str | None) -> bool:
 
 
 def parse_date(value: str | None, field_name: str, row_number: int) -> date | None:
-    """Convierte fechas del CSV, incluyendo MM/YYYY y YYYY."""
+    """Convierte fechas del CSV; los textos históricos no estructurados se ignoran."""
     value = normalize_value(value)
     if not value:
         return None
 
-    # En el formato original normalmente solo se registraba mes/año.
-    # Para la migración usamos el primer día de ese mes.
     month_year_match = re.fullmatch(r"(\d{1,2})[/-](\d{4})", value)
     if month_year_match:
         month = int(month_year_match.group(1))
         year = int(month_year_match.group(2))
         try:
             return date(year, month, 1)
-        except ValueError as exc:
-            raise MigrationError(
-                f"Fila {row_number}: fecha inválida en '{field_name}': '{value}'."
-            ) from exc
+        except ValueError:
+            return None
 
-    # Algunos registros históricos solo tienen el año. No inventamos el mes:
-    # la convención explícita de migración es enero/día 1.
     if re.fullmatch(r"\d{4}", value):
         return date(int(value), 1, 1)
 
@@ -177,10 +178,27 @@ def parse_date(value: str | None, field_name: str, row_number: int) -> date | No
         except ValueError:
             continue
 
-    raise MigrationError(
-        f"Fila {row_number}: fecha inválida en '{field_name}': '{value}'. "
-        "Formatos aceptados: DD/MM/YYYY, MM/YYYY o YYYY."
+    return None
+
+
+def get_invalid_date_observations(
+    row: dict[str, str], row_number: int
+) -> list[str]:
+    """Devuelve trazabilidad para cualquier fecha histórica no estructurada."""
+    fields = (
+        "Ultima recarga",
+        "Proxima recarga",
+        "FECHA PRUEBA HIDROSTATICA Ultima",
+        "FECHA PRUEBA HIDROSTATICA Proxima",
     )
+    observations: list[str] = []
+    for field_name in fields:
+        raw_value = normalize_value(row.get(field_name))
+        if raw_value and parse_date(raw_value, field_name, row_number) is None:
+            observations.append(
+                f"{field_name}: valor histórico no estructurado '{raw_value}'; fecha no disponible."
+            )
+    return observations
 
 
 def get_revision_number(row: dict[str, str], row_number: int) -> int:
@@ -191,9 +209,7 @@ def get_revision_number(row: dict[str, str], row_number: int) -> int:
     ]
 
     if not marked:
-        raise MigrationError(
-            f"Fila {row_number}: no se encontró una X en REVISION 1..4."
-        )
+        return 0
 
     if len(marked) > 1:
         raise MigrationError(
@@ -232,11 +248,21 @@ def get_overall_result(item_results: list[str]) -> str:
     return "REQUIERE_MANTENIMIENTO"
 
 
-def append_migration_observation(original: str | None) -> str:
+def build_observations(
+    original: str | None,
+    revision_number: int,
+    invalid_date_observations: list[str],
+) -> str:
+    parts = []
     original = normalize_value(original)
     if original:
-        return f"{original} {MIGRATION_OBSERVATION}"
-    return MIGRATION_OBSERVATION
+        parts.append(original)
+    if revision_number == 0:
+        parts.append(UNKNOWN_REVISION_OBSERVATION)
+    if invalid_date_observations:
+        parts.extend(invalid_date_observations)
+    parts.append(MIGRATION_OBSERVATION)
+    return " ".join(parts)
 
 
 def validate_headers(headers: list[str]) -> None:
@@ -366,18 +392,6 @@ def validate_csv(csv_path: Path, tenant_id: int) -> tuple[int, list[str]]:
                 for good_column, bad_column in ITEM_COLUMNS.values():
                     get_item_result(row, good_column, bad_column, row_number)
 
-                parse_date(row.get("Ultima recarga"), "Ultima recarga", row_number)
-                parse_date(row.get("Proxima recarga"), "Proxima recarga", row_number)
-                parse_date(
-                    row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
-                    "FECHA PRUEBA HIDROSTATICA Ultima",
-                    row_number,
-                )
-                parse_date(
-                    row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
-                    "FECHA PRUEBA HIDROSTATICA Proxima",
-                    row_number,
-                )
             except MigrationError as exc:
                 errors.append(str(exc))
 
@@ -428,7 +442,12 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                 for good_column, bad_column in ITEM_COLUMNS.values()
             ]
             overall_result = get_overall_result(item_results)
-            observations = append_migration_observation(row.get("OBSERVACIONES"))
+            invalid_date_observations = get_invalid_date_observations(row, row_number)
+            observations = build_observations(
+                row.get("OBSERVACIONES"),
+                revision_number,
+                invalid_date_observations,
+            )
 
             extinguisher = ExtinguisherDB(
                 tenant_id=tenant_id,
