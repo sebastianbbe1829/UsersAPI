@@ -5,9 +5,10 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
 from ..logging_config import logger
-from ..models import GlobalUserDB, UserCreate, UserDB, UserTenantDB
+from ..models import UserDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
+from ..schemas import UserCreate
 from .auth_service import get_password_hash
 
 
