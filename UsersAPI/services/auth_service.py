@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..database import set_rls_tenant
 from ..logging_config import logger
 from ..models import UserTenantDB, TenantDB
 from ..schemas import LoginRequest
@@ -49,7 +50,6 @@ def login_user(
 
     logger.info("Tenant resuelto slug=%s tenant_id=%s", datos.tenant, tenant_id)
 
-    from ..database import set_rls_tenant
     set_rls_tenant(db, tenant_id)
     logger.info("Contexto RLS establecido tenant_id=%s", tenant_id)
 
