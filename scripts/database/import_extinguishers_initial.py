@@ -6,6 +6,11 @@ No forma parte de la API ni del flujo normal de la aplicación.
 Uso:
     python -m scripts.database.import_extinguishers_initial \
         --tenant-id 1 \
+        --csv ruta/al/archivo.csv \
+        --dry-run
+
+    python -m scripts.database.import_extinguishers_initial \
+        --tenant-id 1 \
         --csv ruta/al/archivo.csv
 
 Reglas de migración:
@@ -17,6 +22,9 @@ Reglas de migración:
 - Los pares bueno/malo se convierten a GOOD/BAD/NA.
 - Un mismo código de extintor no puede existir previamente en el tenant.
 - La carga completa es transaccional: si una fila falla, no se importa ninguna.
+- Las fechas MM/YYYY se normalizan a 01/MM/YYYY.
+- Las fechas que contienen únicamente YYYY se normalizan a 01/01/YYYY.
+- --dry-run valida sin insertar ni modificar datos.
 """
 
 from __future__ import annotations
@@ -29,7 +37,6 @@ from datetime import date, datetime
 from pathlib import Path
 
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from UsersAPI.database import SessionLocal, set_rls_tenant
 from UsersAPI.models import (
@@ -72,12 +79,20 @@ MIGRATION_OBSERVATION = (
     "se registra fecha de migración. Información histórica no disponible."
 )
 
+# Equivalencias entre los valores del CSV y el catálogo actual.
+# MULTIPRO se interpreta como PQS (polvo químico seco multipropósito).
+# H2O se interpreta como Agua.
 TYPE_ALIASES = {
     "PQS": "POLVO_QUIMICO_SECO",
     "POLVO QUIMICO SECO": "POLVO_QUIMICO_SECO",
     "POLVO QUIMICO SECO PQS": "POLVO_QUIMICO_SECO",
+    "MULTIPRO": "POLVO_QUIMICO_SECO",
+    "MULTIPROPOSITO": "POLVO_QUIMICO_SECO",
+    "MULTIPROPOSITO PQS": "POLVO_QUIMICO_SECO",
     "DIOXIDO DE CARBONO": "CO2",
     "CO2": "CO2",
+    "H2O": "AGUA",
+    "AGUA": "AGUA",
     "AGENTE LIMPIO": "AGENTE_LIMPIO",
 }
 
@@ -111,9 +126,28 @@ def is_marked(value: str | None) -> bool:
 
 
 def parse_date(value: str | None, field_name: str, row_number: int) -> date | None:
+    """Convierte fechas del CSV, incluyendo MM/YYYY y YYYY."""
     value = normalize_value(value)
     if not value:
         return None
+
+    # En el formato original normalmente solo se registraba mes/año.
+    # Para la migración usamos el primer día de ese mes.
+    month_year_match = re.fullmatch(r"(\d{1,2})[/-](\d{4})", value)
+    if month_year_match:
+        month = int(month_year_match.group(1))
+        year = int(month_year_match.group(2))
+        try:
+            return date(year, month, 1)
+        except ValueError as exc:
+            raise MigrationError(
+                f"Fila {row_number}: fecha inválida en '{field_name}': '{value}'."
+            ) from exc
+
+    # Algunos registros históricos solo tienen el año. No inventamos el mes:
+    # la convención explícita de migración es enero/día 1.
+    if re.fullmatch(r"\d{4}", value):
+        return date(int(value), 1, 1)
 
     formats = (
         "%d/%m/%Y",
@@ -130,7 +164,7 @@ def parse_date(value: str | None, field_name: str, row_number: int) -> date | No
 
     raise MigrationError(
         f"Fila {row_number}: fecha inválida en '{field_name}': '{value}'. "
-        "Formatos aceptados: DD/MM/YYYY, DD-MM-YYYY o YYYY-MM-DD."
+        "Formatos aceptados: DD/MM/YYYY, MM/YYYY o YYYY."
     )
 
 
@@ -210,7 +244,8 @@ def resolve_type(
         raise MigrationError(f"Fila {row_number}: TIPO EXTINTOR es obligatorio.")
 
     key = catalog_key(raw)
-    code_key = catalog_key(TYPE_ALIASES.get(key, raw))
+    alias = TYPE_ALIASES.get(key, raw)
+    code_key = catalog_key(alias)
     item = type_by_code.get(code_key) or type_by_name.get(key)
 
     if item is None:
@@ -221,12 +256,130 @@ def resolve_type(
     return item
 
 
-def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
+def _load_catalogs(db):
+    types = (
+        db.query(ExtinguisherTypeDB)
+        .filter(ExtinguisherTypeDB.active.is_(True))
+        .all()
+    )
+    type_by_code = {catalog_key(item.code): item for item in types}
+    type_by_name = {catalog_key(item.name): item for item in types}
+
+    inspection_items = (
+        db.query(ExtinguisherInspectionItemDB)
+        .filter(ExtinguisherInspectionItemDB.active.is_(True))
+        .order_by(
+            ExtinguisherInspectionItemDB.display_order,
+            ExtinguisherInspectionItemDB.id,
+        )
+        .all()
+    )
+    item_by_code = {item.code: item for item in inspection_items}
+
+    missing_items = sorted(set(ITEM_COLUMNS) - set(item_by_code))
+    if missing_items:
+        raise MigrationError(
+            "El catálogo de ítems de inspección no contiene: "
+            + ", ".join(missing_items)
+        )
+
+    return type_by_code, type_by_name, item_by_code
+
+
+def validate_csv(csv_path: Path, tenant_id: int) -> tuple[int, list[str]]:
+    """Valida todo el CSV sin insertar, actualizar ni hacer flush en la BD."""
     if tenant_id <= 0:
         raise MigrationError("tenant_id debe ser mayor que cero.")
-
     if not csv_path.is_file():
         raise MigrationError(f"No existe el archivo CSV: {csv_path}")
+
+    db = SessionLocal()
+    errors: list[str] = []
+    row_count = 0
+
+    try:
+        set_rls_tenant(db, tenant_id)
+        type_by_code, type_by_name, _ = _load_catalogs(db)
+
+        existing_codes = {
+            code
+            for (code,) in db.query(ExtinguisherDB.code)
+            .filter(ExtinguisherDB.tenant_id == tenant_id)
+            .all()
+        }
+        seen_codes: set[str] = set()
+
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
+            reader = csv.DictReader(file, delimiter=";")
+            if reader.fieldnames is None:
+                raise MigrationError("El CSV no tiene encabezados.")
+
+            reader.fieldnames = [normalize_header(field) for field in reader.fieldnames]
+            validate_headers(reader.fieldnames)
+
+            for row_number, raw_row in enumerate(reader, start=2):
+                row_count += 1
+                try:
+                    row = {
+                        normalize_header(k): normalize_value(v)
+                        for k, v in raw_row.items()
+                        if k is not None
+                    }
+
+                    code = normalize_value(row.get("ID"))
+                    if not code:
+                        raise MigrationError(f"Fila {row_number}: ID es obligatorio.")
+                    code = code.upper()
+
+                    if code in existing_codes:
+                        raise MigrationError(
+                            f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
+                        )
+                    if code in seen_codes:
+                        raise MigrationError(
+                            f"Fila {row_number}: el ID '{code}' está repetido dentro del CSV."
+                        )
+                    seen_codes.add(code)
+
+                    resolve_type(
+                        type_by_code,
+                        type_by_name,
+                        row.get("TIPO EXTINTOR", ""),
+                        row_number,
+                    )
+
+                    get_revision_number(row, row_number)
+                    for good_column, bad_column in ITEM_COLUMNS.values():
+                        get_item_result(row, good_column, bad_column, row_number)
+
+                    parse_date(row.get("Ultima recarga"), "Ultima recarga", row_number)
+                    parse_date(row.get("Proxima recarga"), "Proxima recarga", row_number)
+                    parse_date(
+                        row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
+                        "FECHA PRUEBA HIDROSTATICA Ultima",
+                        row_number,
+                    )
+                    parse_date(
+                        row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
+                        "FECHA PRUEBA HIDROSTATICA Proxima",
+                        row_number,
+                    )
+                except MigrationError as exc:
+                    errors.append(str(exc))
+
+        return row_count, errors
+    finally:
+        db.close()
+
+
+def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
+    """Importa únicamente después de que la validación completa haya pasado."""
+    row_count, errors = validate_csv(csv_path, tenant_id)
+    if errors:
+        details = "\n".join(f"- {error}" for error in errors)
+        raise MigrationError(
+            f"La validación encontró {len(errors)} error(es) en {row_count} fila(s):\n{details}"
+        )
 
     db = SessionLocal()
     created_extinguishers = 0
@@ -237,41 +390,10 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
 
         with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
             reader = csv.DictReader(file, delimiter=";")
-            if reader.fieldnames is None:
-                raise MigrationError("El CSV no tiene encabezados.")
+            reader.fieldnames = [normalize_header(field) for field in reader.fieldnames or []]
 
-            reader.fieldnames = [normalize_header(field) for field in reader.fieldnames]
-            validate_headers(reader.fieldnames)
-
-            # La fecha de migración proviene de PostgreSQL, equivalente a SYSDATE
-            # para esta carga, y es la misma para todas las filas.
             migration_date = db.execute(text("SELECT CURRENT_DATE")).scalar_one()
-
-            types = (
-                db.query(ExtinguisherTypeDB)
-                .filter(ExtinguisherTypeDB.active.is_(True))
-                .all()
-            )
-            type_by_code = {catalog_key(item.code): item for item in types}
-            type_by_name = {catalog_key(item.name): item for item in types}
-
-            inspection_items = (
-                db.query(ExtinguisherInspectionItemDB)
-                .filter(ExtinguisherInspectionItemDB.active.is_(True))
-                .order_by(
-                    ExtinguisherInspectionItemDB.display_order,
-                    ExtinguisherInspectionItemDB.id,
-                )
-                .all()
-            )
-            item_by_code = {item.code: item for item in inspection_items}
-
-            missing_items = sorted(set(ITEM_COLUMNS) - set(item_by_code))
-            if missing_items:
-                raise MigrationError(
-                    "El catálogo de ítems de inspección no contiene: "
-                    + ", ".join(missing_items)
-                )
+            type_by_code, type_by_name, item_by_code = _load_catalogs(db)
 
             for row_number, raw_row in enumerate(reader, start=2):
                 row = {
@@ -280,33 +402,14 @@ def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
                     if k is not None
                 }
 
-                code = normalize_value(row.get("ID"))
-                if not code:
-                    raise MigrationError(f"Fila {row_number}: ID es obligatorio.")
-                code = code.upper()
-
-                existing = (
-                    db.query(ExtinguisherDB)
-                    .filter(
-                        ExtinguisherDB.tenant_id == tenant_id,
-                        ExtinguisherDB.code == code,
-                    )
-                    .first()
-                )
-                if existing is not None:
-                    raise MigrationError(
-                        f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
-                    )
-
+                code = normalize_value(row.get("ID")).upper()
                 extinguisher_type = resolve_type(
                     type_by_code,
                     type_by_name,
                     row.get("TIPO EXTINTOR", ""),
                     row_number,
                 )
-
                 revision_number = get_revision_number(row, row_number)
-
                 item_results = [
                     get_item_result(row, good_column, bad_column, row_number)
                     for good_column, bad_column in ITEM_COLUMNS.values()
@@ -397,12 +500,31 @@ def main() -> None:
         required=True,
         help="Ruta al CSV separado por punto y coma",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Valida el CSV sin insertar ni modificar datos.",
+    )
     args = parser.parse_args()
 
     try:
+        if args.dry_run:
+            rows, errors = validate_csv(args.csv, args.tenant_id)
+            print(f"Filas validadas: {rows}")
+            if errors:
+                print(f"Errores encontrados: {len(errors)}")
+                for error in errors:
+                    print(f"- {error}")
+                raise SystemExit(1)
+            print("Errores encontrados: 0")
+            print("VALIDACION EXITOSA: no se realizaron inserciones ni modificaciones.")
+            return
+
         extinguishers, inspections = import_csv(args.csv, args.tenant_id)
     except MigrationError as exc:
         raise SystemExit(f"ERROR DE MIGRACIÓN: {exc}") from exc
+    except SystemExit:
+        raise
     except Exception as exc:
         raise SystemExit(f"ERROR DE BASE DE DATOS: {exc}") from exc
 
