@@ -1,7 +1,6 @@
 import math
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -20,8 +19,13 @@ from ..models import (
     PermissionDB,
 )
 from ..schemas import LoginRequest
-from ..settings import settings
 from .auth_context_service import get_current_user_from_token
+from .jwt_service import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    SECRET_KEY,
+    create_access_token,
+)
 from .password_service import get_password_hash, pwd_context, verify_password
 
 
@@ -29,44 +33,11 @@ from .password_service import get_password_hash, pwd_context, verify_password
 # CONFIGURACIÓN
 # ============================================================
 
-SECRET_KEY = settings.secret_key
-ALGORITHM = settings.algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 AUTH_SCHEME = "bearer"
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="auth/login",
 )
-
-
-# ============================================================
-# JWT
-# ============================================================
-
-
-def create_access_token(
-    data: dict,
-    expires_delta: Optional[timedelta] = None,
-) -> str:
-
-    to_encode = data.copy()
-
-    expire = datetime.now(timezone.utc) + (
-        expires_delta
-        or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-
-    to_encode.update(
-        {
-            "exp": expire,
-        }
-    )
-
-    return jwt.encode(
-        to_encode,
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
 
 
 # ============================================================
