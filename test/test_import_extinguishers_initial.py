@@ -48,10 +48,10 @@ def test_item_result_rejects_good_and_bad_at_same_time():
         get_item_result({"GOOD": "X", "BAD": "X"}, "GOOD", "BAD", 2)
 
 
-def test_overall_result_is_maintenance_when_any_item_is_bad():
+def test_overall_result_requires_all_items_to_be_known_good():
     assert get_overall_result(["GOOD", "NA", "BAD"]) == "REQUIERE_MANTENIMIENTO"
     assert get_overall_result(["GOOD"] * len(ITEM_COLUMNS)) == "APTO"
-    assert get_overall_result(["NA"] * len(ITEM_COLUMNS)) == "APTO"
+    assert get_overall_result(["NA"] * len(ITEM_COLUMNS)) == "REQUIERE_MANTENIMIENTO"
 
 
 def test_parse_date_accepts_expected_formats():
