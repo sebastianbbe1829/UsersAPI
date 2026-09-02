@@ -2,9 +2,9 @@ name: Extinguisher Recharge Notifications
 
 on:
   schedule:
-    # TEST TODAY: 12:30 America/Bogota.
-    # This will be changed back to the normal production schedule after validation.
-    - cron: '30 12 * * *'
+    # GitHub Actions puede retrasar la ejecución. Se revisa cada 30 minutos.
+    # Python ejecuta el envío cuando la hora configurada ya fue alcanzada.
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
