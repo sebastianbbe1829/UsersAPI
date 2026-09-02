@@ -2,9 +2,9 @@ name: Extinguisher Recharge Notifications
 
 on:
   schedule:
-    # GitHub Actions puede retrasar la ejecución. Se revisa cada 30 minutos.
-    # Python ejecuta el envío cuando la hora configurada ya fue alcanzada.
-    - cron: '*/30 * * * *'
+    # Ejecutar fuera de los minutos 00/30 reduce el riesgo de retrasos por alta carga.
+    # Python valida la hora configurada y solo envía cuando ya fue alcanzada.
+    - cron: '7,37 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: 'pip'

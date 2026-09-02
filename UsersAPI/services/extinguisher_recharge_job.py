@@ -28,30 +28,42 @@ def _next_run(now: datetime) -> datetime:
     return target
 
 
-def run_extinguisher_recharge_notification_job(*, wait_for_schedule: bool = False) -> dict:
-    """Ejecuta el job, opcionalmente respetando la hora configurada en JOB_TIMEZONE."""
-    if wait_for_schedule:
-        timezone = ZoneInfo(TIMEZONE)
-        now = datetime.now(timezone)
-        target = _scheduled_target(now)
-        if now < target:
-            delay = (target - now).total_seconds()
-            logger.info(
-                "Extinguisher recharge notification triggered before configured time; "
-                "waiting %.0f seconds until %s (%s)",
-                delay,
-                RUN_TIME,
-                TIMEZONE,
-            )
-            import time
-            time.sleep(delay)
-        else:
-            logger.info(
-                "Extinguisher recharge notification triggered at/after configured time "
-                "(%s %s); executing now",
-                RUN_TIME,
-                TIMEZONE,
-            )
+def run_extinguisher_recharge_notification_job() -> dict:
+    """Ejecuta el job una sola vez si ya pasó la hora configurada."""
+    if not ENABLED:
+        logger.info("Daily extinguisher recharge notifications are disabled")
+        return {
+            "status": "skipped",
+            "reason": "notifications_disabled",
+        }
+
+    timezone = ZoneInfo(TIMEZONE)
+    now = datetime.now(timezone)
+    target = _scheduled_target(now)
+
+    if now < target:
+        logger.info(
+            "Extinguisher recharge notification triggered before configured time; "
+            "skipping this run because current time is %s and configured time is %s (%s)",
+            now.strftime("%H:%M:%S"),
+            RUN_TIME,
+            TIMEZONE,
+        )
+        return {
+            "status": "skipped",
+            "reason": "before_configured_time",
+            "current_time": now.strftime("%H:%M:%S"),
+            "configured_time": RUN_TIME,
+            "timezone": TIMEZONE,
+        }
+
+    logger.info(
+        "Extinguisher recharge notification triggered at/after configured time: "
+        "current time %s, configured time %s (%s)",
+        now.strftime("%H:%M:%S"),
+        RUN_TIME,
+        TIMEZONE,
+    )
 
     db = BootstrapSessionLocal()
     locked = False
