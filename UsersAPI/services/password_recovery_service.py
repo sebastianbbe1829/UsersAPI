@@ -12,7 +12,7 @@ from ..settings import settings
 from .auth_service import get_password_hash
 from .otp_service import generate_otp, validate_otp
 
-PASSWORD_RECOVERY_PURPOSE = "PASSWORD_RECOVERY"
+RECOVERY_PURPOSE = "PASSWORD_RECOVERY"
 
 
 def _resolve_tenant(tenant_slug: str, db: Session) -> int:
@@ -66,7 +66,7 @@ def request_password_recovery(
     return generate_otp(
         db,
         destination=email,
-        purpose=PASSWORD_RECOVERY_PURPOSE,
+        purpose=RECOVERY_PURPOSE,
         subject="Recuperación de contraseña",
         message="Hemos generado un código para recuperar tu contraseña.",
     )
@@ -105,7 +105,7 @@ def reset_password(
     otp_valid = validate_otp(
         db,
         destination=email,
-        purpose=PASSWORD_RECOVERY_PURPOSE,
+        purpose=RECOVERY_PURPOSE,
         code=code,
     )
 
