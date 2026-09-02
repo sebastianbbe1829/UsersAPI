@@ -55,7 +55,21 @@ app = FastAPI(
 )
 
 origins = ["http://localhost:5173", "https://gestion-usuarios.sebastianbbe.workers.dev"]
-app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Bootstrap-Key",
+        "X-Bootstrap-Tenant-Key",
+        "X-Super-Bootstrap-Secret",
+        "X-OTP-API-Key",
+        "X-Email-Key",
+    ],
+)
 logger.debug("Configuración de CORS establecida para los orígenes: %s", origins)
 
 if os.path.isdir(STATIC_DIR):
@@ -66,21 +80,17 @@ logger.debug("Directorio de archivos estáticos montado en /static: %s", STATIC_
 def root():
     return {"status": "ok", "service": "UsersAPI"}
 
-
 @app.head("/", include_in_schema=False)
 def root_head():
     return
-
 
 @app.get("/health", include_in_schema=False)
 def health():
     return {"status": "healthy", "service": "UsersAPI"}
 
-
 @app.head("/health", include_in_schema=False)
 def health_head():
     return
-
 
 app.include_router(user_routes)
 logger.debug("Rutas de usuarios registradas")
@@ -124,7 +134,6 @@ app.include_router(extinguisher_inspection_item_routes)
 logger.debug("Rutas de ítems de inspección de extintores registradas")
 app.include_router(diagnostics_router)
 
-
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errores = []
@@ -136,7 +145,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             error["ctx"] = {key: str(value) for key, value in error["ctx"].items()}
         errores.append(error)
     return JSONResponse(status_code=HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": errores})
-
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
