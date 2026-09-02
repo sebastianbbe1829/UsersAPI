@@ -26,7 +26,8 @@ from ..services.auth_service import get_password_hash, verify_password
 from ..settings import settings
 
 
-SUPER_TOKEN_TYPE = "SUPER"
+SUPER_SESSION_KIND = "SUPER"
+AUTH_SCHEME = "bearer"
 
 
 def _fernet() -> Fernet:
@@ -85,7 +86,7 @@ def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
         "name": user.email,
         "email": user.email,
         "global_user_id": user.id,
-        "user_type": SUPER_TOKEN_TYPE,
+        "user_type": SUPER_SESSION_KIND,
         "session_id": user.session_id,
         "tenant_id": tenant.id,
         "tenant_slug": tenant.slug,
@@ -342,8 +343,8 @@ def login_super_user(
 
     return SuperLoginResponse(
         access_token=token,
-        token_type="bearer",
-        user_type=SUPER_TOKEN_TYPE,
+        token_type=AUTH_SCHEME,
+        user_type=SUPER_SESSION_KIND,
         session_id=user.session_id,
         tenant_id=tenant.id,
         tenant_slug=tenant.slug,
@@ -375,7 +376,7 @@ def get_current_super_user(
     except JWTError as exc:
         raise credentials_exception from exc
 
-    if payload.get("user_type") != SUPER_TOKEN_TYPE:
+    if payload.get("user_type") != SUPER_SESSION_KIND:
         raise credentials_exception
 
     global_user_id = payload.get("global_user_id")
