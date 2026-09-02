@@ -5,6 +5,15 @@ from sqlalchemy.orm import Session
 
 from UsersAPI.database import BootstrapSessionLocal, engine, get_db
 from UsersAPI.main import app
+from UsersAPI.security.rate_limiter import rate_limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Aísla el estado del rate limiter entre pruebas."""
+    rate_limiter.reset()
+    yield
+    rate_limiter.reset()
 
 
 @pytest.fixture
