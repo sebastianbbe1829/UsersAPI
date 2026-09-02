@@ -60,6 +60,23 @@ def test_parse_date_accepts_expected_formats():
     assert parse_date("", "fecha", 2) is None
 
 
+def test_parse_date_normalizes_month_and_year_to_first_day():
+    assert parse_date("06/2023", "fecha", 2) == date(2023, 6, 1)
+    assert parse_date("9/2022", "fecha", 2) == date(2022, 9, 1)
+    assert parse_date("09-2022", "fecha", 2) == date(2022, 9, 1)
+
+
+def test_parse_date_normalizes_year_to_january_first():
+    assert parse_date("2023", "fecha", 2) == date(2023, 1, 1)
+
+
+def test_parse_date_rejects_invalid_values():
+    with pytest.raises(MigrationError):
+        parse_date("13/2023", "fecha", 2)
+    with pytest.raises(MigrationError):
+        parse_date("fecha desconocida", "fecha", 2)
+
+
 def test_catalog_key_handles_accents_and_punctuation():
     assert catalog_key("Polvo químico seco (PQS)") == "POLVO QUIMICO SECO PQS"
     assert catalog_key("Dióxido de carbono") == "DIOXIDO DE CARBONO"
