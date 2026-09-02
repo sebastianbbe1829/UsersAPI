@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from ..models import UserTenantDB
 from ..schemas import ExtinguisherCreate, ExtinguisherUpdate
 from ..services.extinguisher_export_service import export_extinguishers
-from ..services.extinguisher_service import create_extinguisher, delete_extinguisher, get_extinguisher, list_extinguishers, update_extinguisher
+from ..services.extinguisher_service import create_extinguisher, delete_extinguisher, get_extinguisher, list_extinguishers, search_extinguishers, update_extinguisher
 
 
 def crear_extintor(datos: ExtinguisherCreate, db: Session, user_tenant: UserTenantDB):
@@ -12,6 +12,10 @@ def crear_extintor(datos: ExtinguisherCreate, db: Session, user_tenant: UserTena
 
 def listar_extintores(db: Session, tenant_id: int, include_inactive: bool = False):
     return list_extinguishers(db, tenant_id, include_inactive)
+
+
+def buscar_extintores(db: Session, tenant_id: int, search: str = "", limit: int = 20):
+    return search_extinguishers(db, tenant_id, search, limit)
 
 
 def obtener_extintor(extinguisher_id: int, db: Session, tenant_id: int):
