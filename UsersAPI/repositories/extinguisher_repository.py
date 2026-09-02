@@ -1,7 +1,7 @@
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from ..models import ExtinguisherDB
+from ..models import ExtinguisherDB, ExtinguisherTypeDB
 
 
 class ExtinguisherRepository:
@@ -53,7 +53,7 @@ class ExtinguisherRepository:
                     ExtinguisherDB.location.ilike(patron),
                     ExtinguisherDB.capacity.ilike(patron),
                     ExtinguisherDB.extinguisher_type.has(
-                        ExtinguisherDB.extinguisher_type.property.mapper.class_.name.ilike(patron)
+                        ExtinguisherTypeDB.name.ilike(patron)
                     ),
                 )
             )
