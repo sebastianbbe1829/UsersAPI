@@ -7,8 +7,6 @@ on:
   push:
     branches:
       - master
-      - feature/public-tenant-ui-config
-      - maintenance/quality-warnings-cleanup
 
 permissions:
   contents: read
