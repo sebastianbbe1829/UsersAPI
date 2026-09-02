@@ -58,6 +58,12 @@ class InMemoryRateLimiter:
 
             attempts.append(now)
 
+    def reset(self) -> None:
+        """Limpia el estado del limiter; usado para aislar pruebas."""
+        with self._lock:
+            self._attempts.clear()
+            self._last_cleanup = 0.0
+
     @staticmethod
     def client_ip(request: Request) -> str:
         """Obtiene el identificador de cliente disponible para FastAPI.
