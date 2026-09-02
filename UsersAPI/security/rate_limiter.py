@@ -5,6 +5,10 @@ from time import monotonic
 from fastapi import HTTPException, Request, status
 
 
+MAX_WINDOW_SECONDS = 15 * 60
+CLEANUP_INTERVAL_SECONDS = 60
+
+
 class InMemoryRateLimiter:
     """Rate limiter sencillo para una única instancia de la API.
 
@@ -16,12 +20,29 @@ class InMemoryRateLimiter:
     def __init__(self):
         self._attempts: dict[str, deque[float]] = defaultdict(deque)
         self._lock = Lock()
+        self._last_cleanup = 0.0
+
+    def _cleanup(self, now: float) -> None:
+        if now - self._last_cleanup < CLEANUP_INTERVAL_SECONDS:
+            return
+
+        cutoff = now - MAX_WINDOW_SECONDS
+        stale_keys = [
+            key
+            for key, attempts in self._attempts.items()
+            if not attempts or attempts[-1] <= cutoff
+        ]
+        for key in stale_keys:
+            self._attempts.pop(key, None)
+
+        self._last_cleanup = now
 
     def check(self, key: str, limit: int, window_seconds: int) -> None:
         now = monotonic()
         window_start = now - window_seconds
 
         with self._lock:
+            self._cleanup(now)
             attempts = self._attempts[key]
 
             while attempts and attempts[0] <= window_start:
