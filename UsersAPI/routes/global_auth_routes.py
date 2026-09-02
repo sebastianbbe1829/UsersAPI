@@ -11,6 +11,15 @@ from ..schemas import (
     SuperLoginRequest,
     SuperLoginResponse,
 )
+from ..security.rate_limiter import (
+    SUPER_BOOTSTRAP_LIMIT,
+    SUPER_BOOTSTRAP_WINDOW,
+    SUPER_LOGIN_LIMIT,
+    SUPER_LOGIN_WINDOW,
+    SUPER_MFA_LIMIT,
+    SUPER_MFA_WINDOW,
+    rate_limiter,
+)
 
 
 global_auth_routes = APIRouter(
@@ -19,17 +28,6 @@ global_auth_routes = APIRouter(
 )
 
 
-# ============================================================
-# BOOTSTRAP DEL PRIMER USUARIO SUPER
-#
-# Utiliza exclusivamente la conexión de bootstrap.
-#
-# Este endpoint NO utiliza la conexión normal porque:
-# - todavía no existe un usuario SUPER
-# - todavía no existe una sesión SUPER
-# - el acceso se controla mediante X-Super-Bootstrap-Secret
-# ============================================================
-
 @global_auth_routes.post(
     "/bootstrap",
     response_model=SuperBootstrapResponse,
@@ -37,22 +35,22 @@ global_auth_routes = APIRouter(
 )
 def bootstrap_super_user(
     datos: SuperBootstrapRequest,
+    request: Request,
     x_super_bootstrap_secret: str = Header(...),
     db: Session = Depends(get_bootstrap_db),
 ):
+    client_ip = rate_limiter.client_ip(request)
+    rate_limiter.check(
+        f"super:bootstrap:ip:{client_ip}",
+        SUPER_BOOTSTRAP_LIMIT,
+        SUPER_BOOTSTRAP_WINDOW,
+    )
     return global_auth_controller.bootstrap_super_user(
         datos,
         x_super_bootstrap_secret,
         db,
     )
 
-
-# ============================================================
-# VERIFICAR MFA INICIAL DEL USUARIO SUPER
-#
-# Todavía forma parte del proceso de bootstrap, por lo tanto
-# también utiliza exclusivamente la conexión de bootstrap.
-# ============================================================
 
 @global_auth_routes.post(
     "/bootstrap/verify-mfa",
@@ -61,22 +59,22 @@ def bootstrap_super_user(
 )
 def verify_bootstrap_mfa(
     datos: SuperBootstrapMfaVerifyRequest,
+    request: Request,
     x_super_bootstrap_secret: str = Header(...),
     db: Session = Depends(get_bootstrap_db),
 ):
+    client_ip = rate_limiter.client_ip(request)
+    rate_limiter.check(
+        f"super:bootstrap:mfa:ip:{client_ip}",
+        SUPER_MFA_LIMIT,
+        SUPER_MFA_WINDOW,
+    )
     return global_auth_bootstrap_controller.verify_bootstrap_mfa(
         datos,
         x_super_bootstrap_secret,
         db,
     )
 
-
-# ============================================================
-# LOGIN SUPER
-#
-# A partir de aquí ya NO estamos en bootstrap.
-# El login utiliza la conexión normal de la aplicación.
-# ============================================================
 
 @global_auth_routes.post(
     "/login",
@@ -88,6 +86,26 @@ def login_super_user(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    client_ip = rate_limiter.client_ip(request)
+    email = rate_limiter.normalize(datos.email)
+
+    rate_limiter.check(
+        f"super:login:ip:{client_ip}",
+        SUPER_LOGIN_LIMIT,
+        SUPER_LOGIN_WINDOW,
+    )
+    rate_limiter.check(
+        f"super:login:account:{email}",
+        SUPER_LOGIN_LIMIT,
+        SUPER_LOGIN_WINDOW,
+    )
+    if datos.otp:
+        rate_limiter.check(
+            f"super:mfa:{email}",
+            SUPER_MFA_LIMIT,
+            SUPER_MFA_WINDOW,
+        )
+
     return global_auth_controller.login_super_user(
         datos,
         request,
