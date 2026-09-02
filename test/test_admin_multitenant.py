@@ -71,8 +71,6 @@ def test_roles_are_isolated_between_tenants(
     tenant_a_id = tenant_a.id
     tenant_b_id = tenant_b.id
 
-    # El contexto A necesita poder administrar roles, pero nunca debe poder
-    # ver ni modificar los roles pertenecientes a B.
     grant_permissions(
         db_session,
         user_tenant_a,
@@ -190,7 +188,7 @@ def test_role_permissions_are_isolated_between_tenants(
     )
 
     assert list_response.status_code == 404
-    assert list_response.json()["detail"] == "Rol no encontrado"
+    assert list_response.json()["detail"] == "El rol no existe en el tenant seleccionado"
 
     delete_response = client.delete(
         f"/role-permissions/{relation_b_id}",
