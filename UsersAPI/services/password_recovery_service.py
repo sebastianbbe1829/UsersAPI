@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import text
@@ -61,7 +61,7 @@ def request_password_recovery(
             email,
         )
         # Mantiene la misma forma de respuesta sin generar ni enviar un OTP.
-        return datetime.utcnow() + timedelta(minutes=settings.otp_expire_minutes)
+        return datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=settings.otp_expire_minutes)
 
     return generate_otp(
         db,
