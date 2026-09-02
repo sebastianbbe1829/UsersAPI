@@ -14,6 +14,7 @@ from .routes import (
     otp_routes, extinguisher_routes, extinguisher_type_routes, extinguisher_inspection_routes,
     extinguisher_nested_inspection_routes, extinguisher_inspection_item_routes,
 )
+from .routes.diagnostics_routes import router as diagnostics_router
 from .logging_config import logger
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -121,6 +122,7 @@ app.include_router(extinguisher_nested_inspection_routes)
 logger.debug("Rutas de inspecciones anidadas de extintores registradas")
 app.include_router(extinguisher_inspection_item_routes)
 logger.debug("Rutas de ítems de inspección de extintores registradas")
+app.include_router(diagnostics_router)
 
 
 @app.exception_handler(RequestValidationError)
