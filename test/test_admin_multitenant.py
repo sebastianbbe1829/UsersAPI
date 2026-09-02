@@ -80,18 +80,26 @@ def test_roles_are_isolated_between_tenants(
         "ROLE_DELETE",
     )
 
-    set_rls_tenant(db_session, tenant_b_id)
-    role_b = RoleDB(
-        tenant_id=tenant_b_id,
-        code=f"B-{uuid4().hex[:8]}",
-        name="Rol privado B",
-        status=1,
-        created_by="test",
-    )
-    db_session.add(role_b)
-    db_session.flush()
-    role_b_id = role_b.id
-    role_b_code = role_b.code
+    # Crear el rol B mediante la conexión de bootstrap para que quede
+    # confirmado y pueda verificarse después desde una conexión independiente.
+    bootstrap_db = BootstrapSessionLocal()
+    try:
+        role_b = RoleDB(
+            tenant_id=tenant_b_id,
+            code=f"B-{uuid4().hex[:8]}",
+            name="Rol privado B",
+            status=1,
+            created_by="test",
+        )
+        bootstrap_db.add(role_b)
+        bootstrap_db.commit()
+        role_b_id = role_b.id
+        role_b_code = role_b.code
+    except Exception:
+        bootstrap_db.rollback()
+        raise
+    finally:
+        bootstrap_db.close()
 
     set_rls_tenant(db_session, tenant_a_id)
 
@@ -160,25 +168,34 @@ def test_role_permissions_are_isolated_between_tenants(
 
     permission_id = get_permission_id(db_session, "USER_READ")
 
-    set_rls_tenant(db_session, tenant_b_id)
-    role_b = RoleDB(
-        tenant_id=tenant_b_id,
-        code=f"B-{uuid4().hex[:8]}",
-        name="Rol B",
-        status=1,
-        created_by="test",
-    )
-    db_session.add(role_b)
-    db_session.flush()
+    # Crear el rol y su relación mediante bootstrap para que queden
+    # confirmados y puedan verificarse desde otra conexión sin RLS.
+    bootstrap_db = BootstrapSessionLocal()
+    try:
+        role_b = RoleDB(
+            tenant_id=tenant_b_id,
+            code=f"B-{uuid4().hex[:8]}",
+            name="Rol B",
+            status=1,
+            created_by="test",
+        )
+        bootstrap_db.add(role_b)
+        bootstrap_db.flush()
 
-    relation_b = RolePermissionDB(
-        role_id=role_b.id,
-        permission_id=permission_id,
-    )
-    db_session.add(relation_b)
-    db_session.flush()
-    role_b_id = role_b.id
-    relation_b_id = relation_b.id
+        relation_b = RolePermissionDB(
+            role_id=role_b.id,
+            permission_id=permission_id,
+        )
+        bootstrap_db.add(relation_b)
+        bootstrap_db.commit()
+
+        role_b_id = role_b.id
+        relation_b_id = relation_b.id
+    except Exception:
+        bootstrap_db.rollback()
+        raise
+    finally:
+        bootstrap_db.close()
 
     set_rls_tenant(db_session, tenant_a_id)
 
