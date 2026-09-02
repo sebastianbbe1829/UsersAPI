@@ -28,31 +28,8 @@ def _next_run(now: datetime) -> datetime:
     return target
 
 
-def run_extinguisher_recharge_notification_job(*, wait_for_schedule: bool = False) -> dict:
-    """Ejecuta el job, opcionalmente respetando la hora configurada en JOB_TIMEZONE."""
-    if wait_for_schedule:
-        timezone = ZoneInfo(TIMEZONE)
-        now = datetime.now(timezone)
-        target = _scheduled_target(now)
-        if now < target:
-            delay = (target - now).total_seconds()
-            logger.info(
-                "Extinguisher recharge notification triggered before configured time; "
-                "waiting %.0f seconds until %s (%s)",
-                delay,
-                RUN_TIME,
-                TIMEZONE,
-            )
-            import time
-            time.sleep(delay)
-        else:
-            logger.info(
-                "Extinguisher recharge notification triggered at/after configured time "
-                "(%s %s); executing now",
-                RUN_TIME,
-                TIMEZONE,
-            )
-
+def run_extinguisher_recharge_notification_job() -> dict:
+    """Ejecuta el job de notificaciones una sola vez."""
     db = BootstrapSessionLocal()
     locked = False
     try:
