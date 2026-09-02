@@ -4,28 +4,17 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import ExpiredSignatureError, JWTError, jwt
+from jose import JWTError, jwt
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..database import set_rls_tenant
 from ..logging_config import logger
-from ..models import (
-    UserTenantDB,
-    TenantDB,
-    UserTenantRoleDB,
-    RoleDB,
-    RolePermissionDB,
-    PermissionDB,
-)
+from ..models import UserTenantDB, TenantDB
 from ..schemas import LoginRequest
 from .auth_context_service import get_current_user_from_token
-from .jwt_service import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    ALGORITHM,
-    SECRET_KEY,
-    create_access_token,
-)
+from .authorization_service import get_user_permissions, user_can_authenticate
+from .jwt_service import ALGORITHM, SECRET_KEY, create_access_token
 from .password_service import get_password_hash, pwd_context, verify_password
 
 
@@ -38,58 +27,6 @@ AUTH_SCHEME = "bearer"
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="auth/login",
 )
-
-
-# ============================================================
-# VALIDAR PERMISO DE AUTENTICACIÓN
-# ============================================================
-
-
-def user_can_authenticate(
-    user_tenant: UserTenantDB,
-    db: Session,
-) -> bool:
-
-    permission = (
-        db.query(PermissionDB)
-        .join(RolePermissionDB, RolePermissionDB.permission_id == PermissionDB.id)
-        .join(RoleDB, RoleDB.id == RolePermissionDB.role_id)
-        .join(UserTenantRoleDB, UserTenantRoleDB.role_id == RoleDB.id)
-        .filter(
-            UserTenantRoleDB.user_tenant_id == user_tenant.id,
-            RoleDB.tenant_id == user_tenant.tenant_id,
-            RoleDB.status == 1,
-            PermissionDB.status == 1,
-            PermissionDB.code == "AUTHENTICATE",
-        )
-        .first()
-    )
-
-    return permission is not None
-
-
-def get_user_permissions(
-    user_tenant: UserTenantDB,
-    db: Session,
-) -> list[str]:
-
-    permissions = (
-        db.query(PermissionDB.code)
-        .join(RolePermissionDB, RolePermissionDB.permission_id == PermissionDB.id)
-        .join(RoleDB, RoleDB.id == RolePermissionDB.role_id)
-        .join(UserTenantRoleDB, UserTenantRoleDB.role_id == RoleDB.id)
-        .filter(
-            UserTenantRoleDB.user_tenant_id == user_tenant.id,
-            RoleDB.tenant_id == user_tenant.tenant_id,
-            RoleDB.status == 1,
-            PermissionDB.status == 1,
-        )
-        .distinct()
-        .order_by(PermissionDB.code)
-        .all()
-    )
-
-    return [code for (code,) in permissions]
 
 
 # ============================================================
