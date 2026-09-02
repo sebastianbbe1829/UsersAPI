@@ -4,7 +4,7 @@ from datetime import date
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, and_, func, select, update
+from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, Table, and_, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,7 @@ from ..util.email_utils import send_email
 
 ADMIN_ROLE_CODES = ("ADMIN",)
 _NOTIFICATION_METADATA = MetaData()
-NOTIFICATION_LOG_TABLE = Table = __import__("sqlalchemy").Table(
+NOTIFICATION_LOG_TABLE = Table(
     "extinguisher_recharge_notification_log", _NOTIFICATION_METADATA,
     Column("notification_date", Date, nullable=False), Column("tenant_id", Integer, nullable=False),
     Column("recipient", String(320), nullable=False), Column("status", String(20), nullable=False),
@@ -88,7 +88,7 @@ class ExtinguisherRechargeNotificationService:
         ws.title = "Recargas pendientes"
         headers = ["Código", "Tipo", "Capacidad", "Ubicación", "Última recarga", "Próxima recarga", "Días vencido", "Estado"]
         principal, dark, white, gray = "1F4E78", "17365D", "FFFFFF", "F2F2F2"
-        border = Border(*(Side(style="thin", color="D9E1F2") for _ in range(4)))
+        border = Border(left=Side(style="thin", color="D9E1F2"), right=Side(style="thin", color="D9E1F2"), top=Side(style="thin", color="D9E1F2"), bottom=Side(style="thin", color="D9E1F2"))
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
         ws.cell(1, 1, f"REPORTE DE RECARGAS PENDIENTES - {tenant_name}")
         ws.cell(1, 1).font = Font(bold=True, size=16, color=white)
@@ -119,7 +119,14 @@ class ExtinguisherRechargeNotificationService:
     def _build_message(tenant_name: str, target_date: date, extinguishers: list[dict]) -> str:
         overdue = sum(1 for item in extinguishers if item["days_overdue"] > 0)
         today = len(extinguishers) - overdue
-        lines = [f"Buenos días, {tenant_name}.", "", f"El reporte diario identifica {len(extinguishers)} extintor(es) con recarga pendiente.", f"- Vencidos: {overdue}", f"- Vencen hoy: {today}", "", "Se adjunta el Excel con el detalle de los extintores, sus fechas de recarga y los días de vencimiento.", "", "Por favor, realiza la gestión correspondiente de recarga y actualiza la información en el sistema.", "", "Este es un mensaje automático."]
+        lines = [
+            f"Buenos días, {tenant_name}.", "",
+            f"El reporte diario de {target_date.strftime('%d/%m/%Y')} identifica {{TOTAL}} extintor(es) con recarga pendiente.",
+            "", "- Vencidos: {VENCIDOS}", "- Vencen hoy: {HOY}", "",
+            "Se adjunta el Excel con el detalle de los extintores, sus fechas de recarga y los días de vencimiento.", "",
+            "Por favor, realiza la gestión correspondiente de recarga y actualiza la información en el sistema.", "",
+            "Este es un mensaje automático."
+        ]
         return "\n".join(lines)
 
     def _already_sent(self, target_date, tenant_id, recipient):
