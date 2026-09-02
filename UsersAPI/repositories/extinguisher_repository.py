@@ -1,4 +1,5 @@
-from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, joinedload
 
 from ..models import ExtinguisherDB
 
@@ -28,6 +29,38 @@ class ExtinguisherRepository:
             ExtinguisherDB.next_recharge_date.asc().nullslast(),
             ExtinguisherDB.id.asc(),
         ).all()
+
+    def search_by_tenant(
+        self,
+        tenant_id: int,
+        search: str,
+        limit: int = 20,
+    ) -> list[ExtinguisherDB]:
+        texto = search.strip()
+        query = (
+            self.db.query(ExtinguisherDB)
+            .options(joinedload(ExtinguisherDB.extinguisher_type))
+            .filter(
+                ExtinguisherDB.tenant_id == tenant_id,
+                ExtinguisherDB.active.is_(True),
+            )
+        )
+        if texto:
+            patron = f"%{texto}%"
+            query = query.filter(
+                or_(
+                    ExtinguisherDB.code.ilike(patron),
+                    ExtinguisherDB.location.ilike(patron),
+                    ExtinguisherDB.capacity.ilike(patron),
+                    ExtinguisherDB.extinguisher_type.has(
+                        ExtinguisherDB.extinguisher_type.property.mapper.class_.name.ilike(patron)
+                    ),
+                )
+            )
+        return query.order_by(
+            ExtinguisherDB.code.asc(),
+            ExtinguisherDB.id.asc(),
+        ).limit(limit).all()
 
     def get_by_id_and_tenant(
         self,
