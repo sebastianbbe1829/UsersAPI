@@ -13,3 +13,8 @@ select = ["E", "F", "B"]
 ignore = [
   "B008",
 ]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+  "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning:starlette.testclient",
+]
