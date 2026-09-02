@@ -91,7 +91,7 @@ def update_any_tenant(
         name = datos.name.strip()
         if not name:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El nombre del tenant no puede estar vacío.",
             )
 
@@ -108,7 +108,7 @@ def update_any_tenant(
         slug = datos.slug.strip().lower()
         if not slug:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El slug del tenant no puede estar vacío.",
             )
 
