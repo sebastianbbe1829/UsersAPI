@@ -25,6 +25,7 @@ Reglas de migración:
 - Un mismo código de extintor no puede existir previamente en el tenant.
 - La carga completa es transaccional: si una fila falla, no se importa ninguna.
 - Las fechas MM/YYYY se normalizan al primer día de ese mes.
+- Las fechas month-YYYY con abreviatura de mes en español se normalizan al primer día de ese mes.
 - Las fechas que contienen únicamente YYYY se normalizan al 01/01/YYYY.
 - --dry-run valida sin insertar ni modificar datos.
 """
@@ -86,9 +87,6 @@ UNKNOWN_REVISION_OBSERVATION = (
     "Revisión histórica no identificada en la fuente original; se registra revisión 0."
 )
 
-# Equivalencias entre los valores del CSV y el catálogo actual.
-# MULTIPRO y MULTIPO se interpretan como PQS.
-# H2O se interpreta como Agua.
 TYPE_ALIASES = {
     "PQS": "POLVO_QUIMICO_SECO",
     "POLVO QUIMICO SECO": "POLVO_QUIMICO_SECO",
@@ -102,6 +100,7 @@ TYPE_ALIASES = {
     "H2O": "AGUA",
     "AGUA": "AGUA",
     "AGENTE LIMPIO": "AGENTE_LIMPIO",
+    "TIPO K": "TIPO_K",
 }
 
 
@@ -148,7 +147,7 @@ def is_marked(value: str | None) -> bool:
 
 
 def parse_date(value: str | None, field_name: str, row_number: int) -> date | None:
-    """Convierte fechas del CSV; los textos históricos no estructurados se ignoran."""
+    """Convierte fechas estructuradas del CSV al primer día del mes/año."""
     value = normalize_value(value)
     if not value:
         return None
@@ -161,6 +160,34 @@ def parse_date(value: str | None, field_name: str, row_number: int) -> date | No
             return date(year, month, 1)
         except ValueError:
             return None
+
+    spanish_months = {
+        "ENE": 1,
+        "FEB": 2,
+        "MAR": 3,
+        "ABR": 4,
+        "MAY": 5,
+        "JUN": 6,
+        "JUL": 7,
+        "AGO": 8,
+        "SEP": 9,
+        "OCT": 10,
+        "NOV": 11,
+        "DIC": 12,
+    }
+    spanish_month_year_match = re.fullmatch(r"([A-Za-zÁÉÍÓÚáéíóúÑñ]{3,})[/-](\d{2}|\d{4})", value)
+    if spanish_month_year_match:
+        month_text = catalog_key(spanish_month_year_match.group(1)).replace(" ", "")
+        month = spanish_months.get(month_text[:3])
+        year_text = spanish_month_year_match.group(2)
+        if month is not None:
+            year = int(year_text)
+            if len(year_text) == 2:
+                year += 2000
+            try:
+                return date(year, month, 1)
+            except ValueError:
+                return None
 
     if re.fullmatch(r"\d{4}", value):
         return date(int(value), 1, 1)
@@ -177,393 +204,3 @@ def parse_date(value: str | None, field_name: str, row_number: int) -> date | No
             return datetime.strptime(value, fmt).date()
         except ValueError:
             continue
-
-    return None
-
-
-def get_invalid_date_observations(
-    row: dict[str, str], row_number: int
-) -> list[str]:
-    """Devuelve trazabilidad para cualquier fecha histórica no estructurada."""
-    fields = (
-        "Ultima recarga",
-        "Proxima recarga",
-        "FECHA PRUEBA HIDROSTATICA Ultima",
-        "FECHA PRUEBA HIDROSTATICA Proxima",
-    )
-    observations: list[str] = []
-    for field_name in fields:
-        raw_value = normalize_value(row.get(field_name))
-        if raw_value and parse_date(raw_value, field_name, row_number) is None:
-            observations.append(
-                f"{field_name}: valor histórico no estructurado '{raw_value}'; fecha no disponible."
-            )
-    return observations
-
-
-def get_revision_number(row: dict[str, str], row_number: int) -> int:
-    marked = [
-        number
-        for number in range(1, 5)
-        if is_marked(row.get(f"REVISION {number}"))
-    ]
-
-    if not marked:
-        return 0
-
-    if len(marked) > 1:
-        raise MigrationError(
-            f"Fila {row_number}: hay más de una revisión marcada: {marked}."
-        )
-
-    return marked[0]
-
-
-def get_item_result(
-    row: dict[str, str],
-    good_column: str,
-    bad_column: str,
-    row_number: int,
-) -> str:
-    good = is_marked(row.get(good_column))
-    bad = is_marked(row.get(bad_column))
-
-    if good and bad:
-        raise MigrationError(
-            f"Fila {row_number}: '{good_column}' y '{bad_column}' no pueden estar marcados simultáneamente."
-        )
-    if good:
-        return "GOOD"
-    if bad:
-        return "BAD"
-    return "NA"
-
-
-def get_overall_result(item_results: list[str]) -> str:
-    """Deriva el estado sin considerar datos desconocidos como aptos."""
-    if "BAD" in item_results:
-        return "REQUIERE_MANTENIMIENTO"
-    if all(result == "GOOD" for result in item_results):
-        return "APTO"
-    return "REQUIERE_MANTENIMIENTO"
-
-
-def build_observations(
-    original: str | None,
-    revision_number: int,
-    invalid_date_observations: list[str],
-) -> str:
-    parts = []
-    original = normalize_value(original)
-    if original:
-        parts.append(original)
-    if revision_number == 0:
-        parts.append(UNKNOWN_REVISION_OBSERVATION)
-    if invalid_date_observations:
-        parts.extend(invalid_date_observations)
-    parts.append(MIGRATION_OBSERVATION)
-    return " ".join(parts)
-
-
-def validate_headers(headers: list[str]) -> None:
-    normalized = [normalize_header(header) for header in headers]
-    missing = sorted(REQUIRED_COLUMNS.difference(normalized))
-    if missing:
-        raise MigrationError(
-            "Faltan columnas obligatorias en el CSV: " + ", ".join(missing)
-        )
-
-
-def resolve_type(
-    type_by_code: dict[str, ExtinguisherTypeDB],
-    type_by_name: dict[str, ExtinguisherTypeDB],
-    value: str,
-    row_number: int,
-) -> ExtinguisherTypeDB:
-    raw = normalize_value(value)
-    if not raw:
-        raise MigrationError(f"Fila {row_number}: TIPO EXTINTOR es obligatorio.")
-
-    key = catalog_key(raw)
-    alias = TYPE_ALIASES.get(key, raw)
-    code_key = catalog_key(alias)
-    item = type_by_code.get(code_key) or type_by_name.get(key)
-
-    if item is None:
-        raise MigrationError(
-            f"Fila {row_number}: tipo de extintor no encontrado en el catálogo: '{value}'."
-        )
-
-    return item
-
-
-def _load_catalogs(db):
-    types = (
-        db.query(ExtinguisherTypeDB)
-        .filter(ExtinguisherTypeDB.active.is_(True))
-        .all()
-    )
-    type_by_code = {catalog_key(item.code): item for item in types}
-    type_by_name = {catalog_key(item.name): item for item in types}
-
-    inspection_items = (
-        db.query(ExtinguisherInspectionItemDB)
-        .filter(ExtinguisherInspectionItemDB.active.is_(True))
-        .order_by(
-            ExtinguisherInspectionItemDB.display_order,
-            ExtinguisherInspectionItemDB.id,
-        )
-        .all()
-    )
-    item_by_code = {item.code: item for item in inspection_items}
-
-    missing_items = sorted(set(ITEM_COLUMNS) - set(item_by_code))
-    if missing_items:
-        raise MigrationError(
-            "El catálogo de ítems de inspección no contiene: "
-            + ", ".join(missing_items)
-        )
-
-    return type_by_code, type_by_name, item_by_code
-
-
-def validate_csv(csv_path: Path, tenant_id: int) -> tuple[int, list[str]]:
-    """Valida todo el CSV sin insertar, actualizar ni hacer flush en la BD."""
-    if tenant_id <= 0:
-        raise MigrationError("tenant_id debe ser mayor que cero.")
-    if not csv_path.is_file():
-        raise MigrationError(f"No existe el archivo CSV: {csv_path}")
-
-    db = SessionLocal()
-    errors: list[str] = []
-    row_count = 0
-
-    try:
-        set_rls_tenant(db, tenant_id)
-        type_by_code, type_by_name, _ = _load_catalogs(db)
-
-        existing_codes = {
-            code
-            for (code,) in db.query(ExtinguisherDB.code)
-            .filter(ExtinguisherDB.tenant_id == tenant_id)
-            .all()
-        }
-        seen_codes: set[str] = set()
-
-        reader = csv.DictReader(io.StringIO(read_csv_text(csv_path)), delimiter=";")
-        if reader.fieldnames is None:
-            raise MigrationError("El CSV no tiene encabezados.")
-
-        reader.fieldnames = [normalize_header(field) for field in reader.fieldnames]
-        validate_headers(reader.fieldnames)
-
-        for row_number, raw_row in enumerate(reader, start=2):
-            row_count += 1
-            try:
-                row = {
-                    normalize_header(k): normalize_value(v)
-                    for k, v in raw_row.items()
-                    if k is not None
-                }
-
-                code = normalize_value(row.get("ID"))
-                if not code:
-                    raise MigrationError(f"Fila {row_number}: ID es obligatorio.")
-                code = code.upper()
-
-                if code in existing_codes:
-                    raise MigrationError(
-                        f"Fila {row_number}: el extintor '{code}' ya existe en el tenant {tenant_id}."
-                    )
-                if code in seen_codes:
-                    raise MigrationError(
-                        f"Fila {row_number}: el ID '{code}' está repetido dentro del CSV."
-                    )
-                seen_codes.add(code)
-
-                resolve_type(
-                    type_by_code,
-                    type_by_name,
-                    row.get("TIPO EXTINTOR", ""),
-                    row_number,
-                )
-
-                get_revision_number(row, row_number)
-                for good_column, bad_column in ITEM_COLUMNS.values():
-                    get_item_result(row, good_column, bad_column, row_number)
-
-            except MigrationError as exc:
-                errors.append(str(exc))
-
-        return row_count, errors
-    finally:
-        db.close()
-
-
-def import_csv(csv_path: Path, tenant_id: int) -> tuple[int, int]:
-    """Importa únicamente después de que la validación completa haya pasado."""
-    row_count, errors = validate_csv(csv_path, tenant_id)
-    if errors:
-        details = "\n".join(f"- {error}" for error in errors)
-        raise MigrationError(
-            f"La validación encontró {len(errors)} error(es) en {row_count} fila(s):\n{details}"
-        )
-
-    db = SessionLocal()
-    created_extinguishers = 0
-    created_inspections = 0
-
-    try:
-        set_rls_tenant(db, tenant_id)
-
-        reader = csv.DictReader(io.StringIO(read_csv_text(csv_path)), delimiter=";")
-        reader.fieldnames = [normalize_header(field) for field in reader.fieldnames or []]
-
-        migration_date = db.execute(text("SELECT CURRENT_DATE")).scalar_one()
-        type_by_code, type_by_name, item_by_code = _load_catalogs(db)
-
-        for row_number, raw_row in enumerate(reader, start=2):
-            row = {
-                normalize_header(k): normalize_value(v)
-                for k, v in raw_row.items()
-                if k is not None
-            }
-
-            code = normalize_value(row.get("ID")).upper()
-            extinguisher_type = resolve_type(
-                type_by_code,
-                type_by_name,
-                row.get("TIPO EXTINTOR", ""),
-                row_number,
-            )
-            revision_number = get_revision_number(row, row_number)
-            item_results = [
-                get_item_result(row, good_column, bad_column, row_number)
-                for good_column, bad_column in ITEM_COLUMNS.values()
-            ]
-            overall_result = get_overall_result(item_results)
-            invalid_date_observations = get_invalid_date_observations(row, row_number)
-            observations = build_observations(
-                row.get("OBSERVACIONES"),
-                revision_number,
-                invalid_date_observations,
-            )
-
-            extinguisher = ExtinguisherDB(
-                tenant_id=tenant_id,
-                code=code,
-                extinguisher_type_id=extinguisher_type.id,
-                capacity=normalize_value(row.get("CAPACIDAD")) or None,
-                location=normalize_value(row.get("UBICACION")) or None,
-                last_recharge_date=parse_date(
-                    row.get("Ultima recarga"), "Ultima recarga", row_number
-                ),
-                next_recharge_date=parse_date(
-                    row.get("Proxima recarga"), "Proxima recarga", row_number
-                ),
-                last_hydrostatic_test_date=parse_date(
-                    row.get("FECHA PRUEBA HIDROSTATICA Ultima"),
-                    "FECHA PRUEBA HIDROSTATICA Ultima",
-                    row_number,
-                ),
-                next_hydrostatic_test_date=parse_date(
-                    row.get("FECHA PRUEBA HIDROSTATICA Proxima"),
-                    "FECHA PRUEBA HIDROSTATICA Proxima",
-                    row_number,
-                ),
-                inspections_since_hydrostatic_test=revision_number,
-                inspection_cycle=1,
-                status="ACTIVE",
-                is_stock=False,
-                active=True,
-            )
-            db.add(extinguisher)
-            db.flush()
-
-            inspection = ExtinguisherInspectionDB(
-                tenant_id=tenant_id,
-                extinguisher_id=extinguisher.id,
-                inspection_date=migration_date,
-                inspector_user_id=None,
-                inspection_number=revision_number,
-                inspection_cycle=1,
-                result=overall_result,
-                observations=observations,
-                hydrostatic_test_performed=False,
-                hydrostatic_test_date=None,
-                next_hydrostatic_test_date=None,
-            )
-            db.add(inspection)
-            db.flush()
-
-            for item_code, result in zip(ITEM_COLUMNS, item_results):
-                db.add(
-                    ExtinguisherInspectionResultDB(
-                        inspection_id=inspection.id,
-                        inspection_item_id=item_by_code[item_code].id,
-                        result=result,
-                        observation=(
-                            "Dato no disponible en la fuente de migración."
-                            if result == "NA"
-                            else None
-                        ),
-                    )
-                )
-
-            created_extinguishers += 1
-            created_inspections += 1
-
-        db.commit()
-        return created_extinguishers, created_inspections
-
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Carga inicial de extintores desde CSV")
-    parser.add_argument("--tenant-id", type=int, required=True, help="ID del tenant destino")
-    parser.add_argument(
-        "--csv",
-        type=Path,
-        required=True,
-        help="Ruta al CSV separado por punto y coma",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Valida el CSV sin insertar ni modificar datos.",
-    )
-    args = parser.parse_args()
-
-    try:
-        if args.dry_run:
-            rows, errors = validate_csv(args.csv, args.tenant_id)
-            print(f"Filas validadas: {rows}")
-            if errors:
-                print(f"Errores encontrados: {len(errors)}")
-                for error in errors:
-                    print(f"- {error}")
-                raise SystemExit(1)
-            print("Errores encontrados: 0")
-            print("VALIDACION EXITOSA: no se realizaron inserciones ni modificaciones.")
-            return
-
-        extinguishers, inspections = import_csv(args.csv, args.tenant_id)
-    except MigrationError as exc:
-        raise SystemExit(f"ERROR DE MIGRACIÓN: {exc}") from exc
-    except SystemExit:
-        raise
-    except Exception as exc:
-        raise SystemExit(f"ERROR DE BASE DE DATOS: {exc}") from exc
-
-    print(f"Extintores creados: {extinguishers}")
-    print(f"Revisiones iniciales creadas: {inspections}")
-    print("Carga inicial completada correctamente.")
-
-
-if __name__ == "__main__":
-    main()
