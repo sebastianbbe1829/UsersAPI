@@ -152,6 +152,39 @@ def user_can_authenticate(
     return permission is not None
 
 
+def get_user_permissions(
+    user_tenant: UserTenantDB,
+    db: Session,
+) -> list[str]:
+
+    permissions = (
+        db.query(PermissionDB.code)
+        .join(
+            RolePermissionDB,
+            RolePermissionDB.permission_id == PermissionDB.id,
+        )
+        .join(
+            RoleDB,
+            RoleDB.id == RolePermissionDB.role_id,
+        )
+        .join(
+            UserTenantRoleDB,
+            UserTenantRoleDB.role_id == RoleDB.id,
+        )
+        .filter(
+            UserTenantRoleDB.user_tenant_id == user_tenant.id,
+            RoleDB.tenant_id == user_tenant.tenant_id,
+            RoleDB.status == 1,
+            PermissionDB.status == 1,
+        )
+        .distinct()
+        .order_by(PermissionDB.code)
+        .all()
+    )
+
+    return [code for (code,) in permissions]
+
+
 # ============================================================
 # LOGIN MULTI-TENANT
 # ============================================================
@@ -316,6 +349,10 @@ def login_user(
 
     tenant = user_tenant.tenant
     usuario = user_tenant.user
+    permissions = get_user_permissions(
+        user_tenant=user_tenant,
+        db=db,
+    )
 
     # ========================================================
     # CREAR JWT
@@ -328,13 +365,15 @@ def login_user(
             "tenant_id": tenant.id,
             "tenant_slug": tenant.slug,
             "user_tenant_id": user_tenant.id,
+            "permissions": permissions,
         }
     )
 
     logger.info(
-        "Login exitoso usuario=%s tenant=%s",
+        "Login exitoso usuario=%s tenant=%s permisos=%s",
         datos.username,
         tenant.slug,
+        len(permissions),
     )
 
     return {
