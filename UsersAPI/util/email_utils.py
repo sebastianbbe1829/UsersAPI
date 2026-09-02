@@ -6,7 +6,6 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from ..logging_config import logger
 from ..settings import settings
 
-
 BREVO_API_KEY = settings.brevo_api_key
 EMAIL_FROM = settings.email_from
 EMAIL_FROM_NAME = settings.email_from_name
@@ -14,15 +13,7 @@ FRONTEND_URL = settings.frontend_url
 BACKEND_URL = settings.backend_url
 API_EMAIL_URL = settings.api_email_url
 
-
-BASE_DIR = os.path.dirname(
-    os.path.dirname(
-        os.path.dirname(
-            os.path.abspath(__file__)
-        )
-    )
-)
-
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 
 env = Environment(
@@ -42,26 +33,21 @@ def send_email(
     template: str = "default",
     otp_code: str | None = None,
     otp_expire_minutes: int | None = None,
+    attachments: list[dict[str, str]] | None = None,
 ):
-    """Envía un correo transaccional utilizando Brevo."""
+    """Envía un correo transaccional utilizando Brevo.
 
-    allowed_templates = {
-        "activation",
-        "reactivation",
-        "updated",
-        "otp",
-        "default",
-    }
-
+    attachments acepta elementos con ``name`` y ``content`` (contenido en base64),
+    en el formato esperado por la API de Brevo.
+    """
+    allowed_templates = {"activation", "reactivation", "updated", "otp", "default"}
     if template not in allowed_templates:
         raise ValueError(
-            f"Email template inválido: {template}. "
-            f"Valores permitidos: {', '.join(sorted(allowed_templates))}"
+            f"Email template inválido: {template}. Valores permitidos: {', '.join(sorted(allowed_templates))}"
         )
 
     logger.info(
-        f"Preparing to send email to {recipient} "
-        f"with subject '{subject}' template='{template}'"
+        f"Preparing to send email to {recipient} with subject '{subject}' template='{template}'"
     )
 
     if not BREVO_API_KEY:
@@ -73,12 +59,7 @@ def send_email(
 
     backend_url = BACKEND_URL.rstrip("/")
     logo_url = f"{backend_url}/static/logo.png"
-
-    tenant_display_name = (
-        tenant_name.strip()
-        if tenant_name and tenant_name.strip()
-        else tenant_slug
-    )
+    tenant_display_name = tenant_name.strip() if tenant_name and tenant_name.strip() else tenant_slug
 
     if "UsersAPI" in subject:
         if template == "activation":
@@ -90,7 +71,6 @@ def send_email(
 
     activation_url = None
     login_url = None
-
     if template in {"activation", "reactivation"}:
         if not FRONTEND_URL:
             raise RuntimeError("FRONTEND_URL is not configured")
@@ -100,7 +80,6 @@ def send_email(
             raise RuntimeError("dni is required for activation emails")
         if not token:
             raise RuntimeError("token is required for activation emails")
-
         frontend_url = FRONTEND_URL.rstrip("/")
         activation_url = f"{frontend_url}/{tenant_slug}/users/activate/{dni}/{token}"
 
@@ -109,13 +88,10 @@ def send_email(
             raise RuntimeError("FRONTEND_URL is not configured")
         if not tenant_slug:
             raise RuntimeError("tenant_slug is required for updated emails")
-
         frontend_url = FRONTEND_URL.rstrip("/")
         login_url = f"{frontend_url}/{tenant_slug}/login"
 
-    template_filename = (
-        "email_otp.html" if template == "otp" else "email_base.html"
-    )
+    template_filename = "email_otp.html" if template == "otp" else "email_base.html"
     template_path = os.path.join(TEMPLATE_DIR, template_filename)
     if not os.path.isfile(template_path):
         raise RuntimeError(f"Email template not found: {template_path}")
@@ -135,11 +111,7 @@ def send_email(
             tenant_name=tenant_display_name,
             template=template,
             otp_code=otp_code,
-            otp_expire_minutes=(
-                otp_expire_minutes
-                if otp_expire_minutes is not None
-                else settings.otp_expire_minutes
-            ),
+            otp_expire_minutes=otp_expire_minutes if otp_expire_minutes is not None else settings.otp_expire_minutes,
         )
     except Exception:
         logger.exception("Error loading or rendering HTML email template")
@@ -151,10 +123,18 @@ def send_email(
         text_content = f"{message}\n\nReactivar cuenta:\n{activation_url}"
     elif template == "updated":
         text_content = f"{message}\n\nIngresar a la aplicación:\n{login_url}"
-    elif template == "otp":
-        text_content = message
     else:
         text_content = message
+
+    payload = {
+        "sender": {"email": EMAIL_FROM, "name": EMAIL_FROM_NAME},
+        "to": [{"email": recipient}],
+        "subject": subject,
+        "htmlContent": html_content,
+        "textContent": text_content,
+    }
+    if attachments:
+        payload["attachment"] = attachments
 
     try:
         response = requests.post(
@@ -164,33 +144,19 @@ def send_email(
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             },
-            json={
-                "sender": {
-                    "email": EMAIL_FROM,
-                    "name": EMAIL_FROM_NAME,
-                },
-                "to": [{"email": recipient}],
-                "subject": subject,
-                "htmlContent": html_content,
-                "textContent": text_content,
-            },
+            json=payload,
             timeout=30,
         )
-
         if response.status_code != 201:
             logger.error(f"Brevo error {response.status_code}: {response.text}")
             response.raise_for_status()
 
         response_data = response.json()
         message_id = response_data.get("messageId")
-
         logger.info(
-            f"Email sent successfully to {recipient} via Brevo | "
-            f"message_id={message_id} template={template}"
+            f"Email sent successfully to {recipient} via Brevo | message_id={message_id} template={template}"
         )
-
         return {"status": "sent", "message_id": message_id}
-
     except requests.exceptions.Timeout:
         logger.exception("Timeout sending email through Brevo")
         raise RuntimeError("Timeout connecting to Brevo")
@@ -207,9 +173,4 @@ def send_brevo_email(
     subject: str = "Prueba de correo",
     message: str = "Este es un correo de prueba enviado desde el sistema.",
 ):
-    return send_email(
-        recipient=recipient,
-        subject=subject,
-        message=message,
-        template="default",
-    )
+    return send_email(recipient=recipient, subject=subject, message=message, template="default")
