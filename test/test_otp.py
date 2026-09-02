@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -180,11 +180,12 @@ def test_validate_otp_rejects_expired_code_without_incrementing_attempts(
     db_session: Session,
 ):
     destination = unique_destination()
+    now = datetime.now(UTC).replace(tzinfo=None)
     otp = OTPCodeDB(
         destination=destination,
         purpose="login",
         code_hash=_hash_code("123456"),
-        expires_at=datetime.utcnow() - timedelta(minutes=1),
+        expires_at=now - timedelta(minutes=1),
         max_attempts=5,
     )
     db_session.add(otp)
@@ -203,11 +204,12 @@ def test_validate_otp_rejects_code_after_max_attempts(
     db_session: Session,
 ):
     destination = unique_destination()
+    now = datetime.now(UTC).replace(tzinfo=None)
     otp = OTPCodeDB(
         destination=destination,
         purpose="login",
         code_hash=_hash_code("123456"),
-        expires_at=datetime.utcnow() + timedelta(minutes=5),
+        expires_at=now + timedelta(minutes=5),
         attempts=5,
         max_attempts=5,
     )
