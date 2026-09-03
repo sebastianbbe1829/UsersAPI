@@ -76,7 +76,9 @@ def test_user_controller_adapters(monkeypatch):
     assert user.crear_usuario(datos, db, current, tenant_user) == "create"
     assert user.listar_usuarios(db, 9, 1) == "list"
     assert user.obtener_usuario("12345", db, tenant_user) == "get"
-    assert user.actualizar_usuario("12345", datos, db, current, tenant_user) == "update"
+    assert user.actualizar_usuario(
+        "12345", datos, db, current, tenant_user
+    ) == "update"
     assert user.eliminar_usuario("12345", db, tenant_user) == "delete"
     assert user.exportar_usuarios(db, current, tenant_user) == "export"
     assert user.activar_usuario("12345", "token", db) == "activate"
@@ -103,6 +105,7 @@ def test_super_tenant_controller_adapters(monkeypatch):
     db = MagicMock()
     current = SimpleNamespace(id=1)
     user_obj = SimpleNamespace(id=10)
+    datos = SimpleNamespace(name="New")
     require = MagicMock(return_value=user_obj)
     verify = MagicMock()
     listing = MagicMock(return_value=[1])
@@ -128,14 +131,13 @@ def test_super_tenant_controller_adapters(monkeypatch):
     result = super_tenant.crear_tenant_super(SimpleNamespace(), "123", db, current)
     assert result.tenant_id == 1
     assert result.role_code == "ADMIN"
-    updated = super_tenant.actualizar_tenant_super(
-        7, SimpleNamespace(name="New"), "456", db, current
-    )
-    assert updated == 3
+    assert super_tenant.actualizar_tenant_super(
+        7, datos, "456", db, current
+    ) == 3
     assert verify.call_count == 2
     updater.assert_called_once_with(
         tenant_id=7,
-        datos=updated if False else updater.call_args.kwargs["datos"],
+        datos=datos,
         db=db,
         current_user=user_obj,
     )
