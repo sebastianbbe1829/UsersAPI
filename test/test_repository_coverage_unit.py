@@ -3,11 +3,13 @@ from unittest.mock import MagicMock
 
 from UsersAPI.repositories.permission_repository import PermissionRepository
 from UsersAPI.repositories.role_permission_repository import RolePermissionRepository
+from UsersAPI.repositories.user_repository import UserRepository
 
 
 def _db():
     query = MagicMock()
     query.filter.return_value = query
+    query.join.return_value = query
     db = MagicMock()
     db.query.return_value = query
     return db, query
@@ -52,4 +54,27 @@ def test_role_permission_repository_queries_and_add_delete():
 
     repo.delete(relation)
     db.delete.assert_called_once_with(relation)
+    assert db.flush.call_count == 2
+
+
+def test_user_repository_queries_and_mutations():
+    db, query = _db()
+    user = SimpleNamespace(id=11, dni="123")
+    users = [user]
+    query.first.return_value = user
+    query.all.return_value = users
+    repo = UserRepository(db)
+
+    assert repo.add(user) is user
+    assert repo.get_all() == users
+    assert repo.get_by_dni("123") is user
+    assert repo.get_by_id(11) is user
+    assert repo.get_by_dni_in_tenant("123", 2) is user
+    assert repo.get_by_id_and_tenant(11, 2) is user
+    assert repo.get_all_by_tenant(2) == users
+    assert repo.get_all_by_tenant(2, status_filter=1) == users
+    assert repo.get_by_id_including_deleted(11) is user
+    assert repo.update(user) is user
+
+    assert db.add.call_count == 2
     assert db.flush.call_count == 2
