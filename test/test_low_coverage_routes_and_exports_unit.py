@@ -153,8 +153,16 @@ def test_global_auth_login_route_checks_mfa_when_otp_is_present(monkeypatch):
     assert check.call_args_list[2].args[0] == "super:mfa:admin@example.com"
 
 
+def _patch_email_key(monkeypatch, value):
+    monkeypatch.setattr(
+        email_routes,
+        "settings",
+        SimpleNamespace(email_key=value),
+    )
+
+
 def test_email_route_rejects_missing_key(monkeypatch):
-    monkeypatch.setattr(email_routes.settings, "email_key", None)
+    _patch_email_key(monkeypatch, None)
     with pytest.raises(HTTPException) as exc:
         email_routes.test_email(
             SimpleNamespace(recipient="a@b.com", subject="s", message="m"),
@@ -164,7 +172,7 @@ def test_email_route_rejects_missing_key(monkeypatch):
 
 
 def test_email_route_rejects_invalid_key(monkeypatch):
-    monkeypatch.setattr(email_routes.settings, "email_key", "expected")
+    _patch_email_key(monkeypatch, "expected")
     with pytest.raises(HTTPException) as exc:
         email_routes.test_email(
             SimpleNamespace(recipient="a@b.com", subject="s", message="m"),
@@ -174,7 +182,7 @@ def test_email_route_rejects_invalid_key(monkeypatch):
 
 
 def test_email_route_sends_successfully(monkeypatch):
-    monkeypatch.setattr(email_routes.settings, "email_key", "expected")
+    _patch_email_key(monkeypatch, "expected")
     send = MagicMock(return_value={"message_id": "abc-123"})
     monkeypatch.setattr(email_routes, "send_brevo_email", send)
     datos = SimpleNamespace(recipient="a@b.com", subject="s", message="m")
@@ -188,7 +196,7 @@ def test_email_route_sends_successfully(monkeypatch):
 
 
 def test_email_route_translates_provider_error(monkeypatch):
-    monkeypatch.setattr(email_routes.settings, "email_key", "expected")
+    _patch_email_key(monkeypatch, "expected")
     monkeypatch.setattr(
         email_routes,
         "send_brevo_email",
