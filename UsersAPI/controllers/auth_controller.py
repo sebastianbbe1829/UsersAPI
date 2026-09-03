@@ -8,7 +8,11 @@ from ..schemas import LoginRequest, SuperLoginRequest
 from ..settings import settings
 
 from ..services.auth_context_service import get_current_user_from_token
-from ..services.auth_audit_service import close_login_session, create_login_session
+from ..services.auth_audit_service import (
+    close_login_session,
+    create_login_session,
+    refresh_login_session,
+)
 from ..services.auth_service import (
     create_access_token as create_access_token_service,
     login_user as login_user_service,
@@ -128,6 +132,20 @@ def logout_user(
         user_agent=user_agent,
     )
     return {"message": "Sesión cerrada correctamente"}
+
+
+def refresh_user_session(
+    token: str,
+    db: Session,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+):
+    return refresh_login_session(
+        db,
+        token,
+        client_ip=client_ip,
+        user_agent=user_agent,
+    )
 
 
 def validate_token(token: str, db: Session):
