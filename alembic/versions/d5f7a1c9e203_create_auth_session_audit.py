@@ -120,13 +120,6 @@ def upgrade() -> None:
         unique=False,
         schema=SCHEMA,
     )
-    op.create_index(
-        "ix_users_api_auth_sessions_token_hash",
-        "auth_sessions",
-        ["token_hash"],
-        unique=False,
-        schema=SCHEMA,
-    )
     _rls_policy("auth_sessions")
 
     op.create_table(
@@ -227,11 +220,6 @@ def downgrade() -> None:
     )
     op.drop_table("auth_audit", schema=SCHEMA)
 
-    op.drop_index(
-        "ix_users_api_auth_sessions_token_hash",
-        table_name="auth_sessions",
-        schema=SCHEMA,
-    )
     op.drop_index(
         "ix_users_api_auth_sessions_global_user_id",
         table_name="auth_sessions",
