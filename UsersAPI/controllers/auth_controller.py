@@ -12,7 +12,6 @@ from ..services.auth_service import (
     create_access_token as create_access_token_service,
     login_user as login_user_service,
     oauth2_scheme,
-    validate_token as validate_token_service,
     verify_password as verify_password_service,
 )
 from ..services.global_auth_service import (
@@ -20,6 +19,7 @@ from ..services.global_auth_service import (
     login_super_user as login_super_user_service,
 )
 from ..services.password_service import get_password_hash
+from ..services.token_validation_service import validate_token as validate_token_service
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
