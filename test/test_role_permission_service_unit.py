@@ -59,7 +59,13 @@ def test_assign_permission_duplicate(monkeypatch):
     assert exc.value.status_code == 400
 
 
-@pytest.mark.parametrize("error,status_code", [(IntegrityError("x", {}, Exception()), 400), (RuntimeError("x"), 500)])
+@pytest.mark.parametrize(
+    "error,status_code",
+    [
+        (IntegrityError("x", {}, Exception()), 400),
+        (RuntimeError("x"), 500),
+    ],
+)
 def test_assign_permission_errors(monkeypatch, error, status_code):
     db = _db(SimpleNamespace(code="ADMIN"), SimpleNamespace(code="READ"))
     repo = MagicMock()
