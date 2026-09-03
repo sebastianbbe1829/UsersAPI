@@ -28,6 +28,7 @@ from .user_service_helpers import (
     _user_payload,
 )
 from .user_update_service import update_user as _update_user
+from .user_delete_service import delete_user as _delete_user
 
 
 # ============================================================
@@ -264,33 +265,10 @@ def delete_user(
     db: Session,
     tenant_id: int,
 ):
-    user_repository = UserRepository(db)
-    user_tenant_repository = UserTenantRepository(db)
-    usuario = _get_user_entity(dni, tenant_id, user_repository)
-    link = _tenant_link(usuario, tenant_id, user_tenant_repository)
-    try:
-        user_tenant_repository.delete(link)
-    except Exception as exc:
-        logger.exception(
-            "Error al eliminar usuario",
-            extra={"dni": dni, "tenant_id": tenant_id},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno al eliminar usuario",
-        ) from exc
-    logger.info(
-        "Usuario eliminado lógicamente",
-        extra={
-            "dni": dni,
-            "tenant_id": tenant_id,
-            "user_tenant_id": link.id,
-        },
-    )
-    return _user_payload(
-        usuario,
-        link,
-        message="Usuario eliminado correctamente",
+    return _delete_user(
+        dni=dni,
+        db=db,
+        tenant_id=tenant_id,
     )
 
 
