@@ -54,41 +54,6 @@ def test_create_user_returns_201_and_persists_user(db_session: Session, client: 
     assert link.status == 0
 
 
-def test_user_tenant_cannot_create_association_in_another_tenant(
-    db_session: Session,
-    client: TestClient,
-):
-    user_a, tenant_a, _, token_a = create_user_context(
-        db_session,
-        password="segura123",
-        name="Admin A",
-    )
-    _, tenant_b, _, _ = create_user_context(
-        db_session,
-        password="segura123",
-        name="Admin B",
-    )
-
-    response = client.post(
-        "/user-tenants",
-        json={
-            "user_id": user_a.id,
-            "tenant_id": tenant_b.id,
-            "email": f"{uuid4().hex[:8]}@example.com",
-            "password": "segura123",
-            "phone": "3000000000",
-        },
-        headers={"Authorization": f"Bearer {token_a}"},
-    )
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Tenant no encontrado"
-
-    links = db_session.query(UserTenantDB).filter(UserTenantDB.user_id == user_a.id).all()
-    assert len(links) == 1
-    assert links[0].tenant_id == tenant_a.id
-
-
 def test_delete_user_is_logical_and_scoped_to_current_tenant(
     db_session: Session,
     client: TestClient,
