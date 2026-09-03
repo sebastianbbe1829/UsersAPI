@@ -6,8 +6,6 @@ from ..models import GlobalUserDB, UserDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
 from ..schemas import UserCreate, UserUpdate
-from ..util.email_utils import send_email
-from ..util.whatsapp_utils import send_whatsapp
 from ..repositories.tenant_repository import TenantRepository
 from .user_creation_service import (
     create_global_user,
@@ -24,6 +22,7 @@ from .user_update_service import update_user as _update_user
 from .user_delete_service import delete_user as _delete_user
 from .user_export_service import export_users as _export_users
 from .user_activation_service import activate_user as _activate_user
+from .user_notification_service import send_user_notifications
 
 
 # ============================================================
@@ -120,74 +119,13 @@ def create_user(
         },
     )
 
-    if es_reactivacion:
-        email_template = "reactivation"
-        email_subject = f"Tu cuenta en {tenant_name} fue reactivada"
-        email_message = (
-            f"Hola {nuevo_usuario.name}, "
-            f"tu cuenta en {tenant_name} ha sido reactivada exitosamente. "
-            "Para completar el proceso, utiliza el botón para reactivar tu cuenta."
-        )
-    else:
-        email_template = "activation"
-        email_subject = f"Activa tu cuenta en {tenant_name}"
-        email_message = (
-            f"Hola {nuevo_usuario.name}, "
-            f"tu cuenta en {tenant_name} ha sido creada exitosamente."
-        )
-
-    try:
-        send_email(
-            recipient=nuevo_user_tenant.email,
-            subject=email_subject,
-            message=email_message,
-            dni=nuevo_usuario.dni,
-            token=nuevo_user_tenant.activation_token,
-            tenant_name=tenant_name,
-            tenant_slug=tenant_slug,
-            template=email_template,
-        )
-        logger.info(
-            "Correo de usuario enviado",
-            extra={
-                "dni": nuevo_usuario.dni,
-                "email": nuevo_user_tenant.email,
-                "tenant_id": tenant_id,
-                "template": email_template,
-            },
-        )
-    except Exception as exc:
-        logger.warning(
-            "Usuario creado/reactivado pero falló el envío de correo: %s",
-            exc,
-        )
-
-    try:
-        if nuevo_user_tenant.phone:
-            whatsapp_response = send_whatsapp(
-                to_number=nuevo_user_tenant.phone,
-                message=None,
-                template_name="hello_world",
-                parameters=None,
-            )
-            if whatsapp_response is not None:
-                logger.info(
-                    "WhatsApp de bienvenida enviado correctamente",
-                    extra={
-                        "dni": nuevo_usuario.dni,
-                        "phone": nuevo_user_tenant.phone,
-                        "tenant_id": tenant_id,
-                    },
-                )
-    except Exception as exc:
-        logger.exception(
-            "Error inesperado enviando WhatsApp",
-            extra={
-                "dni": nuevo_usuario.dni,
-                "phone": nuevo_user_tenant.phone,
-                "tenant_id": tenant_id,
-            },
-        )
+    send_user_notifications(
+        user=nuevo_usuario,
+        user_tenant=nuevo_user_tenant,
+        tenant_name=tenant_name,
+        tenant_slug=tenant_slug,
+        es_reactivacion=es_reactivacion,
+    )
 
     return _user_payload(nuevo_usuario, nuevo_user_tenant)
 
