@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config
 from alembic import context
 
 from UsersAPI.database import Base
+import UsersAPI.models  # noqa: F401
 from UsersAPI.settings import settings
 
 
