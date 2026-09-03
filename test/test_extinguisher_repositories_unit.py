@@ -94,16 +94,20 @@ def test_extinguisher_type_repository_all_paths():
 
     assert repo.get_all() == [item]
     assert query.filter.call_count == 1
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_all(True) == [item]
     assert query.filter.call_count == 0
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_id(2) is item
     assert query.filter.call_count == 2
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_id(2, True) is item
     assert query.filter.call_count == 1
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_code("CO2") is item
     assert query.filter.call_count == 1
     assert repo.add(item) is item
@@ -121,16 +125,20 @@ def test_extinguisher_inspection_item_repository_all_paths():
 
     assert repo.get_all() == [item]
     assert query.filter.call_count == 0
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_all(False) == [item]
     assert query.filter.call_count == 1
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_id(3) is item
     assert query.filter.call_count == 1
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_id(3, False) is item
     assert query.filter.call_count == 2
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_code("X") is item
     assert query.filter.call_count == 1
     assert repo.add(item) is item
@@ -147,14 +155,17 @@ def test_extinguisher_inspection_repository_all_paths():
     assert repo.get_extinguisher_for_update(4, 1) is item
     assert query.filter.call_count == 1
     assert query.with_for_update.called
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_by_id_and_tenant(5, 1) is item
     assert query.options.called
     assert query.filter.call_count == 1
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_all_by_tenant(1) == [item]
     assert query.filter.call_count == 1
-    query.reset_mock(); query.filter.return_value = query
+    query.reset_mock()
+    query.filter.return_value = query
     assert repo.get_all_by_tenant(1, 4) == [item]
     assert query.filter.call_count == 2
     assert repo.add(item) is item
