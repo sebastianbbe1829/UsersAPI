@@ -22,14 +22,12 @@ BEGIN
         INHERIT
         BYPASSRLS;
     ELSE
+        -- En Neon el usuario administrativo puede no ser SUPERUSER.
+        -- Solo actualizamos atributos que puede modificar sin intentar
+        -- cambiar privilegios reservados del rol existente.
         ALTER ROLE users_api_bootstrap
         LOGIN
-        PASSWORD '${USERS_API_BOOTSTRAP_PASSWORD}'
-        NOSUPERUSER
-        NOCREATEDB
-        NOCREATEROLE
-        INHERIT
-        BYPASSRLS;
+        PASSWORD '${USERS_API_BOOTSTRAP_PASSWORD}';
     END IF;
 END
 $$;
