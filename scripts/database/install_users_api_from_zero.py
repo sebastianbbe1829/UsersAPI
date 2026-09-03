@@ -113,8 +113,8 @@ def apply_app_permissions(engine):
         db.execute(text("GRANT USAGE ON SCHEMA users_api TO users_api_app"))
         db.execute(text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA users_api TO users_api_app"))
         db.execute(text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA users_api TO users_api_app"))
-        db.execute(text("ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA users_api GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO users_api_app"))
-        db.execute(text("ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA users_api GRANT USAGE, SELECT ON SEQUENCES TO users_api_app"))
+        db.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA users_api GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO users_api_app"))
+        db.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA users_api GRANT USAGE, SELECT ON SEQUENCES TO users_api_app"))
     print("Permisos users_api_app OK")
 
 
