@@ -84,7 +84,7 @@ def test_get_by_user_id_uses_default_active_status():
     db = make_db(tenants)
     assert TenantRepository(db).get_by_user_id(20) == tenants
     assert db._query.join.call_count == 1
-    assert db._query.filter.call_count == 1
+    assert db._query.filter.call_count == 2
 
 
 def test_get_by_user_id_with_status_filter_adds_filter():
