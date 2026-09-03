@@ -208,7 +208,10 @@ def refresh_login_session(
         if key not in {"exp", "iat"}
     }
     new_token = create_access_token(claims)
-    session.token_hash = _token_hash(new_token)
+
+    # No invalidamos el token anterior durante el refresh. Esto permite que
+    # peticiones que ya estaban en vuelo terminen con el token anterior sin
+    # recibir 401 mientras el navegador instala el token renovado.
     session.last_activity_at = now
 
     if client_ip:
