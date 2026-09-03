@@ -163,8 +163,8 @@ def test_create_user_requires_existing_tenant(monkeypatch):
     tenant_repo = MagicMock()
     tenant_repo.get_by_id.return_value = None
     monkeypatch.setattr(service, "TenantRepository", lambda db: tenant_repo)
-    monkeypatch.setattr(service, "UserRepository", MagicMock)
-    monkeypatch.setattr(service, "UserTenantRepository", MagicMock)
+    monkeypatch.setattr(service, "UserRepository", lambda db: MagicMock())
+    monkeypatch.setattr(service, "UserTenantRepository", lambda db: MagicMock())
     context = SimpleNamespace(tenant_id=5)
     with pytest.raises(HTTPException) as exc:
         service.create_user(user_data(), db, user_tenant=context)
