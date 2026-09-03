@@ -1,3 +1,4 @@
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -10,16 +11,17 @@ from UsersAPI import database
 
 
 def test_activation_otp_controller_success_and_value_error(monkeypatch):
+    expires_at = datetime(2026, 9, 3, 1, 0, 0)
     monkeypatch.setattr(
         activation_otp_controller,
         "generate_activation_otp",
-        MagicMock(return_value="2026-09-03T01:00:00"),
+        MagicMock(return_value=expires_at),
     )
     result = activation_otp_controller.request_activation_otp(
         "123", "token", MagicMock()
     )
     assert result.message.startswith("Código de verificación")
-    assert result.expires_at == "2026-09-03T01:00:00"
+    assert result.expires_at == expires_at
 
     monkeypatch.setattr(
         activation_otp_controller,
@@ -111,7 +113,7 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
     super_datos = SimpleNamespace(
         username="super@example.com",
         password="pw",
-        otp="123",
+        otp="123456",
         tenant="acme",
         super_mode=True,
     )
