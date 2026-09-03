@@ -13,18 +13,33 @@ def test_global_auth_controller_adapters(monkeypatch):
     db = MagicMock()
     datos = SimpleNamespace()
     bootstrap = MagicMock(return_value="bootstrap")
-    login = MagicMock(return_value="login")
+    login = MagicMock(return_value=SimpleNamespace(access_token="jwt"))
+    audit = MagicMock()
+    decode = MagicMock(return_value={"user_type": "SUPER", "tenant_id": 7})
     monkeypatch.setattr(global_auth, "bootstrap_super_user_service", bootstrap)
     monkeypatch.setattr(global_auth, "login_super_user_service", login)
+    monkeypatch.setattr(global_auth, "create_login_session", audit)
+    monkeypatch.setattr(global_auth.jwt, "decode", decode)
 
     assert global_auth.bootstrap_super_user(datos, "secret", db) == "bootstrap"
     bootstrap.assert_called_once_with(datos, "secret", db)
 
-    request = SimpleNamespace(client=SimpleNamespace(host="10.0.0.1"))
-    assert global_auth.login_super_user(datos, request, db) == "login"
+    request = SimpleNamespace(
+        client=SimpleNamespace(host="10.0.0.1"),
+        headers={"user-agent": "pytest"},
+    )
+    result = global_auth.login_super_user(datos, request, db)
+    assert result.access_token == "jwt"
     login.assert_called_once_with(datos, db, client_ip="10.0.0.1")
+    audit.assert_called_once_with(
+        db,
+        "jwt",
+        {"user_type": "SUPER", "tenant_id": 7},
+        client_ip="10.0.0.1",
+        user_agent="pytest",
+    )
 
-    request = SimpleNamespace(client=None)
+    request = SimpleNamespace(client=None, headers={})
     global_auth.login_super_user(datos, request, db)
     assert login.call_args.kwargs["client_ip"] is None
 
