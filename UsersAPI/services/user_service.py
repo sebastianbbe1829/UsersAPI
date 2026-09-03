@@ -11,7 +11,7 @@ from ..logging_config import logger
 from ..models import GlobalUserDB, UserDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
-from ..schemas import UserCreate
+from ..schemas import UserCreate, UserUpdate
 from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
 from ..repositories.tenant_repository import TenantRepository
@@ -241,7 +241,7 @@ def get_user(
 
 def update_user(
     dni: str,
-    datos,
+    datos: UserUpdate,
     db: Session,
     current_user: UserTenantDB | GlobalUserDB,
     user_tenant: UserTenantDB,
