@@ -1,4 +1,4 @@
-"""Configure PostgreSQL role passwords from environment variables.
+"""Provision PostgreSQL application roles for the selected environment.
 
 The database admin connection is selected through APP_ENV by UsersAPI.settings.
 Passwords are read only from the process environment and are never stored in Git.
@@ -16,6 +16,33 @@ APP_ROLE = "users_api_app"
 BOOTSTRAP_ROLE = "users_api_bootstrap"
 APP_PASSWORD_ENV = "USERS_API_APP_PASSWORD"
 BOOTSTRAP_PASSWORD_ENV = "USERS_API_BOOTSTRAP_PASSWORD"
+
+
+def _ensure_role(cursor, role_name: str, *, bypass_rls: bool) -> None:
+    cursor.execute(
+        "SELECT 1 FROM pg_roles WHERE rolname = %s",
+        (role_name,),
+    )
+    if cursor.fetchone() is None:
+        cursor.execute(
+            sql.SQL(
+                "CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+                "NOINHERIT NOBYPASSRLS"
+            ).format(sql.Identifier(role_name))
+        )
+
+    if bypass_rls:
+        cursor.execute(
+            sql.SQL("ALTER ROLE {} INHERIT BYPASSRLS").format(
+                sql.Identifier(role_name)
+            )
+        )
+    else:
+        cursor.execute(
+            sql.SQL("ALTER ROLE {} NOINHERIT NOBYPASSRLS").format(
+                sql.Identifier(role_name)
+            )
+        )
 
 
 def main() -> int:
@@ -43,6 +70,11 @@ def main() -> int:
 
     try:
         with raw_connection.cursor() as cursor:
+            cursor.execute("CREATE SCHEMA IF NOT EXISTS users_api")
+
+            _ensure_role(cursor, APP_ROLE, bypass_rls=False)
+            _ensure_role(cursor, BOOTSTRAP_ROLE, bypass_rls=True)
+
             cursor.execute(
                 sql.SQL("ALTER ROLE {} LOGIN PASSWORD {}").format(
                     sql.Identifier(APP_ROLE),
@@ -55,6 +87,18 @@ def main() -> int:
                     sql.Literal(bootstrap_password),
                 )
             )
+
+            cursor.execute(
+                sql.SQL("GRANT USAGE ON SCHEMA users_api TO {}").format(
+                    sql.Identifier(APP_ROLE)
+                )
+            )
+            cursor.execute(
+                sql.SQL("GRANT USAGE ON SCHEMA users_api TO {}").format(
+                    sql.Identifier(BOOTSTRAP_ROLE)
+                )
+            )
+
         raw_connection.commit()
     except Exception:
         raw_connection.rollback()
@@ -63,7 +107,7 @@ def main() -> int:
         raw_connection.close()
         engine.dispose()
 
-    print("Contraseñas de roles configuradas correctamente.")
+    print("Roles de base de datos configurados correctamente.")
     return 0
 
 
