@@ -31,6 +31,7 @@ def upgrade() -> None:
         ["dni"],
         unique=False,
         schema=SCHEMA,
+        if_not_exists=True,
     )
 
     # Inspection catalog: SQLAlchemy models expose code as a unique indexed
@@ -47,6 +48,7 @@ def upgrade() -> None:
         ["code"],
         unique=True,
         schema=SCHEMA,
+        if_not_exists=True,
     )
 
     # Inspection result index was renamed with the model field.
@@ -61,9 +63,11 @@ def upgrade() -> None:
         ["inspection_item_id"],
         unique=False,
         schema=SCHEMA,
+        if_not_exists=True,
     )
 
-    # Extinguisher type catalog: unique indexed code.
+    # Extinguisher type catalog: unique indexed code. The historical migration
+    # chain may already have materialized this index, so creation is idempotent.
     op.drop_constraint(
         "uq_extinguisher_types_code",
         "extinguisher_types",
@@ -76,6 +80,7 @@ def upgrade() -> None:
         ["code"],
         unique=True,
         schema=SCHEMA,
+        if_not_exists=True,
     )
 
     # The current model intentionally no longer declares a tenant/code
@@ -112,6 +117,7 @@ def upgrade() -> None:
         ["email"],
         unique=False,
         schema=SCHEMA,
+        if_not_exists=True,
     )
     op.create_index(
         "ix_users_api_global_users_session_id",
@@ -119,6 +125,7 @@ def upgrade() -> None:
         ["session_id"],
         unique=True,
         schema=SCHEMA,
+        if_not_exists=True,
     )
 
     # OTP purpose index name is aligned with the schema-qualified model
@@ -134,6 +141,7 @@ def upgrade() -> None:
         ["purpose"],
         unique=False,
         schema=SCHEMA,
+        if_not_exists=True,
     )
 
 
