@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -5,9 +6,18 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from UsersAPI.routes import email_routes, global_auth_routes, otp_routes
-from UsersAPI.routes import tenant_config_public_routes
 from UsersAPI.services import extinguisher_export_service, user_export_service
+
+
+otp_routes = __import__("UsersAPI.routes.otp_routes", fromlist=["otp_routes"])
+global_auth_routes = __import__(
+    "UsersAPI.routes.global_auth_routes", fromlist=["global_auth_routes"]
+)
+email_routes = __import__("UsersAPI.routes.email_routes", fromlist=["email_routes"])
+tenant_config_public_routes = __import__(
+    "UsersAPI.routes.tenant_config_public_routes",
+    fromlist=["tenant_config_public_routes"],
+)
 
 
 def test_otp_generate_route_delegates_and_rate_limits(monkeypatch):
@@ -45,11 +55,7 @@ def test_otp_validate_route_delegates_and_uses_normalized_values(monkeypatch):
     verify = MagicMock(return_value={"valid": True})
     monkeypatch.setattr(otp_routes, "validate_otp_api_key", validate)
     monkeypatch.setattr(otp_routes, "verify_otp", verify)
-    monkeypatch.setattr(
-        otp_routes.rate_limiter,
-        "client_ip",
-        lambda request: "127.0.0.1",
-    )
+    monkeypatch.setattr(otp_routes.rate_limiter, "client_ip", lambda request: "127.0.0.1")
     monkeypatch.setattr(
         otp_routes.rate_limiter,
         "normalize",
@@ -197,8 +203,7 @@ def test_email_route_translates_provider_error(monkeypatch):
     assert exc.value.status_code == 502
 
 
-@pytest.mark.asyncio
-async def test_public_tenant_config_route_returns_config(monkeypatch):
+def test_public_tenant_config_route_returns_config(monkeypatch):
     tenant = SimpleNamespace(id=7, name="Acme", slug="Acme")
     config = SimpleNamespace(
         app_title="Acme App",
@@ -223,8 +228,10 @@ async def test_public_tenant_config_route_returns_config(monkeypatch):
     set_rls = MagicMock()
     monkeypatch.setattr(tenant_config_public_routes, "set_rls_tenant", set_rls)
 
-    result = await tenant_config_public_routes.obtener_config_tenant_publica_route(
-        "  ACME  ", db, bootstrap_db
+    result = asyncio.run(
+        tenant_config_public_routes.obtener_config_tenant_publica_route(
+            "  ACME  ", db, bootstrap_db
+        )
     )
 
     assert result["tenant_id"] == 7
@@ -235,8 +242,7 @@ async def test_public_tenant_config_route_returns_config(monkeypatch):
     repo.get_by_tenant_id.assert_called_once_with(7)
 
 
-@pytest.mark.asyncio
-async def test_public_tenant_config_route_rejects_missing_tenant():
+def test_public_tenant_config_route_rejects_missing_tenant():
     query = MagicMock()
     query.filter.return_value = query
     query.first.return_value = None
@@ -244,21 +250,23 @@ async def test_public_tenant_config_route_rejects_missing_tenant():
     bootstrap_db.query.return_value = query
 
     with pytest.raises(HTTPException) as exc:
-        await tenant_config_public_routes.obtener_config_tenant_publica_route(
-            "unknown", MagicMock(), bootstrap_db
+        asyncio.run(
+            tenant_config_public_routes.obtener_config_tenant_publica_route(
+                "unknown", MagicMock(), bootstrap_db
+            )
         )
     assert exc.value.status_code == 404
     assert "tenant activo" in exc.value.detail
 
 
-@pytest.mark.asyncio
-async def test_public_tenant_config_route_rejects_missing_config(monkeypatch):
+def test_public_tenant_config_route_rejects_missing_config(monkeypatch):
     tenant = SimpleNamespace(id=7, name="Acme", slug="acme")
     query = MagicMock()
     query.filter.return_value = query
     query.first.return_value = tenant
     bootstrap_db = MagicMock()
     bootstrap_db.query.return_value = query
+    db = MagicMock()
     repo = MagicMock()
     repo.get_by_tenant_id.return_value = None
     monkeypatch.setattr(
@@ -270,12 +278,14 @@ async def test_public_tenant_config_route_rejects_missing_config(monkeypatch):
     monkeypatch.setattr(tenant_config_public_routes, "set_rls_tenant", set_rls)
 
     with pytest.raises(HTTPException) as exc:
-        await tenant_config_public_routes.obtener_config_tenant_publica_route(
-            "acme", MagicMock(), bootstrap_db
+        asyncio.run(
+            tenant_config_public_routes.obtener_config_tenant_publica_route(
+                "acme", db, bootstrap_db
+            )
         )
     assert exc.value.status_code == 404
     assert "configuración visual" in exc.value.detail
-    set_rls.assert_called_once_with(MagicMock(), 7) if False else set_rls.assert_called_once()
+    set_rls.assert_called_once_with(db, 7)
 
 
 def test_user_export_service_builds_rows_and_delegates(monkeypatch):
