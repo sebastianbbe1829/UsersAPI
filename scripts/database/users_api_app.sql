@@ -22,14 +22,12 @@ BEGIN
         NOINHERIT
         NOBYPASSRLS;
     ELSE
+        -- En Neon el usuario administrativo puede no ser SUPERUSER.
+        -- Solo actualizamos atributos que puede modificar sin intentar
+        -- cambiar privilegios reservados del rol existente.
         ALTER ROLE users_api_app
         LOGIN
-        PASSWORD '${USERS_API_APP_PASSWORD}'
-        NOSUPERUSER
-        NOCREATEDB
-        NOCREATEROLE
-        NOINHERIT
-        NOBYPASSRLS;
+        PASSWORD '${USERS_API_APP_PASSWORD}';
     END IF;
 END
 $$;
