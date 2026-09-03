@@ -11,7 +11,6 @@ from UsersAPI.settings import settings
 
 
 def test_validate_otp_api_key(monkeypatch):
-    monkeypatch.setattr(settings, "otp_api_key", "secret", raising=False)
     monkeypatch.setattr(
         controller,
         "settings",
