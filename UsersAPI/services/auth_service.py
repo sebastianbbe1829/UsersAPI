@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import text
@@ -85,6 +87,7 @@ def login_user(
     tenant = user_tenant.tenant
     usuario = user_tenant.user
     permissions = get_user_permissions(user_tenant=user_tenant, db=db)
+    session_id = str(uuid.uuid4())
 
     access_token = create_access_token(
         {
@@ -94,6 +97,7 @@ def login_user(
             "tenant_slug": tenant.slug,
             "user_tenant_id": user_tenant.id,
             "permissions": permissions,
+            "session_id": session_id,
         }
     )
 
