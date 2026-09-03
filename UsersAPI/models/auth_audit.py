@@ -17,7 +17,7 @@ class AuthSessionDB(Base):
     user_tenant_id = Column(Integer, ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"), nullable=True)
     global_user_id = Column(Integer, ForeignKey("users_api.global_users.id", ondelete="SET NULL"), nullable=True)
     session_kind = Column(String(20), nullable=False)
-    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True)
     login_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     logout_at = Column(DateTime, nullable=True)
     duration_seconds = Column(Integer, nullable=True)
