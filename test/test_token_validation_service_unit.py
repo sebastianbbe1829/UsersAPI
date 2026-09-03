@@ -24,8 +24,14 @@ def _token(**claims):
 
 def test_validate_token_success(monkeypatch):
     tenant = SimpleNamespace(id=5, slug="acme")
-    user = SimpleNamespace(dni="123", email="a@b.com")
-    relation = SimpleNamespace(id=9, tenant_id=5, user=user, tenant=tenant)
+    user = SimpleNamespace(dni="123")
+    relation = SimpleNamespace(
+        id=9,
+        tenant_id=5,
+        email="a@b.com",
+        user=user,
+        tenant=tenant,
+    )
     db = _db(relation)
     monkeypatch.setattr(service, "set_rls_tenant", MagicMock())
     token = _token(user_tenant_id=9, tenant_id=5, exp=4102444800)
@@ -34,6 +40,7 @@ def test_validate_token_success(monkeypatch):
 
     assert result["valid"] is True
     assert result["user_tenant_id"] == 9
+    assert result["user"]["email"] == "a@b.com"
     assert result["tenant"]["slug"] == "acme"
     service.set_rls_tenant.assert_called_once_with(db, 5)
 
@@ -78,8 +85,14 @@ def test_validate_token_tenant_mismatch(monkeypatch):
 
 def test_validate_token_without_exp(monkeypatch):
     tenant = SimpleNamespace(id=5, slug="acme")
-    user = SimpleNamespace(dni="123", email="a@b.com")
-    relation = SimpleNamespace(id=9, tenant_id=5, user=user, tenant=tenant)
+    user = SimpleNamespace(dni="123")
+    relation = SimpleNamespace(
+        id=9,
+        tenant_id=5,
+        email="a@b.com",
+        user=user,
+        tenant=tenant,
+    )
     db = _db(relation)
     monkeypatch.setattr(service, "set_rls_tenant", MagicMock())
     token = _token(user_tenant_id=9, tenant_id=5)
