@@ -6,8 +6,15 @@ os.environ["APP_ENV"] = "test"
 provision_database_roles = importlib.import_module(
     "scripts.database.environment.02_set_role_passwords"
 ).main
+install_test_database = importlib.import_module(
+    "scripts.database.install_users_api_from_zero"
+).install_database
 
+# TEST siempre parte de una base limpia y reconstruida hasta Alembic head.
+# La contraseña de los roles se configura antes del reset porque el instalador
+# conserva los roles y solo reconstruye el schema users_api.
 provision_database_roles()
+install_test_database(interactive=False)
 
 import pytest
 from fastapi.testclient import TestClient
