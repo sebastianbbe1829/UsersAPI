@@ -3,6 +3,9 @@
 --
 -- Rol utilizado exclusivamente durante bootstrap.
 -- Este rol puede trabajar sin RLS mediante BYPASSRLS.
+--
+-- USERS_API_BOOTSTRAP_PASSWORD se resuelve por el instalador
+-- desde el ambiente activo (.env, .env.test o hosting).
 -- ============================================================
 
 DO $$
@@ -12,7 +15,16 @@ BEGIN
     ) THEN
         CREATE ROLE users_api_bootstrap
         LOGIN
-        PASSWORD 'C4MB14M3_2026'
+        PASSWORD '${USERS_API_BOOTSTRAP_PASSWORD}'
+        NOSUPERUSER
+        NOCREATEDB
+        NOCREATEROLE
+        INHERIT
+        BYPASSRLS;
+    ELSE
+        ALTER ROLE users_api_bootstrap
+        LOGIN
+        PASSWORD '${USERS_API_BOOTSTRAP_PASSWORD}'
         NOSUPERUSER
         NOCREATEDB
         NOCREATEROLE
@@ -21,11 +33,6 @@ BEGIN
     END IF;
 END
 $$;
-
--- IMPORTANTE:
--- Si el rol ya existe, no se modifican sus atributos aquí.
--- Neon no permite alterar atributos administrativos del rol
--- con la conexión utilizada por la aplicación/instalador.
 
 GRANT USAGE
 ON SCHEMA users_api
