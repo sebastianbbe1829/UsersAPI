@@ -76,12 +76,10 @@ def include_name(
 
 
 def compare_server_default(
-    context_,
     inspected_column,
     metadata_column,
-    inspected_default,
-    metadata_default,
     rendered_metadata_default,
+    rendered_inspector_default,
 ):
     """
     Treat PostgreSQL SERIAL and SQLAlchemy Identity as equivalent
@@ -93,7 +91,7 @@ def compare_server_default(
     should not require a data migration solely to change that mechanism.
     """
 
-    if isinstance(metadata_default, Identity):
+    if isinstance(metadata_column.server_default, Identity):
         return False
 
     return None
