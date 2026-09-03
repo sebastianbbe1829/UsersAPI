@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -6,16 +7,25 @@ from fastapi import HTTPException
 
 from UsersAPI.controllers import otp_controller as controller
 from UsersAPI.schemas.otp import OTPGenerateRequest, OTPValidateRequest
+from UsersAPI.settings import settings
 
 
-def test_validate_otp_api_key():
-    from UsersAPI.settings import settings
-    settings.otp_api_key = "secret"
+def test_validate_otp_api_key(monkeypatch):
+    monkeypatch.setattr(settings, "otp_api_key", "secret", raising=False)
+    monkeypatch.setattr(
+        controller,
+        "settings",
+        replace(settings, otp_api_key="secret"),
+    )
     controller.validate_otp_api_key("secret")
     with pytest.raises(HTTPException) as exc:
         controller.validate_otp_api_key("bad")
     assert exc.value.status_code == 403
-    settings.otp_api_key = ""
+    monkeypatch.setattr(
+        controller,
+        "settings",
+        replace(settings, otp_api_key=""),
+    )
     with pytest.raises(HTTPException) as exc:
         controller.validate_otp_api_key("secret")
     assert exc.value.status_code == 500
@@ -30,6 +40,7 @@ def test_create_otp_success_and_value_error(monkeypatch):
 
     def fail(*args, **kwargs):
         raise ValueError("bad")
+
     monkeypatch.setattr(controller, "generate_otp", fail)
     with pytest.raises(HTTPException) as exc:
         controller.create_otp(data, MagicMock())
@@ -38,7 +49,11 @@ def test_create_otp_success_and_value_error(monkeypatch):
 
 
 def test_create_otp_unexpected_error(monkeypatch):
-    monkeypatch.setattr(controller, "generate_otp", MagicMock(side_effect=RuntimeError("down")))
+    monkeypatch.setattr(
+        controller,
+        "generate_otp",
+        MagicMock(side_effect=RuntimeError("down")),
+    )
     data = OTPGenerateRequest(destination="3001234567", purpose="activation")
     with pytest.raises(HTTPException) as exc:
         controller.create_otp(data, MagicMock())
