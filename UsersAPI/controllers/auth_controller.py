@@ -10,25 +10,19 @@ from ..settings import settings
 from ..services.auth_context_service import get_current_user_from_token
 from ..services.auth_service import (
     create_access_token as create_access_token_service,
-    get_password_hash as get_password_hash_service,
     login_user as login_user_service,
     oauth2_scheme,
-    validate_token as validate_token_service,
     verify_password as verify_password_service,
 )
-from ..services.auth_service import pwd_context
 from ..services.global_auth_service import (
     get_current_super_user,
     login_super_user as login_super_user_service,
 )
+from ..services.token_validation_service import validate_token as validate_token_service
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return verify_password_service(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    return get_password_hash_service(password)
 
 
 def create_access_token(data: dict, expires_delta=None) -> str:

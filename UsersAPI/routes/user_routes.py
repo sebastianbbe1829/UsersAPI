@@ -108,7 +108,7 @@ async def listar_usuarios(
     status: int | None = Query(
         None,
         description="Filtra usuarios por estado (0=inactivo, 1=activo)",
-        examples={
+        openapi_examples={
             "activos": {
                 "summary": "Usuarios activos",
                 "value": 1,
@@ -180,7 +180,7 @@ async def actualizar_usuario(
     ),
     datos: UserUpdate = Body(
         ...,
-        examples={
+        openapi_examples={
             "actualizar_phone": {
                 "summary": "Actualizar teléfono",
                 "value": {"phone": "2781554"},

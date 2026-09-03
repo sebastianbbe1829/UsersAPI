@@ -42,8 +42,9 @@ def send_email(
     """
     allowed_templates = {"activation", "reactivation", "updated", "otp", "default"}
     if template not in allowed_templates:
+        allowed_values = ", ".join(sorted(allowed_templates))
         raise ValueError(
-            f"Email template inválido: {template}. Valores permitidos: {', '.join(sorted(allowed_templates))}"
+            f"Email template inválido: {template}. Valores permitidos: {allowed_values}"
         )
 
     logger.info(
@@ -59,7 +60,9 @@ def send_email(
 
     backend_url = BACKEND_URL.rstrip("/")
     logo_url = f"{backend_url}/static/logo.png"
-    tenant_display_name = tenant_name.strip() if tenant_name and tenant_name.strip() else tenant_slug
+    tenant_display_name = (
+        tenant_name.strip() if tenant_name and tenant_name.strip() else tenant_slug
+    )
 
     if "UsersAPI" in subject:
         if template == "activation":
@@ -111,7 +114,11 @@ def send_email(
             tenant_name=tenant_display_name,
             template=template,
             otp_code=otp_code,
-            otp_expire_minutes=otp_expire_minutes if otp_expire_minutes is not None else settings.otp_expire_minutes,
+            otp_expire_minutes=(
+                otp_expire_minutes
+                if otp_expire_minutes is not None
+                else settings.otp_expire_minutes
+            ),
         )
     except Exception:
         logger.exception("Error loading or rendering HTML email template")
@@ -154,12 +161,13 @@ def send_email(
         response_data = response.json()
         message_id = response_data.get("messageId")
         logger.info(
-            f"Email sent successfully to {recipient} via Brevo | message_id={message_id} template={template}"
+            f"Email sent successfully to {recipient} via Brevo | "
+            f"message_id={message_id} template={template}"
         )
         return {"status": "sent", "message_id": message_id}
-    except requests.exceptions.Timeout:
+    except requests.exceptions.Timeout as exc:
         logger.exception("Timeout sending email through Brevo")
-        raise RuntimeError("Timeout connecting to Brevo")
+        raise RuntimeError("Timeout connecting to Brevo") from exc
     except requests.exceptions.RequestException:
         logger.exception("HTTP error sending email through Brevo")
         raise

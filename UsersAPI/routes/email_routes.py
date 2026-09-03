@@ -69,8 +69,8 @@ def test_email(
             "message_id": result.get("message_id"),
         }
 
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No fue posible enviar el correo de prueba.",
-        )
+        ) from exc

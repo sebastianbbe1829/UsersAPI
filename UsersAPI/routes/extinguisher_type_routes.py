@@ -31,7 +31,10 @@ async def listar_tipos_extintor(db: Session = Depends(get_db)):
     summary="Crear tipo de extintor",
     dependencies=[Depends(require_permission("EXTINGUISHER_CREATE"))],
 )
-async def crear_tipo_extintor(datos: ExtinguisherTypeCreate, db: Session = Depends(get_db)):
+async def crear_tipo_extintor(
+    datos: ExtinguisherTypeCreate,
+    db: Session = Depends(get_db),
+):
     return extinguisher_type_controller.crear_tipo_extintor(datos, db)
 
 
@@ -42,7 +45,11 @@ async def crear_tipo_extintor(datos: ExtinguisherTypeCreate, db: Session = Depen
     summary="Actualizar tipo de extintor",
     dependencies=[Depends(require_permission("EXTINGUISHER_UPDATE"))],
 )
-async def actualizar_tipo_extintor(type_id: int, datos: ExtinguisherTypeUpdate, db: Session = Depends(get_db)):
+async def actualizar_tipo_extintor(
+    type_id: int,
+    datos: ExtinguisherTypeUpdate,
+    db: Session = Depends(get_db),
+):
     return extinguisher_type_controller.actualizar_tipo_extintor(type_id, datos, db)
 
 

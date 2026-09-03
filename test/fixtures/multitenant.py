@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from UsersAPI.controllers.auth_controller import create_access_token, pwd_context
+from UsersAPI.controllers.auth_controller import create_access_token
 from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import (
     PermissionDB,
@@ -12,6 +12,7 @@ from UsersAPI.models import (
     UserTenantDB,
     UserTenantRoleDB,
 )
+from UsersAPI.services.password_service import pwd_context
 
 
 TEST_PERMISSIONS = (
@@ -129,7 +130,7 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
     # tenant. No expirarla después: el mismo db_session puede crear otro tenant
     # y cambiar el contexto RLS antes de que el caller use este objeto.
     db.refresh(user_tenant)
-    user_tenant.roles
+    list(user_tenant.roles)
 
     token = create_access_token(
         {

@@ -27,11 +27,11 @@ def configure_bootstrap(monkeypatch):
     """Configura la clave interna y desactiva servicios externos en tests."""
     monkeypatch.setenv("BOOTSTRAP_TENANT_KEY", BOOTSTRAP_TENANT_KEY)
 
-    # El paquete UsersAPI.routes expone bootstrap_routes como APIRouter.
+    # El paquete UsersAPI.routes expone bootstrap_tenant_routes como APIRouter.
     # Para reemplazar la referencia `settings` usada por la ruta debemos
     # obtener el módulo real que contiene bootstrap_route.
     bootstrap_routes_module = importlib.import_module(
-        "UsersAPI.routes.bootstrap_routes"
+        "UsersAPI.routes.bootstrap_tenant_routes"
     )
 
     monkeypatch.setattr(

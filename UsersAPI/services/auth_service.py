@@ -10,13 +10,8 @@ from ..schemas import LoginRequest
 from .auth_context_service import get_current_user_from_token
 from .authorization_service import get_user_permissions, user_can_authenticate
 from .jwt_service import create_access_token
-from .password_service import get_password_hash, pwd_context, verify_password
-from .token_validation_service import validate_token
+from .password_service import verify_password
 
-
-# ============================================================
-# CONFIGURACIÓN
-# ============================================================
 
 AUTH_SCHEME = "bearer"
 
@@ -25,16 +20,10 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 
-# ============================================================
-# LOGIN MULTI-TENANT
-# ============================================================
-
-
 def login_user(
     datos: LoginRequest,
     db: Session,
 ):
-
     logger.info("Intento login usuario=%s tenant=%s", datos.username, datos.tenant)
 
     tenant_id = db.execute(
@@ -49,7 +38,6 @@ def login_user(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tenant inválido")
 
     logger.info("Tenant resuelto slug=%s tenant_id=%s", datos.tenant, tenant_id)
-
     set_rls_tenant(db, tenant_id)
     logger.info("Contexto RLS establecido tenant_id=%s", tenant_id)
 
@@ -66,7 +54,11 @@ def login_user(
     )
 
     if user_tenant is None:
-        logger.warning("Usuario no encontrado en tenant email=%s tenant_id=%s", datos.username, tenant_id)
+        logger.warning(
+            "Usuario no encontrado en tenant email=%s tenant_id=%s",
+            datos.username,
+            tenant_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Credenciales inválidas o usuario inactivo",
@@ -74,7 +66,10 @@ def login_user(
 
     if not verify_password(datos.password, user_tenant.password):
         logger.warning("Password inválido usuario=%s", datos.username)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credenciales inválidas")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credenciales inválidas",
+        )
 
     if not user_can_authenticate(user_tenant=user_tenant, db=db):
         logger.warning(
@@ -91,14 +86,16 @@ def login_user(
     usuario = user_tenant.user
     permissions = get_user_permissions(user_tenant=user_tenant, db=db)
 
-    access_token = create_access_token({
-        "sub": usuario.dni,
-        "name": usuario.name,
-        "tenant_id": tenant.id,
-        "tenant_slug": tenant.slug,
-        "user_tenant_id": user_tenant.id,
-        "permissions": permissions,
-    })
+    access_token = create_access_token(
+        {
+            "sub": usuario.dni,
+            "name": usuario.name,
+            "tenant_id": tenant.id,
+            "tenant_slug": tenant.slug,
+            "user_tenant_id": user_tenant.id,
+            "permissions": permissions,
+        }
+    )
 
     logger.info(
         "Login exitoso usuario=%s tenant=%s permisos=%s",
@@ -110,19 +107,9 @@ def login_user(
     return {"access_token": access_token, "token_type": AUTH_SCHEME}
 
 
-# ============================================================
-# CURRENT USER
-# ============================================================
-
-
 def get_current_user(token: str, db: Session) -> UserTenantDB:
     """Backward-compatible public API delegating tenant JWT context resolution."""
     return get_current_user_from_token(token, db)
-
-
-# ============================================================
-# CURRENT USER TENANT
-# ============================================================
 
 
 def get_current_user_tenant(token: str, db: Session) -> UserTenantDB:

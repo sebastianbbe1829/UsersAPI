@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import TenantDB, UserDB, UserTenantDB
-from UsersAPI.controllers.auth_controller import pwd_context
+from UsersAPI.services.password_service import pwd_context
 
 
 def create_activation_context(db, *, password="oldpass", status=0):

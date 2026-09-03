@@ -69,7 +69,7 @@ def send_user_notifications(
                         "tenant_id": user_tenant.tenant_id,
                     },
                 )
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "Error inesperado enviando WhatsApp",
             extra={

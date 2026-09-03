@@ -25,7 +25,10 @@ def validate_token(token: str, db: Session):
         user_tenant_id = payload.get("user_tenant_id")
 
         if user_tenant_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido",
+            )
 
         token_tenant_id = payload.get("tenant_id")
         if token_tenant_id is None:
@@ -48,7 +51,10 @@ def validate_token(token: str, db: Session):
         )
 
         if user_tenant is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado",
+            )
 
         if user_tenant.tenant_id != token_tenant_id:
             logger.warning(

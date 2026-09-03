@@ -12,7 +12,10 @@ from .extinguisher_recharge_notification_service import ExtinguisherRechargeNoti
 
 TIMEZONE = os.getenv("JOB_TIMEZONE", "America/Bogota")
 RUN_TIME = os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATION_TIME", "07:00")
-ENABLED = os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
+ENABLED = (
+    os.getenv("EXTINGUISHER_RECHARGE_NOTIFICATIONS_ENABLED", "true").lower()
+    in {"1", "true", "yes", "on"}
+)
 ADVISORY_LOCK_ID = 824731905
 
 

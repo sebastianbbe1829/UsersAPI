@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..services.auth_service import get_password_hash
+from ..services.password_service import get_password_hash
 from ..logging_config import logger
 from ..models import (
     TenantDB,
@@ -175,7 +175,10 @@ def bootstrapTenant(
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No fue posible completar el bootstrap porque existe información duplicada o incompatible.",
+            detail=(
+                "No fue posible completar el bootstrap porque existe "
+                "información duplicada o incompatible."
+            ),
         ) from exc
     except Exception as exc:
         logger.exception(
@@ -207,7 +210,12 @@ def bootstrapTenant(
         logger.warning(
             "Bootstrap realizado pero falló el envío del correo de activación: %s",
             exc,
-            extra={"tenant_id": tenant.id, "user_id": user.id, "dni": user.dni, "email": user_tenant.email},
+            extra={
+                "tenant_id": tenant.id,
+                "user_id": user.id,
+                "dni": user.dni,
+                "email": user_tenant.email,
+            },
         )
 
     try:
@@ -222,7 +230,12 @@ def bootstrapTenant(
         logger.warning(
             "Bootstrap realizado pero falló el envío de WhatsApp: %s",
             exc,
-            extra={"tenant_id": tenant.id, "user_id": user.id, "dni": user.dni, "phone": user_tenant.phone},
+            extra={
+                "tenant_id": tenant.id,
+                "user_id": user.id,
+                "dni": user.dni,
+                "phone": user_tenant.phone,
+            },
         )
 
     logger.info(

@@ -126,7 +126,13 @@ def test_update_extinguisher_allows_changing_type_and_does_not_commit():
 def test_update_extinguisher_rejects_invalid_type():
     db = FakeSession()
     user_tenant = SimpleNamespace(tenant_id=1)
-    existing = SimpleNamespace(id=1, tenant_id=1, code="EXT-001", extinguisher_type_id=1, updated_at=None)
+    existing = SimpleNamespace(
+        id=1,
+        tenant_id=1,
+        code="EXT-001",
+        extinguisher_type_id=1,
+        updated_at=None,
+    )
     datos = ExtinguisherUpdate(extinguisher_type_id=999)
 
     repository = FakeRepository(db)

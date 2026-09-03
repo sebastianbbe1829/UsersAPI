@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from UsersAPI.database import BootstrapSessionLocal, set_rls_tenant
 from UsersAPI.models import GlobalUserDB, TenantDB
 from UsersAPI.schemas.global_auth import SuperLoginRequest
-from UsersAPI.services.auth_service import get_password_hash
+from UsersAPI.services.password_service import get_password_hash
 from UsersAPI.services.global_auth_service import (
     _create_super_token,
     _decrypt_mfa_secret,

@@ -5,7 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..models import ExtinguisherInspectionItemDB
-from ..repositories.extinguisher_inspection_item_repository import ExtinguisherInspectionItemRepository
+from ..repositories.extinguisher_inspection_item_repository import (
+    ExtinguisherInspectionItemRepository,
+)
 from ..schemas.extinguisher_inspection_item import (
     ExtinguisherInspectionItemCreate,
     ExtinguisherInspectionItemUpdate,

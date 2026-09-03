@@ -9,7 +9,7 @@ from ..logging_config import logger
 from ..models import TenantDB, UserTenantDB
 from ..repositories.user_tenant_repository import UserTenantRepository
 from ..settings import settings
-from .auth_service import get_password_hash
+from .password_service import get_password_hash
 from .otp_service import generate_otp, validate_otp
 
 RECOVERY_PURPOSE = "PASSWORD_RECOVERY"
@@ -61,7 +61,9 @@ def request_password_recovery(
             email,
         )
         # Mantiene la misma forma de respuesta sin generar ni enviar un OTP.
-        return datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=settings.otp_expire_minutes)
+        return datetime.now(UTC).replace(tzinfo=None) + timedelta(
+            minutes=settings.otp_expire_minutes
+        )
 
     return generate_otp(
         db,
