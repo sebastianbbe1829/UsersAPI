@@ -39,12 +39,16 @@ def test_assign_role_success(monkeypatch):
     [
         ([None], "La relación usuario-tenant no existe"),
         ([SimpleNamespace(user_id=10), None], "El usuario no existe"),
-        ([SimpleNamespace(user_id=10), SimpleNamespace(id=10), None], "El rol no existe en el tenant seleccionado"),
+        (
+            [SimpleNamespace(user_id=10), SimpleNamespace(id=10), None],
+            "El rol no existe en el tenant seleccionado",
+        ),
     ],
 )
 def test_assign_role_validates_context(query_results, detail):
     db = MagicMock()
-    db.query.side_effect = [_query_chain(*query_results)] if len(query_results) == 1 else [_query_chain(query_results[0]), _query_chain(query_results[1]), *([_query_chain(query_results[2])] if len(query_results) > 2 else [])]
+    queries = [_query_chain(result) for result in query_results]
+    db.query.side_effect = queries
     monkeypatch = pytest.MonkeyPatch()
     repo = MagicMock()
     monkeypatch.setattr(service, "UserTenantRoleRepository", lambda _: repo)
@@ -136,7 +140,10 @@ def test_list_user_roles_missing_relation():
 
 def test_list_user_roles_missing_user():
     db = MagicMock()
-    db.query.side_effect = [_query_chain(SimpleNamespace(user_id=10)), _query_chain(None)]
+    db.query.side_effect = [
+        _query_chain(SimpleNamespace(user_id=10)),
+        _query_chain(None),
+    ]
     with pytest.raises(HTTPException) as exc:
         service.list_user_roles(1, 5, db)
     assert exc.value.status_code == 404
@@ -161,11 +168,10 @@ def test_delete_user_role_success(monkeypatch):
     repo.delete.assert_called_once_with(assignment)
 
 
-@pytest.mark.parametrize("assignment", [None])
-def test_delete_user_role_missing_assignment(monkeypatch, assignment):
+def test_delete_user_role_missing_assignment(monkeypatch):
     db = MagicMock()
     repo = MagicMock()
-    repo.get_by_id.return_value = assignment
+    repo.get_by_id.return_value = None
     monkeypatch.setattr(service, "UserTenantRoleRepository", lambda _: repo)
 
     with pytest.raises(HTTPException) as exc:
@@ -189,7 +195,10 @@ def test_delete_user_role_wrong_tenant(monkeypatch):
 def test_delete_user_role_missing_user(monkeypatch):
     db = MagicMock()
     assignment = SimpleNamespace(id=30, user_tenant_id=1, role_id=20)
-    db.query.side_effect = [_query_chain(SimpleNamespace(user_id=10)), _query_chain(None)]
+    db.query.side_effect = [
+        _query_chain(SimpleNamespace(user_id=10)),
+        _query_chain(None),
+    ]
     repo = MagicMock()
     repo.get_by_id.return_value = assignment
     monkeypatch.setattr(service, "UserTenantRoleRepository", lambda _: repo)
