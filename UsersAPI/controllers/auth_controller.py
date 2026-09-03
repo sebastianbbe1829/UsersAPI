@@ -50,6 +50,29 @@ def get_current_user(
     return get_current_user_from_token(token, db)
 
 
+def _audit_login(
+    result,
+    db: Session,
+    client_ip: str | None,
+    user_agent: str | None,
+):
+    token = result.access_token if hasattr(result, "access_token") else result["access_token"]
+    payload = jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[settings.algorithm],
+        options={"verify_exp": False},
+    )
+    create_login_session(
+        db,
+        token,
+        payload,
+        client_ip=client_ip,
+        user_agent=user_agent,
+    )
+    return result
+
+
 def login_user(
     datos: LoginRequest,
     db: Session,
@@ -71,21 +94,7 @@ def login_user(
     else:
         result = login_user_service(datos, db)
 
-    token = result["access_token"]
-    payload = jwt.decode(
-        token,
-        settings.secret_key,
-        algorithms=[settings.algorithm],
-        options={"verify_exp": False},
-    )
-    create_login_session(
-        db,
-        token,
-        payload,
-        client_ip=client_ip,
-        user_agent=user_agent,
-    )
-    return result
+    return _audit_login(result, db, client_ip, user_agent)
 
 
 def login_super_user(
@@ -99,21 +108,7 @@ def login_super_user(
         db,
         client_ip=client_ip,
     )
-    token = result.access_token
-    payload = jwt.decode(
-        token,
-        settings.secret_key,
-        algorithms=[settings.algorithm],
-        options={"verify_exp": False},
-    )
-    create_login_session(
-        db,
-        token,
-        payload,
-        client_ip=client_ip,
-        user_agent=user_agent,
-    )
-    return result
+    return _audit_login(result, db, client_ip, user_agent)
 
 
 def logout_user(
