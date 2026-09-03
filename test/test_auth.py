@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from UsersAPI.controllers.auth_controller import (
     create_access_token,
-    pwd_context,
     verify_password,
 )
+from UsersAPI.services.password_service import pwd_context
 from test.fixtures.multitenant import create_user_context
 
 
