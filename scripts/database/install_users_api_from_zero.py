@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import os
 import re
 import subprocess
@@ -263,6 +264,17 @@ def install_database(*, interactive: bool = True):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Reconstruye desde cero la base de datos Users API "
+            "en desarrollo o test. El proceso es destructivo."
+        ),
+        epilog=(
+            "Ejecutar sin opciones inicia la instalación y solicita "
+            "confirmación escribiendo SI."
+        ),
+    )
+    parser.parse_args()
     install_database(interactive=True)
 
 
