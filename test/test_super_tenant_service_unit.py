@@ -17,7 +17,10 @@ def test_require_super_user_success():
     assert service.require_super_user(user) is user
 
 
-@pytest.mark.parametrize("user", [SimpleNamespace(), _super(active=False), _super(superuser=False)])
+@pytest.mark.parametrize(
+    "user",
+    [SimpleNamespace(), _super(active=False), _super(superuser=False)],
+)
 def test_require_super_user_rejects(user):
     with pytest.raises(HTTPException) as exc:
         service.require_super_user(user)
@@ -55,8 +58,13 @@ def test_get_any_tenant_missing(monkeypatch):
 def test_provision_tenant_delegates(monkeypatch):
     db = MagicMock()
     datos = SimpleNamespace(
-        tenant_name="Acme", tenant_slug="acme", admin_dni="1", admin_name="Admin",
-        admin_email="admin@acme.com", admin_password="secret", admin_phone="300"
+        tenant_name="Acme",
+        tenant_slug="acme",
+        admin_dni="1",
+        admin_name="Admin",
+        admin_email="admin@acme.com",
+        admin_password="secret",
+        admin_phone="300",
     )
     expected = SimpleNamespace(id=1)
     bootstrap = MagicMock(return_value=expected)
@@ -90,7 +98,9 @@ def test_update_any_tenant_missing(monkeypatch):
     repo.get_by_id.return_value = None
     monkeypatch.setattr(service, "TenantRepository", lambda _: repo)
     with pytest.raises(HTTPException) as exc:
-        service.update_any_tenant(1, SimpleNamespace(name="X", slug=None, status=None), db, _super())
+        service.update_any_tenant(
+            1, SimpleNamespace(name="X", slug=None, status=None), db, _super()
+        )
     assert exc.value.status_code == 404
 
 
@@ -100,11 +110,19 @@ def test_update_any_tenant_requires_field(monkeypatch):
     repo.get_by_id.return_value = SimpleNamespace(id=1)
     monkeypatch.setattr(service, "TenantRepository", lambda _: repo)
     with pytest.raises(HTTPException) as exc:
-        service.update_any_tenant(1, SimpleNamespace(name=None, slug=None, status=None), db, _super())
+        service.update_any_tenant(
+            1, SimpleNamespace(name=None, slug=None, status=None), db, _super()
+        )
     assert exc.value.status_code == 400
 
 
-@pytest.mark.parametrize("datos", [SimpleNamespace(name="   ", slug=None, status=None), SimpleNamespace(name=None, slug="   ", status=None)])
+@pytest.mark.parametrize(
+    "datos",
+    [
+        SimpleNamespace(name="   ", slug=None, status=None),
+        SimpleNamespace(name=None, slug="   ", status=None),
+    ],
+)
 def test_update_any_tenant_rejects_blank_fields(monkeypatch, datos):
     db = MagicMock()
     repo = MagicMock()
@@ -123,7 +141,9 @@ def test_update_any_tenant_duplicate_name(monkeypatch):
     repo.get_by_name.return_value = SimpleNamespace(id=2)
     monkeypatch.setattr(service, "TenantRepository", lambda _: repo)
     with pytest.raises(HTTPException) as exc:
-        service.update_any_tenant(1, SimpleNamespace(name="Acme", slug=None, status=None), db, _super())
+        service.update_any_tenant(
+            1, SimpleNamespace(name="Acme", slug=None, status=None), db, _super()
+        )
     assert exc.value.status_code == 400
 
 
@@ -136,7 +156,9 @@ def test_update_any_tenant_duplicate_slug(monkeypatch):
     repo.get_by_slug.return_value = SimpleNamespace(id=2)
     monkeypatch.setattr(service, "TenantRepository", lambda _: repo)
     with pytest.raises(HTTPException) as exc:
-        service.update_any_tenant(1, SimpleNamespace(name=None, slug="Acme", status=None), db, _super())
+        service.update_any_tenant(
+            1, SimpleNamespace(name=None, slug="Acme", status=None), db, _super()
+        )
     assert exc.value.status_code == 400
 
 
@@ -149,6 +171,11 @@ def test_update_any_tenant_integrity_error(monkeypatch):
     repo.update.side_effect = IntegrityError("update", {}, Exception())
     monkeypatch.setattr(service, "TenantRepository", lambda _: repo)
     with pytest.raises(HTTPException) as exc:
-        service.update_any_tenant(1, SimpleNamespace(name="Acme 2", slug=None, status=None), db, _super())
+        service.update_any_tenant(
+            1,
+            SimpleNamespace(name="Acme 2", slug=None, status=None),
+            db,
+            _super(),
+        )
     assert exc.value.status_code == 400
     db.rollback.assert_called_once()
