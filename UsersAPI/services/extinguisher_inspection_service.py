@@ -26,7 +26,10 @@ def list_inspections(db: Session, tenant_id: int, extinguisher_id: int | None = 
 def get_inspection(inspection_id: int, db: Session, tenant_id: int):
     item = ExtinguisherInspectionRepository(db).get_by_id_and_tenant(inspection_id, tenant_id)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Revisión no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Revisión no encontrada",
+        )
     return item
 
 
@@ -40,11 +43,17 @@ def create_inspection(
     repo = ExtinguisherInspectionRepository(db)
     extinguisher = repo.get_extinguisher_for_update(extinguisher_id, tenant_id)
     if extinguisher is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extintor no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Extintor no encontrado",
+        )
 
     result = datos.result.strip().upper()
     if result not in VALID_INSPECTION_RESULTS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Estado de revisión no válido")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Estado de revisión no válido",
+        )
 
     item_repo = ExtinguisherInspectionItemRepository(db)
     active_items = item_repo.get_all_active()
@@ -52,11 +61,20 @@ def create_inspection(
     submitted_ids = [item.inspection_item_id for item in datos.items]
 
     if len(submitted_ids) != len(set(submitted_ids)):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No se puede repetir un ítem de revisión")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede repetir un ítem de revisión",
+        )
     if set(submitted_ids) != active_item_ids:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La revisión debe incluir todos los ítems activos del catálogo")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La revisión debe incluir todos los ítems activos del catálogo",
+        )
     if any(item.result.strip().upper() not in VALID_ITEM_RESULTS for item in datos.items):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Resultado de ítem no válido")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resultado de ítem no válido",
+        )
 
     current_count = extinguisher.inspections_since_hydrostatic_test
     hydrostatic_required = current_count >= MAX_NORMAL_INSPECTIONS
@@ -69,7 +87,10 @@ def create_inspection(
 
     inspection_number = current_count + 1
     if inspection_number > 5:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El ciclo de revisiones requiere prueba hidrostática")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El ciclo de revisiones requiere prueba hidrostática",
+        )
 
     hydrostatic_performed = datos.hydrostatic_test_performed
     inspection = ExtinguisherInspectionDB(
