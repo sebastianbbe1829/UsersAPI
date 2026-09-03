@@ -219,6 +219,14 @@ def install_database(*, interactive: bool = True):
     print_separator()
     print()
 
+    environment = os.getenv("APP_ENV", "development").strip().lower()
+    if environment != "test":
+        raise RuntimeError(
+            "Instalación desde cero bloqueada: este instalador destructivo "
+            "solo puede ejecutarse con APP_ENV=test. "
+            f"Entorno actual: {environment}"
+        )
+
     if interactive:
         print("ADVERTENCIA:")
         print("Este proceso ELIMINA completamente el esquema users_api")
