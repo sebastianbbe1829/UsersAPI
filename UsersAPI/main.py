@@ -66,6 +66,7 @@ app.add_middleware(
         "X-Bootstrap-Key",
         "X-Bootstrap-Tenant-Key",
         "X-Super-Bootstrap-Secret",
+        "X-Super-MFA-OTP",
         "X-OTP-API-Key",
         "X-Email-Key",
     ],
