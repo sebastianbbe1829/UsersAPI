@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import re
 import subprocess
 import sys
 
@@ -12,18 +14,36 @@ APP_SQL = BASE_DIR / "scripts" / "database" / "users_api_app.sql"
 BOOTSTRAP_SQL = BASE_DIR / "scripts" / "database" / "users_api_bootstrap.sql"
 ROLE_APP = "users_api_app"
 ROLE_BOOTSTRAP = "users_api_bootstrap"
+ENV_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
 
 def print_separator():
     print("=" * 80)
 
 
+def _resolve_sql_environment(sql_content: str) -> str:
+    """Resolve ${ENV_VAR} placeholders without exposing secrets in logs."""
+
+    def replace(match: re.Match[str]) -> str:
+        variable = match.group(1)
+        value = os.getenv(variable)
+        if value is None:
+            raise RuntimeError(
+                f"Falta la variable de entorno requerida: {variable}"
+            )
+        return value.replace("'", "''")
+
+    return ENV_PATTERN.sub(replace, sql_content)
+
+
 def execute_sql_file(engine, sql_file: Path):
     print(f"Ejecutando {sql_file.name}...")
     if not sql_file.exists():
         raise FileNotFoundError(f"No existe el archivo: {sql_file}")
+
+    sql_content = _resolve_sql_environment(sql_file.read_text(encoding="utf-8"))
     with engine.begin() as db:
-        db.exec_driver_sql(sql_file.read_text(encoding="utf-8"))
+        db.exec_driver_sql(sql_content)
     print(f"{sql_file.name} OK")
 
 
