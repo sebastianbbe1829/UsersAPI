@@ -12,7 +12,7 @@ from ..repositories.tenant_repository import TenantRepository
 from ..schemas import UserUpdate
 from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
-from .auth_service import get_password_hash
+from .password_service import get_password_hash
 from .user_service_helpers import _actor_dni, _get_user_entity, _tenant_link, _user_payload
 
 
