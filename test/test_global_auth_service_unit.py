@@ -1,3 +1,4 @@
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -19,9 +20,17 @@ def _db(query_result=None, scalar=None):
 
 
 def test_fernet_fallback_and_invalid_key(monkeypatch):
-    monkeypatch.setattr(service.settings, "super_mfa_encryption_key", "")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_mfa_encryption_key=""),
+    )
     assert service._fernet()
-    monkeypatch.setattr(service.settings, "super_mfa_encryption_key", "bad")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_mfa_encryption_key="bad"),
+    )
     with pytest.raises(RuntimeError):
         service._fernet()
 
@@ -33,19 +42,31 @@ def test_decrypt_invalid_token():
 
 
 def test_validate_bootstrap_secret(monkeypatch):
-    monkeypatch.setattr(service.settings, "super_bootstrap_secret", "secret")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_bootstrap_secret="secret"),
+    )
     service._validate_bootstrap_secret("secret")
     with pytest.raises(HTTPException) as exc:
         service._validate_bootstrap_secret("bad")
     assert exc.value.status_code == 401
-    monkeypatch.setattr(service.settings, "super_bootstrap_secret", "")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_bootstrap_secret=""),
+    )
     with pytest.raises(HTTPException) as exc:
         service._validate_bootstrap_secret("secret")
     assert exc.value.status_code == 503
 
 
 def test_bootstrap_existing_super_and_duplicate_email(monkeypatch):
-    monkeypatch.setattr(service.settings, "super_bootstrap_secret", "secret")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_bootstrap_secret="secret"),
+    )
     existing = SimpleNamespace(id=1)
     db, _ = _db(existing)
     with pytest.raises(HTTPException) as exc:
@@ -69,7 +90,11 @@ def test_bootstrap_existing_super_and_duplicate_email(monkeypatch):
 
 
 def test_bootstrap_success(monkeypatch):
-    monkeypatch.setattr(service.settings, "super_bootstrap_secret", "secret")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_bootstrap_secret="secret"),
+    )
     db, query = _db(None)
     query.first.return_value = None
     user = SimpleNamespace(id=7, email="x@test.com")
@@ -88,7 +113,11 @@ def test_bootstrap_success(monkeypatch):
 
 
 def test_verify_bootstrap_mfa_branches(monkeypatch):
-    monkeypatch.setattr(service.settings, "super_bootstrap_secret", "secret")
+    monkeypatch.setattr(
+        service,
+        "settings",
+        replace(service.settings, super_bootstrap_secret="secret"),
+    )
     db, query = _db(None)
     data = SimpleNamespace(user_id=1, otp="123")
     with pytest.raises(HTTPException) as exc:
@@ -156,7 +185,11 @@ def test_login_super_tenant_and_credentials_branches(monkeypatch):
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
 
-    user = SimpleNamespace(is_active=False, is_superuser=True)
+    user = SimpleNamespace(
+        is_active=False,
+        is_superuser=True,
+        password_hash="hash",
+    )
     db, query = _db(tenant, 5)
     query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
@@ -177,6 +210,7 @@ def test_login_super_mfa_branches(monkeypatch):
     user = SimpleNamespace(
         is_active=True,
         is_superuser=True,
+        password_hash="hash",
         mfa_enabled=True,
         mfa_verified_at=None,
     )
