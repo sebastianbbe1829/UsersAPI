@@ -129,7 +129,7 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
     # tenant. No expirarla después: el mismo db_session puede crear otro tenant
     # y cambiar el contexto RLS antes de que el caller use este objeto.
     db.refresh(user_tenant)
-    user_tenant.roles
+    list(user_tenant.roles)
 
     token = create_access_token(
         {
