@@ -220,10 +220,10 @@ def install_database(*, interactive: bool = True):
     print()
 
     environment = os.getenv("APP_ENV", "development").strip().lower()
-    if environment != "test":
+    if environment not in {"development", "test"}:
         raise RuntimeError(
             "Instalación desde cero bloqueada: este instalador destructivo "
-            "solo puede ejecutarse con APP_ENV=test. "
+            "solo puede ejecutarse en APP_ENV=development o APP_ENV=test. "
             f"Entorno actual: {environment}"
         )
 
