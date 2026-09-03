@@ -29,7 +29,11 @@ def export_extinguishers(db: Session, current_user: UserTenantDB, tenant_id: int
         data.append(
             {
                 "Código": extinguisher.code,
-                "Tipo": extinguisher.extinguisher_type.name if extinguisher.extinguisher_type else "",
+                "Tipo": (
+                    extinguisher.extinguisher_type.name
+                    if extinguisher.extinguisher_type
+                    else ""
+                ),
                 "Capacidad": extinguisher.capacity or "",
                 "Ubicación": extinguisher.location or "",
                 "Estado": "Activo" if extinguisher.active else "Inactivo",
