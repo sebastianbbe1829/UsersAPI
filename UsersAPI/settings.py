@@ -4,10 +4,20 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv(
-    Path(__file__).resolve().parents[1] / ".env",
-    override=True,
-)
+BASE_DIR = Path(__file__).resolve().parents[1]
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+
+if APP_ENV == "development":
+    load_dotenv(BASE_DIR / ".env", override=False)
+elif APP_ENV == "test":
+    load_dotenv(BASE_DIR / ".env.test", override=False)
+elif APP_ENV == "production":
+    # Production credentials must come exclusively from the hosting environment.
+    pass
+else:
+    raise RuntimeError(
+        "APP_ENV inválido. Valores permitidos: development, test, production."
+    )
 
 
 @dataclass(frozen=True)

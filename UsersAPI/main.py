@@ -135,6 +135,7 @@ app.add_middleware(
     allow_headers=[
         "Authorization",
         "Content-Type",
+        "X-Tenant-ID",
         "X-Bootstrap-Key",
         "X-Bootstrap-Tenant-Key",
         "X-Super-Bootstrap-Secret",

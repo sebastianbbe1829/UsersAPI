@@ -1,4 +1,5 @@
 .env
+.env.test
 usuarios.db
 logs/
 __pycache__/

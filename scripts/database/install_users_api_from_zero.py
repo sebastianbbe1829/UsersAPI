@@ -1,6 +1,9 @@
-from pathlib import Path
+import argparse
+import os
+import re
 import subprocess
 import sys
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
@@ -12,18 +15,36 @@ APP_SQL = BASE_DIR / "scripts" / "database" / "users_api_app.sql"
 BOOTSTRAP_SQL = BASE_DIR / "scripts" / "database" / "users_api_bootstrap.sql"
 ROLE_APP = "users_api_app"
 ROLE_BOOTSTRAP = "users_api_bootstrap"
+ENV_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
 
 def print_separator():
     print("=" * 80)
 
 
+def _resolve_sql_environment(sql_content: str) -> str:
+    """Resolve ${ENV_VAR} placeholders without exposing secrets in logs."""
+
+    def replace(match: re.Match[str]) -> str:
+        variable = match.group(1)
+        value = os.getenv(variable)
+        if value is None:
+            raise RuntimeError(
+                f"Falta la variable de entorno requerida: {variable}"
+            )
+        return value.replace("'", "''")
+
+    return ENV_PATTERN.sub(replace, sql_content)
+
+
 def execute_sql_file(engine, sql_file: Path):
     print(f"Ejecutando {sql_file.name}...")
     if not sql_file.exists():
         raise FileNotFoundError(f"No existe el archivo: {sql_file}")
+
+    sql_content = _resolve_sql_environment(sql_file.read_text(encoding="utf-8"))
     with engine.begin() as db:
-        db.exec_driver_sql(sql_file.read_text(encoding="utf-8"))
+        db.exec_driver_sql(sql_content)
     print(f"{sql_file.name} OK")
 
 
@@ -56,49 +77,69 @@ def reset_database(engine):
 
 
 def create_schema(engine):
-    print_separator(); print("2. CREAR SCHEMA"); print_separator()
+    print_separator()
+    print("2. CREAR SCHEMA")
+    print_separator()
     with engine.begin() as db:
         db.execute(text("CREATE SCHEMA users_api"))
     print("Schema users_api OK")
 
 
 def create_app_role(engine):
-    print_separator(); print("3. CONFIGURAR users_api_app"); print_separator()
+    print_separator()
+    print("3. CONFIGURAR users_api_app")
+    print_separator()
     execute_sql_file(engine, APP_SQL)
 
 
 def run_alembic():
-    print_separator(); print("4. EJECUTAR ALEMBIC"); print_separator()
-    result = subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=BASE_DIR, check=False)
+    print_separator()
+    print("4. EJECUTAR ALEMBIC")
+    print_separator()
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=BASE_DIR,
+        check=False,
+    )
     if result.returncode != 0:
         raise RuntimeError("Alembic upgrade head falló.")
     print("Alembic upgrade head OK")
 
 
 def apply_app_permissions(engine):
-    print_separator(); print("5. APLICAR PERMISOS users_api_app"); print_separator()
+    print_separator()
+    print("5. APLICAR PERMISOS users_api_app")
+    print_separator()
     with engine.begin() as db:
         db.execute(text("GRANT USAGE ON SCHEMA users_api TO users_api_app"))
         db.execute(text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA users_api TO users_api_app"))
         db.execute(text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA users_api TO users_api_app"))
-        db.execute(text("ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA users_api GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO users_api_app"))
-        db.execute(text("ALTER DEFAULT PRIVILEGES FOR ROLE neondb_owner IN SCHEMA users_api GRANT USAGE, SELECT ON SEQUENCES TO users_api_app"))
+        db.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA users_api GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO users_api_app"))
+        db.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA users_api GRANT USAGE, SELECT ON SEQUENCES TO users_api_app"))
     print("Permisos users_api_app OK")
 
 
 def seed_permissions(engine):
-    print_separator(); print("6. CARGAR PERMISOS"); print_separator()
+    print_separator()
+    print("6. CARGAR PERMISOS")
+    print_separator()
     creados = existentes = 0
     with engine.begin() as db:
         for code, name, description in PERMISSIONS:
-            exists = db.execute(text("SELECT 1 FROM users_api.permissions WHERE code = :code LIMIT 1"), {"code": code}).fetchone()
+            exists = db.execute(
+                text("SELECT 1 FROM users_api.permissions WHERE code = :code LIMIT 1"),
+                {"code": code},
+            ).fetchone()
             if exists:
                 existentes += 1
                 continue
-            db.execute(text("""
-                INSERT INTO users_api.permissions (code, name, description, status, created_by)
-                VALUES (:code, :name, :description, 1, 'SYSTEM')
-            """), {"code": code, "name": name, "description": description})
+            db.execute(
+                text("""
+                    INSERT INTO users_api.permissions (code, name, description, status, created_by)
+                    VALUES (:code, :name, :description, 1, 'SYSTEM')
+                """),
+                {"code": code, "name": name, "description": description},
+            )
             creados += 1
     print(f"Permisos creados: {creados}")
     print(f"Permisos existentes: {existentes}")
@@ -106,12 +147,16 @@ def seed_permissions(engine):
 
 
 def create_bootstrap_role(engine):
-    print_separator(); print("7. CONFIGURAR users_api_bootstrap"); print_separator()
+    print_separator()
+    print("7. CONFIGURAR users_api_bootstrap")
+    print_separator()
     execute_sql_file(engine, BOOTSTRAP_SQL)
 
 
 def validate_roles_and_permissions(engine):
-    print_separator(); print("8. VALIDACIÓN DE ROLES Y PERMISOS"); print_separator()
+    print_separator()
+    print("8. VALIDACIÓN DE ROLES Y PERMISOS")
+    print_separator()
     with engine.connect() as db:
         roles = db.execute(text("""
             SELECT rolname, rolcanlogin, rolbypassrls
@@ -121,37 +166,85 @@ def validate_roles_and_permissions(engine):
         """)).fetchall()
         if len(roles) != 2:
             raise RuntimeError("No se encontraron los dos roles requeridos.")
-        for role in roles: print(role)
-        app_schema = db.execute(text("SELECT has_schema_privilege('users_api_app', 'users_api', 'USAGE')")).scalar()
-        bootstrap_schema = db.execute(text("SELECT has_schema_privilege('users_api_bootstrap', 'users_api', 'USAGE')")).scalar()
-        bootstrap_bypass = db.execute(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = 'users_api_bootstrap'")).scalar()
+        for role in roles:
+            print(role)
+
+        app_schema = db.execute(
+            text("SELECT has_schema_privilege('users_api_app', 'users_api', 'USAGE')")
+        ).scalar()
+        bootstrap_schema = db.execute(
+            text("SELECT has_schema_privilege('users_api_bootstrap', 'users_api', 'USAGE')")
+        ).scalar()
+        bootstrap_bypass = db.execute(
+            text("SELECT rolbypassrls FROM pg_roles WHERE rolname = 'users_api_bootstrap'")
+        ).scalar()
+
         print(f"users_api_app USAGE: {app_schema}")
         print(f"users_api_bootstrap USAGE: {bootstrap_schema}")
         print(f"users_api_bootstrap BYPASSRLS: {bootstrap_bypass}")
-        if not app_schema: raise RuntimeError("users_api_app no tiene USAGE sobre users_api.")
-        if not bootstrap_schema: raise RuntimeError("users_api_bootstrap no tiene USAGE sobre users_api.")
-        if not bootstrap_bypass: raise RuntimeError("users_api_bootstrap no tiene BYPASSRLS.")
-        permission_count = db.execute(text("SELECT count(*) FROM users_api.permissions")).scalar()
+
+        if not app_schema:
+            raise RuntimeError("users_api_app no tiene USAGE sobre users_api.")
+        if not bootstrap_schema:
+            raise RuntimeError("users_api_bootstrap no tiene USAGE sobre users_api.")
+        if not bootstrap_bypass:
+            raise RuntimeError("users_api_bootstrap no tiene BYPASSRLS.")
+
+        permission_count = db.execute(
+            text("SELECT count(*) FROM users_api.permissions")
+        ).scalar()
         print(f"Total permisos: {permission_count}")
         if permission_count != len(PERMISSIONS):
-            raise RuntimeError(f"Se esperaban {len(PERMISSIONS)} permisos y existen {permission_count}.")
-        version = db.execute(text("SELECT version_num FROM public.alembic_version")).fetchall()
+            raise RuntimeError(
+                f"Se esperaban {len(PERMISSIONS)} permisos y existen {permission_count}."
+            )
+
+        version = db.execute(
+            text("SELECT version_num FROM public.alembic_version")
+        ).fetchall()
         print("ALEMBIC:")
-        for row in version: print(f"  - {row[0]}")
+        for row in version:
+            print(f"  - {row[0]}")
     print("Instalación validada correctamente.")
 
 
-def main():
-    print_separator(); print("USERS API - INSTALACIÓN DESDE CERO"); print_separator(); print()
-    print("ADVERTENCIA:")
-    print("Este proceso ELIMINA completamente el esquema users_api")
-    print("y conserva los roles users_api_app y users_api_bootstrap.")
-    print("Se reconstruirá toda la estructura desde cero."); print()
-    if input("¿Desea continuar? Escriba SI: ").strip() != "SI":
-        print("Instalación cancelada."); return
+def install_database(*, interactive: bool = True):
+    """Instala/reinstala la base completa de forma idempotente.
+
+    interactive=True se usa para la instalación manual y conserva la confirmación
+    de seguridad. interactive=False está destinado a automatizaciones controladas,
+    como la preparación de Neon TEST antes de pytest.
+    """
+    print_separator()
+    print("USERS API - INSTALACIÓN DESDE CERO")
+    print_separator()
+    print()
+
+    environment = os.getenv("APP_ENV", "development").strip().lower()
+    if environment not in {"development", "test"}:
+        raise RuntimeError(
+            "Instalación desde cero bloqueada: este instalador destructivo "
+            "solo puede ejecutarse en APP_ENV=development o APP_ENV=test. "
+            f"Entorno actual: {environment}"
+        )
+
+    if interactive:
+        print("ADVERTENCIA:")
+        print("Este proceso ELIMINA completamente el esquema users_api")
+        print("y conserva los roles users_api_app y users_api_bootstrap.")
+        print("Se reconstruirá toda la estructura desde cero.")
+        print()
+        if input("¿Desea continuar? Escriba SI: ").strip() != "SI":
+            print("Instalación cancelada.")
+            return
+    else:
+        print("Modo automático: se reconstruirá users_api sin interacción.")
+        print()
+
     database_url = settings.database_admin_url or settings.database_url
     if not database_url:
         raise RuntimeError("No está configurada DATABASE_ADMIN_URL ni DATABASE_URL.")
+
     engine = create_engine(database_url, pool_pre_ping=True)
     try:
         reset_database(engine)
@@ -164,7 +257,25 @@ def main():
         validate_roles_and_permissions(engine)
     finally:
         engine.dispose()
-    print_separator(); print("INSTALACIÓN COMPLETADA CORRECTAMENTE"); print_separator()
+
+    print_separator()
+    print("INSTALACIÓN COMPLETADA CORRECTAMENTE")
+    print_separator()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Reconstruye desde cero la base de datos Users API "
+            "en desarrollo o test. El proceso es destructivo."
+        ),
+        epilog=(
+            "Ejecutar sin opciones inicia la instalación y solicita "
+            "confirmación escribiendo SI."
+        ),
+    )
+    parser.parse_args()
+    install_database(interactive=True)
 
 
 if __name__ == "__main__":
