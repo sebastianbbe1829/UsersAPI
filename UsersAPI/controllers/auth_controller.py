@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from ..schemas import LoginRequest, SuperLoginRequest
 from ..settings import settings
 
 from ..services.auth_context_service import get_current_user_from_token
+from ..services.auth_audit_service import close_login_session, create_login_session
 from ..services.auth_service import (
     create_access_token as create_access_token_service,
     login_user as login_user_service,
@@ -53,6 +54,7 @@ def login_user(
     datos: LoginRequest,
     db: Session,
     client_ip: str | None = None,
+    user_agent: str | None = None,
 ):
     if datos.super_mode:
         super_datos = SuperLoginRequest(
@@ -61,17 +63,72 @@ def login_user(
             otp=datos.otp,
             tenant=datos.tenant,
         )
-        return login_super_user_service(super_datos, db, client_ip=client_ip)
+        result = login_super_user_service(
+            super_datos,
+            db,
+            client_ip=client_ip,
+        )
+    else:
+        result = login_user_service(datos, db)
 
-    return login_user_service(datos, db)
+    token = result["access_token"]
+    payload = jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[settings.algorithm],
+        options={"verify_exp": False},
+    )
+    create_login_session(
+        db,
+        token,
+        payload,
+        client_ip=client_ip,
+        user_agent=user_agent,
+    )
+    return result
 
 
 def login_super_user(
     datos: SuperLoginRequest,
     db: Session,
     client_ip: str | None = None,
+    user_agent: str | None = None,
 ):
-    return login_super_user_service(datos, db, client_ip=client_ip)
+    result = login_super_user_service(
+        datos,
+        db,
+        client_ip=client_ip,
+    )
+    token = result.access_token
+    payload = jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[settings.algorithm],
+        options={"verify_exp": False},
+    )
+    create_login_session(
+        db,
+        token,
+        payload,
+        client_ip=client_ip,
+        user_agent=user_agent,
+    )
+    return result
+
+
+def logout_user(
+    token: str,
+    db: Session,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+):
+    close_login_session(
+        db,
+        token,
+        client_ip=client_ip,
+        user_agent=user_agent,
+    )
+    return {"message": "Sesión cerrada correctamente"}
 
 
 def validate_token(token: str, db: Session):
