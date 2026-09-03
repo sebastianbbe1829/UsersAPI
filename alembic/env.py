@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy import engine_from_config
+from sqlalchemy import Identity
 
 from alembic import context
 
@@ -74,6 +75,30 @@ def include_name(
     return True
 
 
+def compare_server_default(
+    context_,
+    inspected_column,
+    metadata_column,
+    inspected_default,
+    metadata_default,
+    rendered_metadata_default,
+):
+    """
+    Treat PostgreSQL SERIAL and SQLAlchemy Identity as equivalent
+    auto-increment strategies for existing integer primary keys.
+
+    The project contains legacy migrations that create SERIAL-backed
+    primary keys while current models use Identity. Both provide the
+    same application-level auto-increment behavior, so alembic check
+    should not require a data migration solely to change that mechanism.
+    """
+
+    if isinstance(metadata_default, Identity):
+        return False
+
+    return None
+
+
 # ============================================================
 # OFFLINE
 # ============================================================
@@ -93,6 +118,7 @@ def run_migrations_offline() -> None:
         },
         include_schemas=True,
         include_name=include_name,
+        compare_server_default=compare_server_default,
     )
 
     with context.begin_transaction():
@@ -123,6 +149,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             include_schemas=True,
             include_name=include_name,
+            compare_server_default=compare_server_default,
         )
 
         with context.begin_transaction():
