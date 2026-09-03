@@ -163,7 +163,7 @@ def test_login_super_tenant_and_credentials_branches(monkeypatch):
         service.login_super_user(data, db)
     assert exc.value.status_code == 404
     tenant = SimpleNamespace(id=5, slug="acme")
-    db, query = _db(tenant, None)
+    db, query = _db(tenant, 5)
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
@@ -175,13 +175,15 @@ def test_login_super_tenant_and_credentials_branches(monkeypatch):
         password_hash="hash",
         mfa_enabled=False,
     )
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
     user.is_active = True
     monkeypatch.setattr(service, "verify_password", lambda *_: False)
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
@@ -201,17 +203,20 @@ def test_login_super_mfa_branches(monkeypatch):
     )
     data = SimpleNamespace(email="x", tenant="acme", password="p", otp=None)
     monkeypatch.setattr(service, "verify_password", lambda *_: True)
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 403
     user.mfa_verified_at = object()
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
     data.otp = "123"
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 500
@@ -220,7 +225,8 @@ def test_login_super_mfa_branches(monkeypatch):
     monkeypatch.setattr(
         service.pyotp.TOTP, "verify", lambda *args, **kwargs: False
     )
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
@@ -228,7 +234,8 @@ def test_login_super_mfa_branches(monkeypatch):
         service.pyotp.TOTP, "verify", lambda *args, **kwargs: True
     )
     monkeypatch.setattr(service, "_create_super_token", lambda *_: "token")
-    db, query = _db(tenant, user)
+    db, query = _db(None, 5)
+    query.first.side_effect = [tenant, user]
     result = service.login_super_user(data, db, "1.2.3.4")
     assert result.access_token == "token"
     assert user.last_login_ip == "1.2.3.4"
