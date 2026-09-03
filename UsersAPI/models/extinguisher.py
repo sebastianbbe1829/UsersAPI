@@ -4,7 +4,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    Identity,
     Integer,
     String,
     text,
@@ -18,7 +17,7 @@ class ExtinguisherDB(Base):
     __tablename__ = "extinguishers"
     __table_args__ = {"schema": "users_api"}
 
-    id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(
         Integer,
         ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
