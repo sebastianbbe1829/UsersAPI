@@ -44,15 +44,18 @@ GRANT USAGE, SELECT
 ON ALL SEQUENCES IN SCHEMA users_api
 TO users_api_app;
 
+-- Los objetos creados por el instalador/migraciones pertenecen al rol
+-- que ejecuta el instalador, por lo que los privilegios por defecto se
+-- aplican a CURRENT_USER. Esto evita depender de roles específicos de Neon.
 ALTER DEFAULT PRIVILEGES
-FOR ROLE neondb_owner
+FOR ROLE CURRENT_USER
 IN SCHEMA users_api
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON TABLES
 TO users_api_app;
 
 ALTER DEFAULT PRIVILEGES
-FOR ROLE neondb_owner
+FOR ROLE CURRENT_USER
 IN SCHEMA users_api
 GRANT USAGE, SELECT
 ON SEQUENCES
