@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..services.auth_service import get_password_hash
+from ..services.password_service import get_password_hash
 from ..logging_config import logger
 from ..models import (
     TenantDB,
