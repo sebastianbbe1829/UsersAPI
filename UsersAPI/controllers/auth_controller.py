@@ -18,7 +18,6 @@ from ..services.global_auth_service import (
     get_current_super_user,
     login_super_user as login_super_user_service,
 )
-from ..services.password_service import get_password_hash
 from ..services.token_validation_service import validate_token as validate_token_service
 
 
