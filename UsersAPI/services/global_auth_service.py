@@ -22,7 +22,7 @@ from ..schemas.global_auth import (
     SuperLoginRequest,
     SuperLoginResponse,
 )
-from ..services.auth_service import get_password_hash, verify_password
+from ..services.password_service import get_password_hash, verify_password
 from ..settings import settings
 
 
