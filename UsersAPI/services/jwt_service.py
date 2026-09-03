@@ -17,13 +17,18 @@ def create_access_token(
 ) -> str:
     """Create a signed JWT access token."""
     to_encode = data.copy()
-
-    expire = datetime.now(timezone.utc) + (
+    issued_at = datetime.now(timezone.utc)
+    expire = issued_at + (
         expires_delta
         or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+    refresh_at = expire - timedelta(minutes=settings.session_refresh_threshold_minutes)
 
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "iat": issued_at,
+        "exp": expire,
+        "refresh_at": int(refresh_at.timestamp()),
+    })
 
     return jwt.encode(
         to_encode,
