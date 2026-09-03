@@ -118,7 +118,15 @@ app = FastAPI(
     ],
 )
 
-origins = ["http://localhost:5173", "https://gestion-usuarios.sebastianbbe.workers.dev"]
+# Orígenes permitidos para desarrollo local y despliegue en Cloudflare.
+# La IP LAN corresponde al PC de desarrollo actual y permite acceder al Front
+# desde dispositivos conectados a la misma red Wi-Fi.
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://192.168.1.73:5173",
+    "https://gestion-usuarios.sebastianbbe.workers.dev",
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -127,6 +135,7 @@ app.add_middleware(
     allow_headers=[
         "Authorization",
         "Content-Type",
+        "X-Tenant-ID",
         "X-Bootstrap-Key",
         "X-Bootstrap-Tenant-Key",
         "X-Super-Bootstrap-Secret",
