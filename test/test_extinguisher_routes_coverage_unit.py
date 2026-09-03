@@ -5,7 +5,10 @@ import asyncio
 
 
 def test_extinguisher_routes_delegate(monkeypatch):
-    routes = __import__("UsersAPI.routes.extinguisher_routes", fromlist=["extinguisher_routes"])
+    routes = __import__(
+        "UsersAPI.routes.extinguisher_routes",
+        fromlist=["extinguisher_routes"],
+    )
     controller = MagicMock()
     monkeypatch.setattr(routes, "extinguisher_controller", controller)
     db = MagicMock()
@@ -37,7 +40,10 @@ def test_extinguisher_routes_delegate(monkeypatch):
 
 
 def test_inspection_item_routes_delegate(monkeypatch):
-    routes = __import__("UsersAPI.routes.extinguisher_inspection_item_routes", fromlist=["extinguisher_inspection_item_routes"])
+    routes = __import__(
+        "UsersAPI.routes.extinguisher_inspection_item_routes",
+        fromlist=["extinguisher_inspection_item_routes"],
+    )
     controller = MagicMock()
     monkeypatch.setattr(routes, "extinguisher_inspection_item_controller", controller)
     db = MagicMock()
@@ -61,7 +67,10 @@ def test_inspection_item_routes_delegate(monkeypatch):
 
 
 def test_inspection_routes_delegate(monkeypatch):
-    routes = __import__("UsersAPI.routes.extinguisher_inspection_routes", fromlist=["extinguisher_inspection_routes"])
+    routes = __import__(
+        "UsersAPI.routes.extinguisher_inspection_routes",
+        fromlist=["extinguisher_inspection_routes"],
+    )
     controller = MagicMock()
     monkeypatch.setattr(routes, "extinguisher_inspection_controller", controller)
     db = MagicMock()
@@ -86,7 +95,10 @@ def test_inspection_routes_delegate(monkeypatch):
 
 
 def test_extinguisher_type_routes_delegate(monkeypatch):
-    routes = __import__("UsersAPI.routes.extinguisher_type_routes", fromlist=["extinguisher_type_routes"])
+    routes = __import__(
+        "UsersAPI.routes.extinguisher_type_routes",
+        fromlist=["extinguisher_type_routes"],
+    )
     controller = MagicMock()
     monkeypatch.setattr(routes, "extinguisher_type_controller", controller)
     db = MagicMock()
