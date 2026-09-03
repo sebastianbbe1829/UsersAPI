@@ -4,7 +4,6 @@ from .auth_service import (
     get_current_user_tenant,
     login_user,
     oauth2_scheme,
-    validate_token,
 )
 from .auth_context_service import get_current_user_from_token
 from .authorization_service import get_user_permissions, user_can_authenticate
@@ -42,7 +41,6 @@ __all__ = [
     "pwd_context",
     "login_user",
     "oauth2_scheme",
-    "validate_token",
     "verify_password",
     "export_users",
     "create_user",
