@@ -144,7 +144,11 @@ def test_bootstrap_creates_tenant_and_admin(
     suffix = uuid4().hex[:10]
     payload = _bootstrap_payload(suffix)
 
-    response = client.post("/bootstrap", json=payload, headers=_bootstrap_headers())
+    response = client.post(
+        "/bootstrap",
+        json=payload,
+        headers=_bootstrap_headers(),
+    )
 
     assert response.status_code == 201
     result = response.json()
@@ -183,8 +187,16 @@ def test_bootstrap_can_provision_multiple_tenants(
     first_suffix = uuid4().hex[:10]
     second_suffix = uuid4().hex[:10]
 
-    first = client.post("/bootstrap", json=_bootstrap_payload(first_suffix), headers=_bootstrap_headers())
-    second = client.post("/bootstrap", json=_bootstrap_payload(second_suffix), headers=_bootstrap_headers())
+    first = client.post(
+        "/bootstrap",
+        json=_bootstrap_payload(first_suffix),
+        headers=_bootstrap_headers(),
+    )
+    second = client.post(
+        "/bootstrap",
+        json=_bootstrap_payload(second_suffix),
+        headers=_bootstrap_headers(),
+    )
 
     assert first.status_code == 201
     assert second.status_code == 201
