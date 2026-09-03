@@ -6,7 +6,7 @@ from .user_controller import (
     update_user,
     activate_user,
 )
-from .auth_controller import get_current_user, get_password_hash
+from .auth_controller import get_current_user
 from .tenant_controller import (
     crear_tenant,
     listar_tenants,
@@ -53,7 +53,6 @@ __all__ = [
     "get_user",
     "update_user",
     "get_current_user",
-    "get_password_hash",
     "crear_tenant",
     "listar_tenants",
     "obtener_tenant",
@@ -78,8 +77,8 @@ __all__ = [
     "crear_item_revision",
     "actualizar_item_revision",
     "desactivar_item_revision",
+    "listar_tenants_usuario",
     "create_otp",
     "verify_otp",
     "validate_otp_api_key",
-    "listar_tenants_usuario",
 ]
