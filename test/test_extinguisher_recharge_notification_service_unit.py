@@ -1,7 +1,7 @@
 import base64
 from datetime import date
 from types import SimpleNamespace
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from UsersAPI.services import extinguisher_recharge_notification_service as service
 
