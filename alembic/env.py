@@ -93,7 +93,7 @@ def compare_server_default(
     should not require a data migration solely to change that mechanism.
     """
 
-    if isinstance(metadata_column.identity, Identity):
+    if isinstance(metadata_default, Identity):
         return False
 
     return None
