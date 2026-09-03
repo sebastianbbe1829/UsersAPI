@@ -75,6 +75,25 @@ def login(
         datos,
         db,
         client_ip=client_ip,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
+@auth_routers.post(
+    "/logout",
+    summary="Cerrar la sesión autenticada y registrar su duración",
+)
+def logout(
+    request: Request,
+    token: str = Depends(auth_controller.oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    client_ip = rate_limiter.client_ip(request)
+    return auth_controller.logout_user(
+        token,
+        db,
+        client_ip=client_ip,
+        user_agent=request.headers.get("user-agent"),
     )
 
 
