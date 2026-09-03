@@ -1,7 +1,9 @@
 from fastapi import HTTPException, Request, status
 
 from ..models import GlobalUserDB
-from ..services.diagnostics_service import get_client_ip_diagnostic as get_client_ip_diagnostic_service
+from ..services.diagnostics_service import (
+    get_client_ip_diagnostic as get_client_ip_diagnostic_service,
+)
 
 
 def get_client_ip_diagnostic(
