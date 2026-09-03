@@ -56,7 +56,11 @@ def _audit_login(
     client_ip: str | None,
     user_agent: str | None,
 ):
-    token = result.access_token if hasattr(result, "access_token") else result["access_token"]
+    token = (
+        result.access_token
+        if hasattr(result, "access_token")
+        else result["access_token"]
+    )
     payload = jwt.decode(
         token,
         settings.secret_key,
