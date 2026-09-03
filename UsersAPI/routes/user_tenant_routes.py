@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from ..controllers import get_current_user
 from ..controllers.user_tenant_controller import (
-    crear_user_tenant,
     eliminar_user_tenant,
     listar_tenants_usuario,
     listar_usuarios_tenant,
@@ -26,43 +25,6 @@ user_tenant_routes = APIRouter(
     prefix="/user-tenants",
     tags=["Usuarios - Tenants"],
 )
-
-
-# ============================================================
-# ASOCIAR USUARIO A TENANT
-#
-# POST /user-tenants
-#
-# La asociación solo puede crearse dentro del tenant actual.
-# El tenant_id enviado por el cliente debe coincidir con el
-# tenant obtenido del contexto autenticado.
-#
-# Permiso requerido:
-#   USER_UPDATE
-# ============================================================
-
-@user_tenant_routes.post(
-    "",
-    response_model=UserTenantRead,
-    status_code=status.HTTP_201_CREATED,
-    summary="Asociar usuario a tenant",
-    dependencies=[
-        Depends(require_permission("USER_UPDATE")),
-    ],
-)
-async def crear_user_tenant_route(
-    datos: UserTenantCreate,
-    user_tenant: UserTenantDB = Depends(get_current_tenant),
-    db: Session = Depends(get_db),
-    current_user: UserDB = Depends(get_current_user),
-):
-
-    return crear_user_tenant(
-        datos=datos,
-        current_tenant_id=cast(int, user_tenant.tenant_id),
-        db=db,
-        current_user=current_user,
-    )
 
 
 # ============================================================

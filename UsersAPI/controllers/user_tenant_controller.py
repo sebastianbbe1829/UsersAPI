@@ -3,35 +3,11 @@ from sqlalchemy.orm import Session
 from ..models.user import UserDB
 from ..schemas import UserTenantCreate
 from ..services.user_tenant_service import (
-    create_user_tenant,
     delete_user_tenant,
     get_user_tenant,
     list_tenant_users,
     list_user_tenants,
 )
-
-
-# ============================================================
-# CREAR ASOCIACIÓN USUARIO - TENANT
-# ============================================================
-
-def crear_user_tenant(
-    datos: UserTenantCreate,
-    current_tenant_id: int,
-    db: Session,
-    current_user: UserDB | None = None,
-):
-
-    return create_user_tenant(
-        user_id=datos.user_id,
-        tenant_id=datos.tenant_id,
-        current_tenant_id=current_tenant_id,
-        email=datos.email,
-        password=datos.password,
-        phone=datos.phone,
-        db=db,
-        current_user=current_user,
-    )
 
 
 # ============================================================
