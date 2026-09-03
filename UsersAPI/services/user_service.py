@@ -23,6 +23,7 @@ from .user_delete_service import delete_user as _delete_user
 from .user_export_service import export_users as _export_users
 from .user_activation_service import activate_user as _activate_user
 from .user_notification_service import send_user_notifications
+from .user_read_service import list_users as _list_users, get_user as _get_user
 
 
 # ============================================================
@@ -139,18 +140,11 @@ def list_users(
     tenant_id: int,
     status_filter: int | None = None,
 ):
-    user_repository = UserRepository(db)
-    user_tenant_repository = UserTenantRepository(db)
-    users = user_repository.get_all_by_tenant(tenant_id, status_filter)
-    logger.debug(
-        "Usuarios consultados por tenant",
-        extra={"tenant_id": tenant_id, "cantidad": len(users)},
+    return _list_users(
+        db=db,
+        tenant_id=tenant_id,
+        status_filter=status_filter,
     )
-    resultado = []
-    for user in users:
-        link = _tenant_link(user, tenant_id, user_tenant_repository)
-        resultado.append(_user_payload(user, link))
-    return resultado
 
 
 # ============================================================
@@ -162,11 +156,11 @@ def get_user(
     db: Session,
     tenant_id: int,
 ):
-    user_repository = UserRepository(db)
-    user_tenant_repository = UserTenantRepository(db)
-    usuario = _get_user_entity(dni, tenant_id, user_repository)
-    link = _tenant_link(usuario, tenant_id, user_tenant_repository)
-    return _user_payload(usuario, link)
+    return _get_user(
+        dni=dni,
+        db=db,
+        tenant_id=tenant_id,
+    )
 
 
 # ============================================================
