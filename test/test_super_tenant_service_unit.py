@@ -1,3 +1,4 @@
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -5,11 +6,19 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
+from UsersAPI.models.global_user import GlobalUserDB
 from UsersAPI.services import super_tenant_service as service
 
 
 def _super(active=True, superuser=True, email="super@test.com"):
-    return SimpleNamespace(is_active=active, is_superuser=superuser, email=email)
+    return GlobalUserDB(
+        email=email,
+        password_hash="hash",
+        is_active=active,
+        is_superuser=superuser,
+        created_at=datetime.now(),
+        created_by="test",
+    )
 
 
 def test_require_super_user_success():
