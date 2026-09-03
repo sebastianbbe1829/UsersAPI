@@ -1,4 +1,0 @@
-from .role_permission_repository import RolePermissionRepository
-from .tenant_config_repository import TenantConfigRepository
-from .extinguisher_type_repository import ExtinguisherTypeRepository
-from .otp_repository import OTPRepository
