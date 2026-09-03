@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from UsersAPI.controllers import diagnostics_controller
@@ -9,24 +8,24 @@ from UsersAPI.controllers import extinguisher_type_controller as etc
 from UsersAPI.models import GlobalUserDB
 
 
-def _assert_call(monkeypatch, module, function_name, args):
-    target = MagicMock(return_value="ok")
-    monkeypatch.setattr(module, function_name, target)
-    result = getattr(module, function_name.replace("_service", ""), None) if False else None
-    return target
-
-
 def test_diagnostics_controller_authorization_and_delegation(monkeypatch):
     request = object()
     service = MagicMock(return_value={"ip": "1.2.3.4"})
-    monkeypatch.setattr(diagnostics_controller, "get_client_ip_diagnostic_service", service)
+    monkeypatch.setattr(
+        diagnostics_controller,
+        "get_client_ip_diagnostic_service",
+        service,
+    )
     current = GlobalUserDB()
-    assert diagnostics_controller.get_client_ip_diagnostic(request, current) == {"ip": "1.2.3.4"}
+    assert diagnostics_controller.get_client_ip_diagnostic(request, current) == {
+        "ip": "1.2.3.4"
+    }
     service.assert_called_once_with(request)
 
 
 def test_diagnostics_controller_rejects_non_super():
     from fastapi import HTTPException
+
     try:
         diagnostics_controller.get_client_ip_diagnostic(object(), object())
     except HTTPException as exc:
@@ -36,7 +35,9 @@ def test_diagnostics_controller_rejects_non_super():
 
 
 def test_extinguisher_controller_delegates(monkeypatch):
-    db = MagicMock(); user = MagicMock(); data = MagicMock()
+    db = MagicMock()
+    user = MagicMock()
+    data = MagicMock()
     calls = {
         "create_extinguisher": ((data, db, user), {}),
         "list_extinguishers": ((db, 1, True), {}),
@@ -46,22 +47,27 @@ def test_extinguisher_controller_delegates(monkeypatch):
         "delete_extinguisher": ((2, db, user), {}),
         "export_extinguishers": ((db, user, 1), {}),
     }
+    functions = {
+        "create_extinguisher": ec.crear_extintor,
+        "list_extinguishers": ec.listar_extintores,
+        "search_extinguishers": ec.buscar_extintores,
+        "get_extinguisher": ec.obtener_extintor,
+        "update_extinguisher": ec.actualizar_extintor,
+        "delete_extinguisher": ec.eliminar_extintor,
+        "export_extinguishers": ec.exportar_extintores,
+    }
     for name, (args, kwargs) in calls.items():
         target = MagicMock(return_value=name)
         monkeypatch.setattr(ec, name, target)
-        if name == "create_extinguisher": result = ec.crear_extintor(*args)
-        elif name == "list_extinguishers": result = ec.listar_extintores(*args)
-        elif name == "search_extinguishers": result = ec.buscar_extintores(*args)
-        elif name == "get_extinguisher": result = ec.obtener_extintor(*args)
-        elif name == "update_extinguisher": result = ec.actualizar_extintor(*args)
-        elif name == "delete_extinguisher": result = ec.eliminar_extintor(*args)
-        else: result = ec.exportar_extintores(*args)
+        result = functions[name](*args)
         assert result == name
         target.assert_called_once_with(*args, **kwargs)
 
 
 def test_inspection_controller_delegates(monkeypatch):
-    db = MagicMock(); user = MagicMock(); data = MagicMock()
+    db = MagicMock()
+    user = MagicMock()
+    data = MagicMock()
     cases = [
         ("list_inspection_items", eic.listar_items_revision, (db,)),
         ("list_inspections", eic.listar_revisiones, (db, 1, 2)),
@@ -76,7 +82,8 @@ def test_inspection_controller_delegates(monkeypatch):
 
 
 def test_inspection_item_controller_delegates(monkeypatch):
-    db = MagicMock(); data = MagicMock()
+    db = MagicMock()
+    data = MagicMock()
     cases = [
         ("list_inspection_items", eiic.listar_items_revision, (db,)),
         ("get_inspection_item", eiic.obtener_item_revision, (3, db)),
@@ -92,7 +99,8 @@ def test_inspection_item_controller_delegates(monkeypatch):
 
 
 def test_type_controller_delegates(monkeypatch):
-    db = MagicMock(); data = MagicMock()
+    db = MagicMock()
+    data = MagicMock()
     cases = [
         ("list_extinguisher_types", etc.listar_tipos_extintor, (db,)),
         ("create_extinguisher_type", etc.crear_tipo_extintor, (data, db)),
