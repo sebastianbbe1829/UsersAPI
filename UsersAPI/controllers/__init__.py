@@ -15,6 +15,7 @@ from .extinguisher_inspection_item_controller import (
     actualizar_item_revision,
     desactivar_item_revision,
 )
+from .user_tenant_controller import (listar_tenants_usuario)
 from .otp_controller import create_otp, verify_otp, validate_otp_api_key
 
 __all__ = [
@@ -24,5 +25,5 @@ __all__ = [
     "listar_roles_usuario", "eliminar_rol_usuario", "asignar_rol_usuario", "asignar_permiso_rol", "listar_permisos_rol",
     "eliminar_permiso_rol", "activate_user", "bootstrap_tenant_application", "listar_items_revision", "obtener_item_revision",
     "crear_item_revision", "actualizar_item_revision", "desactivar_item_revision", "create_otp", "verify_otp",
-    "validate_otp_api_key",
+    "validate_otp_api_key", "listar_tenants_usuario",
 ]
