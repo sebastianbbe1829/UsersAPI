@@ -2,6 +2,10 @@ import os
 
 os.environ["APP_ENV"] = "test"
 
+from scripts.database.environment.02_set_role_passwords import main as provision_database_roles
+
+provision_database_roles()
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
