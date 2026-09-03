@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from ..database import set_rls_tenant
 from ..logging_config import logger
-from ..models import UserDB, UserTenantDB
 from ..repositories.user_repository import UserRepository
 from ..repositories.user_tenant_repository import UserTenantRepository
 from .user_service_helpers import _user_payload
@@ -45,7 +44,6 @@ def activate_user(
 
     user_repository = UserRepository(db)
     user_tenant_repository = UserTenantRepository(db)
-
     usuario = user_repository.get_by_dni(dni)
 
     if usuario is None:
