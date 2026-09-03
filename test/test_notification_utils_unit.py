@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -53,7 +52,11 @@ def test_send_whatsapp_template_success_with_parameters(monkeypatch):
     response.json.return_value = {"messages": [{"id": "1"}]}
     post = MagicMock(return_value=response)
     monkeypatch.setattr(whatsapp_utils.requests, "post", post)
-    result = whatsapp_utils.send_whatsapp("+573001234567", template_name="otp", parameters=[123, "abc"])
+    result = whatsapp_utils.send_whatsapp(
+        "+573001234567",
+        template_name="otp",
+        parameters=[123, "abc"],
+    )
     assert result["messages"][0]["id"] == "1"
     payload = post.call_args.kwargs["json"]
     assert payload["template"]["components"][0]["parameters"][0]["text"] == "123"
@@ -116,13 +119,27 @@ def test_send_email_activation_and_updated_paths(monkeypatch):
     _configure_email(monkeypatch)
     response = MagicMock(status_code=201)
     response.json.return_value = {"messageId": "id"}
-    monkeypatch.setattr(email_utils.requests, "post", MagicMock(return_value=response))
-    email_utils.send_email(
-        "a@b", "UsersAPI activation", "m", dni="1", token="t", tenant_slug="acme",
-        tenant_name=" Acme ", template="activation"
+    monkeypatch.setattr(
+        email_utils.requests,
+        "post",
+        MagicMock(return_value=response),
     )
     email_utils.send_email(
-        "a@b", "UsersAPI updated", "m", tenant_slug="acme", template="updated"
+        "a@b",
+        "UsersAPI activation",
+        "m",
+        dni="1",
+        token="t",
+        tenant_slug="acme",
+        tenant_name=" Acme ",
+        template="activation",
+    )
+    email_utils.send_email(
+        "a@b",
+        "UsersAPI updated",
+        "m",
+        tenant_slug="acme",
+        template="updated",
     )
 
 
@@ -130,12 +147,18 @@ def test_send_email_configuration_and_http_errors(monkeypatch):
     _configure_email(monkeypatch)
     monkeypatch.setattr(email_utils, "FRONTEND_URL", "")
     with pytest.raises(RuntimeError, match="FRONTEND_URL"):
-        email_utils.send_email("a@b", "s", "m", template="updated", tenant_slug="x")
+        email_utils.send_email(
+            "a@b", "s", "m", template="updated", tenant_slug="x"
+        )
     _configure_email(monkeypatch)
     monkeypatch.setattr(email_utils.os.path, "isfile", lambda _: False)
     with pytest.raises(RuntimeError, match="template not found"):
         email_utils.send_email("a@b", "s", "m")
     _configure_email(monkeypatch)
-    monkeypatch.setattr(email_utils.requests, "post", MagicMock(side_effect=requests.exceptions.Timeout()))
+    monkeypatch.setattr(
+        email_utils.requests,
+        "post",
+        MagicMock(side_effect=requests.exceptions.Timeout()),
+    )
     with pytest.raises(RuntimeError, match="Timeout"):
         email_utils.send_email("a@b", "s", "m")
