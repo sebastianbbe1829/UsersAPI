@@ -3,8 +3,6 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
-
 from UsersAPI.services import extinguisher_recharge_job as job
 
 
@@ -110,18 +108,16 @@ def test_run_once_swallows_job_error(monkeypatch):
     runner.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_daily_job_disabled(monkeypatch):
+def test_daily_job_disabled(monkeypatch):
     monkeypatch.setattr(job, "ENABLED", False)
-    await job.daily_extinguisher_recharge_job(asyncio.Event())
+    asyncio.run(job.daily_extinguisher_recharge_job(asyncio.Event()))
 
 
-@pytest.mark.asyncio
-async def test_daily_job_runs_once_on_timeout(monkeypatch):
+def test_daily_job_runs_once_on_timeout(monkeypatch):
     stop_event = asyncio.Event()
     run_once = MagicMock(side_effect=stop_event.set)
     monkeypatch.setattr(job, "_run_once", run_once)
     monkeypatch.setattr(job, "ENABLED", True)
     monkeypatch.setattr(job, "_next_run", lambda now: now)
-    await job.daily_extinguisher_recharge_job(stop_event)
+    asyncio.run(job.daily_extinguisher_recharge_job(stop_event))
     run_once.assert_called_once()
