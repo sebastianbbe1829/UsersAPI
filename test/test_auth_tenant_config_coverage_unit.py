@@ -15,7 +15,7 @@ def test_auth_route_covers_tenant_and_super_login_branches(monkeypatch):
     limiter.normalize.side_effect = lambda value: value.strip().lower()
     controller.login_user.return_value = "ok"
     db = MagicMock()
-    request = SimpleNamespace()
+    request = SimpleNamespace(headers={}, client=SimpleNamespace(host="10.0.0.1"))
     tenant_data = SimpleNamespace(
         username="User@EXAMPLE.com",
         tenant=" Acme ",

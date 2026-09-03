@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..database import set_rls_tenant
 from ..logging_config import logger
-from ..models import TenantDB, UserTenantDB
+from ..models import AuthSessionDB, TenantDB, UserTenantDB
 from ..settings import settings
 
 
@@ -47,6 +47,24 @@ def get_current_user_from_token(
         )
 
     set_rls_tenant(db, token_tenant_id)
+
+    session_id = payload.get("session_id")
+    if session_id is not None:
+        session = (
+            db.query(AuthSessionDB)
+            .filter(
+                AuthSessionDB.id == session_id,
+                AuthSessionDB.tenant_id == token_tenant_id,
+                AuthSessionDB.status == "ACTIVE",
+            )
+            .first()
+        )
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="La sesión ya no es válida",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     user_tenant = (
         db.query(UserTenantDB)

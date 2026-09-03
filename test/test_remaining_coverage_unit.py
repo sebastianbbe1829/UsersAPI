@@ -88,14 +88,18 @@ def test_activation_otp_controller_validation_messages(monkeypatch):
 def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
     verify = MagicMock(return_value=True)
     token = MagicMock(return_value="jwt")
-    tenant_login = MagicMock(return_value="tenant")
-    super_login = MagicMock(return_value="super")
+    tenant_login = MagicMock(return_value=SimpleNamespace(access_token="jwt-tenant"))
+    super_login = MagicMock(return_value=SimpleNamespace(access_token="jwt-super"))
     validate = MagicMock(return_value={"valid": True})
+    audit = MagicMock()
+    decode = MagicMock(return_value={"tenant_id": 1, "session_id": "session-1"})
     monkeypatch.setattr(auth_controller, "verify_password_service", verify)
     monkeypatch.setattr(auth_controller, "create_access_token_service", token)
     monkeypatch.setattr(auth_controller, "login_user_service", tenant_login)
     monkeypatch.setattr(auth_controller, "login_super_user_service", super_login)
     monkeypatch.setattr(auth_controller, "validate_token_service", validate)
+    monkeypatch.setattr(auth_controller, "create_login_session", audit)
+    monkeypatch.setattr(auth_controller.jwt, "decode", decode)
 
     assert auth_controller.verify_password("a", "b") is True
     assert auth_controller.create_access_token({"sub": "1"}) == "jwt"
@@ -104,10 +108,10 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
         password="pw",
         super_mode=False,
     )
-    assert (
-        auth_controller.login_user(datos, MagicMock(), client_ip="1.2.3.4")
-        == "tenant"
+    tenant_result = auth_controller.login_user(
+        datos, MagicMock(), client_ip="1.2.3.4"
     )
+    assert tenant_result.access_token == "jwt-tenant"
     tenant_login.assert_called_once_with(datos, tenant_login.call_args.args[1])
 
     super_datos = SimpleNamespace(
@@ -117,17 +121,16 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
         tenant="acme",
         super_mode=True,
     )
-    assert (
-        auth_controller.login_user(
-            super_datos, MagicMock(), client_ip="1.2.3.4"
-        )
-        == "super"
+    super_result = auth_controller.login_user(
+        super_datos, MagicMock(), client_ip="1.2.3.4"
     )
+    assert super_result.access_token == "jwt-super"
     assert super_login.call_count == 1
     assert auth_controller.login_super_user(
         SimpleNamespace(), MagicMock(), "1.2.3.4"
-    ) == "super"
+    ).access_token == "jwt-super"
     assert auth_controller.validate_token("jwt", MagicMock()) == {"valid": True}
+    assert audit.call_count == 3
 
 
 def test_auth_controller_current_user_falls_back_for_invalid_jwt(monkeypatch):
