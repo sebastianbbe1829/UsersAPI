@@ -1,9 +1,9 @@
-from pathlib import Path
 import argparse
 import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
