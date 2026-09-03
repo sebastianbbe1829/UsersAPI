@@ -16,7 +16,6 @@ from ..services.auth_service import (
     validate_token as validate_token_service,
     verify_password as verify_password_service,
 )
-from ..services.auth_service import pwd_context
 from ..services.global_auth_service import (
     get_current_super_user,
     login_super_user as login_super_user_service,
