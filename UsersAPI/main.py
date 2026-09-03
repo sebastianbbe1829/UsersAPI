@@ -5,7 +5,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.status import HTTP_422_UNPROCESSABLE_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
+from starlette.status import (
+    HTTP_422_UNPROCESSABLE_CONTENT,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+)
 
 from .routes import (
     auth_routers,
@@ -56,23 +59,62 @@ app = FastAPI(
     },
     openapi_tags=[
         {"name": "Usuarios", "description": "Operaciones sobre usuarios"},
-        {"name": "Autenticación", "description": "Autenticación de usuarios y generación de tokens JWT"},
-        {"name": "Recuperación de contraseña", "description": "Recuperación de contraseña mediante OTP"},
-        {"name": "Autenticación SUPER", "description": "Autenticación global del usuario SUPER con MFA"},
+        {
+            "name": "Autenticación",
+            "description": "Autenticación de usuarios y generación de tokens JWT",
+        },
+        {
+            "name": "Recuperación de contraseña",
+            "description": "Recuperación de contraseña mediante OTP",
+        },
+        {
+            "name": "Autenticación SUPER",
+            "description": "Autenticación global del usuario SUPER con MFA",
+        },
         {"name": "Tenants", "description": "Operaciones sobre tenants"},
-        {"name": "Configuración UI", "description": "Configuración visual parametrizable por tenant"},
-        {"name": "Usuarios - Tenants", "description": "Gestión de asociaciones entre usuarios y tenants"},
+        {
+            "name": "Configuración UI",
+            "description": "Configuración visual parametrizable por tenant",
+        },
+        {
+            "name": "Usuarios - Tenants",
+            "description": "Gestión de asociaciones entre usuarios y tenants",
+        },
         {"name": "Roles", "description": "Operaciones sobre roles"},
-        {"name": "Usuarios - Roles", "description": "Gestión de asociaciones entre usuarios y roles"},
-        {"name": "Roles - Permisos", "description": "Gestión de permisos asociados a roles"},
-        {"name": "Bootstrap", "description": "Inicialización de tenants y configuración inicial del sistema"},
+        {
+            "name": "Usuarios - Roles",
+            "description": "Gestión de asociaciones entre usuarios y roles",
+        },
+        {
+            "name": "Roles - Permisos",
+            "description": "Gestión de permisos asociados a roles",
+        },
+        {
+            "name": "Bootstrap",
+            "description": "Inicialización de tenants y configuración inicial del sistema",
+        },
         {"name": "Permisos", "description": "Operaciones sobre permisos"},
-        {"name": "Email", "description": "Pruebas administrativas de correo transaccional"},
+        {
+            "name": "Email",
+            "description": "Pruebas administrativas de correo transaccional",
+        },
         {"name": "OTP", "description": "Generación y validación de códigos OTP temporales"},
-        {"name": "Extintores", "description": "Inventario y gestión de extintores por tenant"},
-        {"name": "Tipos de extintor", "description": "Catálogo global de tipos de extintor"},
-        {"name": "Revisiones de extintores", "description": "Histórico y control de revisiones de extintores"},
-        {"name": "Ítems de revisión", "description": "Catálogo de ítems utilizados en las revisiones de extintores"},
+        {
+            "name": "Extintores",
+            "description": "Inventario y gestión de extintores por tenant",
+        },
+        {
+            "name": "Tipos de extintor",
+            "description": "Catálogo global de tipos de extintor",
+        },
+        {
+            "name": "Revisiones de extintores",
+            "description": "Histórico y control de revisiones de extintores",
+        },
+        {
+            "name": "Ítems de revisión",
+            "description": "Catálogo de ítems utilizados en las revisiones de extintores",
+        },
     ],
 )
 
