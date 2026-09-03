@@ -1,34 +1,14 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..logging_config import logger
-from ..models import GlobalUserDB, UserDB, UserTenantDB
-from ..repositories.user_repository import UserRepository
-from ..repositories.user_tenant_repository import UserTenantRepository
+from ..models import GlobalUserDB, UserTenantDB
 from ..schemas import UserCreate, UserUpdate
-from ..repositories.tenant_repository import TenantRepository
-from .user_creation_service import (
-    create_global_user,
-    create_tenant_link,
-    reactivate_user,
-)
-from .user_service_helpers import (
-    _actor_dni,
-    _get_user_entity,
-    _tenant_link,
-    _user_payload,
-)
+from .user_creation_service import create_user as _create_user
 from .user_update_service import update_user as _update_user
 from .user_delete_service import delete_user as _delete_user
 from .user_export_service import export_users as _export_users
 from .user_activation_service import activate_user as _activate_user
-from .user_notification_service import send_user_notifications
 from .user_read_service import list_users as _list_users, get_user as _get_user
 
-
-# ============================================================
-# CREAR / REACTIVAR USUARIO
-# ============================================================
 
 def create_user(
     user: UserCreate,
@@ -36,104 +16,13 @@ def create_user(
     current_user: UserTenantDB | GlobalUserDB | None = None,
     user_tenant: UserTenantDB | None = None,
 ):
-    user_repository = UserRepository(db)
-    user_tenant_repository = UserTenantRepository(db)
-    tenant_repository = TenantRepository(db)
-
-    if user_tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No existe un tenant asociado al contexto actual",
-        )
-
-    tenant_id = user_tenant.tenant_id
-    tenant = tenant_repository.get_by_id(tenant_id=tenant_id)
-
-    if tenant is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant no encontrado",
-        )
-
-    tenant_slug = tenant.slug
-    tenant_name = tenant.name
-    actor = _actor_dni(current_user)
-    existente = user_repository.get_by_dni(user.dni)
-    es_reactivacion = False
-
-    if existente is not None:
-        nuevo_usuario = existente
-        link_existente = (
-            user_tenant_repository
-            .get_by_user_and_tenant_including_deleted(
-                existente.id,
-                tenant_id,
-            )
-        )
-
-        if link_existente is None:
-            nuevo_user_tenant = create_tenant_link(
-                user,
-                nuevo_usuario,
-                tenant_id,
-                actor,
-                user_tenant_repository,
-            )
-        elif link_existente.status == 3:
-            es_reactivacion = True
-            nuevo_user_tenant = reactivate_user(
-                user,
-                nuevo_usuario,
-                link_existente,
-                tenant_id,
-                actor,
-                user_repository,
-                user_tenant_repository,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="El usuario ya pertenece al tenant",
-            )
-    else:
-        nuevo_usuario = create_global_user(
-            user,
-            tenant_id,
-            actor,
-            user_repository,
-        )
-        nuevo_user_tenant = create_tenant_link(
-            user,
-            nuevo_usuario,
-            tenant_id,
-            actor,
-            user_tenant_repository,
-        )
-
-    logger.info(
-        "Usuario asociado correctamente al tenant",
-        extra={
-            "user_id": nuevo_usuario.id,
-            "dni": nuevo_usuario.dni,
-            "tenant_id": tenant_id,
-            "user_tenant_id": nuevo_user_tenant.id,
-        },
+    return _create_user(
+        user=user,
+        db=db,
+        current_user=current_user,
+        user_tenant=user_tenant,
     )
 
-    send_user_notifications(
-        user=nuevo_usuario,
-        user_tenant=nuevo_user_tenant,
-        tenant_name=tenant_name,
-        tenant_slug=tenant_slug,
-        es_reactivacion=es_reactivacion,
-    )
-
-    return _user_payload(nuevo_usuario, nuevo_user_tenant)
-
-
-# ============================================================
-# LISTAR USUARIOS POR TENANT
-# ============================================================
 
 def list_users(
     db: Session,
@@ -147,10 +36,6 @@ def list_users(
     )
 
 
-# ============================================================
-# OBTENER USUARIO
-# ============================================================
-
 def get_user(
     dni: str,
     db: Session,
@@ -162,10 +47,6 @@ def get_user(
         tenant_id=tenant_id,
     )
 
-
-# ============================================================
-# ACTUALIZAR USUARIO
-# ============================================================
 
 def update_user(
     dni: str,
@@ -183,10 +64,6 @@ def update_user(
     )
 
 
-# ============================================================
-# ELIMINAR USUARIO
-# ============================================================
-
 def delete_user(
     dni: str,
     db: Session,
@@ -199,9 +76,6 @@ def delete_user(
     )
 
 
-# ============================================================
-# EXPORTAR USUARIOS
-# ============================================================
 def export_users(
     db: Session,
     current_user: UserTenantDB | GlobalUserDB,
@@ -214,11 +88,6 @@ def export_users(
     )
 
 
-# ============================================================
-# ACTIVAR USUARIO NORMAL
-#
-# POST /users/activate/{dni}/{token}
-# ============================================================
 def activate_user(
     dni: str,
     token: str,
