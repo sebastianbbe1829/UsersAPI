@@ -6,13 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 from UsersAPI.services import extinguisher_recharge_job as job
 
 
-def test_scheduled_target_and_next_run():
+def test_scheduled_target_and_next_run(monkeypatch):
+    monkeypatch.setattr(job, "RUN_TIME", "07:00")
     now = datetime(2026, 9, 3, 8, 30, 45)
     assert job._scheduled_target(now) == datetime(2026, 9, 3, 7, 0, 0)
     assert job._next_run(now) == datetime(2026, 9, 4, 7, 0, 0)
 
 
-def test_next_run_before_configured_time():
+def test_next_run_before_configured_time(monkeypatch):
+    monkeypatch.setattr(job, "RUN_TIME", "07:00")
     now = datetime(2026, 9, 3, 6, 30)
     assert job._next_run(now) == datetime(2026, 9, 3, 7, 0)
 
