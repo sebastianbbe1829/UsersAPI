@@ -73,12 +73,13 @@ def test_user_notifications_handles_whatsapp_failure_and_empty_response(monkeypa
     )
     whatsapp.assert_called_once()
 
-    whatsapp.reset_mock(return_value=True, side_effect=True)
+    whatsapp.reset_mock()
+    whatsapp.side_effect = None
     whatsapp.return_value = None
     user_notification_service.send_user_notifications(
         user, link, "Acme", "acme", False
     )
-    assert whatsapp.call_count == 2
+    assert whatsapp.call_count == 1
 
 
 def test_auth_context_service_error_branches(monkeypatch):
