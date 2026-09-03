@@ -21,9 +21,15 @@ else:
 class Settings:
     secret_key: str = os.getenv("SECRET_KEY", "change-me")
     algorithm: str = os.getenv("ALGORITHM", "HS256")
-    access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
-    session_idle_timeout_minutes: int = int(os.getenv("SESSION_IDLE_TIMEOUT_MINUTES", "30"))
-    session_refresh_threshold_minutes: int = int(os.getenv("SESSION_REFRESH_THRESHOLD_MINUTES", "5"))
+    access_token_expire_minutes: int = int(
+        os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
+    )
+    session_idle_timeout_minutes: int = int(
+        os.getenv("SESSION_IDLE_TIMEOUT_MINUTES", "30")
+    )
+    session_refresh_threshold_minutes: int = int(
+        os.getenv("SESSION_REFRESH_THRESHOLD_MINUTES", "5")
+    )
     database_url: str = os.getenv("DATABASE_URL", "")
     bootstrap_database_url: str = os.getenv("BOOTSTRAP_DATABASE_URL", "")
     database_admin_url: str = os.getenv("DATABASE_ADMIN_URL", "")
