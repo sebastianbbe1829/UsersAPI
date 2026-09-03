@@ -6,12 +6,31 @@ from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, Table, and_, func, select, update
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    and_,
+    func,
+    select,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from ..logging_config import logger
-from ..models import ExtinguisherDB, ExtinguisherTypeDB, RoleDB, TenantDB, UserTenantDB, UserTenantRoleDB
+from ..models import (
+    ExtinguisherDB,
+    ExtinguisherTypeDB,
+    RoleDB,
+    TenantDB,
+    UserTenantDB,
+    UserTenantRoleDB,
+)
 from ..util.email_utils import send_email
 
 ADMIN_ROLE_CODES = ("ADMIN",)
@@ -95,9 +114,19 @@ class ExtinguisherRechargeNotificationService:
                 skipped += 1
                 continue
 
-            attachment = self._build_excel_attachment(data["tenant_name"], target_date, data["extinguishers"])
-            message = self._build_message(data["tenant_name"], target_date, data["extinguishers"])
-            overdue_count = sum(1 for item in data["extinguishers"] if item["days_overdue"] > 0)
+            attachment = self._build_excel_attachment(
+                data["tenant_name"],
+                target_date,
+                data["extinguishers"],
+            )
+            message = self._build_message(
+                data["tenant_name"],
+                target_date,
+                data["extinguishers"],
+            )
+            overdue_count = sum(
+                1 for item in data["extinguishers"] if item["days_overdue"] > 0
+            )
             today_count = len(data["extinguishers"]) - overdue_count
             subject = (
                 f"Alerta: {len(data['extinguishers'])} extintor(es) vencido(s) "
@@ -146,11 +175,25 @@ class ExtinguisherRechargeNotificationService:
         logger.info("Daily extinguisher recharge notification finished: %s", result)
         return result
 
-    def _build_excel_attachment(self, tenant_name: str, target_date: date, extinguishers: list[dict]) -> dict[str, str]:
+    def _build_excel_attachment(
+        self,
+        tenant_name: str,
+        target_date: date,
+        extinguishers: list[dict],
+    ) -> dict[str, str]:
         wb = Workbook()
         ws = wb.active
         ws.title = "Recargas pendientes"
-        headers = ["Código", "Tipo", "Capacidad", "Ubicación", "Última recarga", "Próxima recarga", "Días vencido", "Estado"]
+        headers = [
+            "Código",
+            "Tipo",
+            "Capacidad",
+            "Ubicación",
+            "Última recarga",
+            "Próxima recarga",
+            "Días vencido",
+            "Estado",
+        ]
         principal, dark, white, gray = "1F4E78", "17365D", "FFFFFF", "F2F2F2"
         border = Border(
             left=Side(style="thin", color="D9E1F2"),
@@ -173,7 +216,16 @@ class ExtinguisherRechargeNotificationService:
             cell.alignment = Alignment(horizontal="center", wrap_text=True)
             cell.border = border
         for row_idx, item in enumerate(extinguishers, 5):
-            values = [item["code"], item["type_name"], item["capacity"], item["location"], item["last_recharge_date"], item["next_recharge_date"], item["days_overdue"], item["status"]]
+            values = [
+                item["code"],
+                item["type_name"],
+                item["capacity"],
+                item["location"],
+                item["last_recharge_date"],
+                item["next_recharge_date"],
+                item["days_overdue"],
+                item["status"],
+            ]
             for col, value in enumerate(values, 1):
                 cell = ws.cell(row_idx, col, value)
                 cell.border = border
@@ -192,11 +244,13 @@ class ExtinguisherRechargeNotificationService:
         output = io.BytesIO()
         wb.save(output)
         encoded = base64.b64encode(output.getvalue()).decode("ascii")
-        return {"name": f"extintores_recarga_{target_date.isoformat()}.xlsx", "content": encoded}
+        return {
+            "name": f"extintores_recarga_{target_date.isoformat()}.xlsx",
+            "content": encoded,
+        }
 
     @staticmethod
     def _build_message(tenant_name: str, target_date: date, extinguishers: list[dict]) -> str:
-        overdue = sum(1 for item in extinguishers if item["days_overdue"] > 0)
         lines = [
             f"Buenos días, {tenant_name}.",
             "",
@@ -208,9 +262,15 @@ class ExtinguisherRechargeNotificationService:
             "- Vencidos: {VENCIDOS}",
             "- Vencen hoy: {HOY}",
             "",
-            "Se adjunta el Excel con el detalle de los extintores, sus fechas de recarga y los días de vencimiento.",
+            (
+                "Se adjunta el Excel con el detalle de los extintores, sus fechas de recarga "
+                "y los días de vencimiento."
+            ),
             "",
-            "Por favor, realiza la gestión correspondiente de recarga y actualiza la información en el sistema.",
+            (
+                "Por favor, realiza la gestión correspondiente de recarga y actualiza la "
+                "información en el sistema."
+            ),
             "",
             "Este es un mensaje automático.",
         ]
@@ -229,7 +289,12 @@ class ExtinguisherRechargeNotificationService:
     def _mark_pending(self, target_date, tenant_id, recipient):
         statement = (
             pg_insert(NOTIFICATION_LOG_TABLE)
-            .values(notification_date=target_date, tenant_id=tenant_id, recipient=recipient, status="pending")
+            .values(
+                notification_date=target_date,
+                tenant_id=tenant_id,
+                recipient=recipient,
+                status="pending",
+            )
             .on_conflict_do_update(
                 index_elements=[
                     NOTIFICATION_LOG_TABLE.c.notification_date,
