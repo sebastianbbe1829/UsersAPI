@@ -20,7 +20,10 @@ def _validate_type(type_id: int, db: Session) -> ExtinguisherTypeDB:
         ExtinguisherTypeDB.active.is_(True),
     ).first()
     if item is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de extintor no encontrado o inactivo")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de extintor no encontrado o inactivo",
+        )
     return item
 
 
@@ -31,16 +34,25 @@ def create_extinguisher(datos: ExtinguisherCreate, db: Session, user_tenant: Use
     if not code:
         raise HTTPException(status_code=400, detail="El código del extintor es obligatorio")
     if repo.get_by_code_and_tenant(code, tenant_id, include_inactive=True):
-        raise HTTPException(status_code=409, detail="El código del extintor ya existe en este tenant")
+        raise HTTPException(
+            status_code=409,
+            detail="El código del extintor ya existe en este tenant",
+        )
 
     _validate_type(datos.extinguisher_type_id, db)
     extinguisher = ExtinguisherDB(
-        tenant_id=tenant_id, code=code, extinguisher_type_id=datos.extinguisher_type_id,
-        capacity=datos.capacity, location=datos.location,
-        last_recharge_date=datos.last_recharge_date, next_recharge_date=datos.next_recharge_date,
+        tenant_id=tenant_id,
+        code=code,
+        extinguisher_type_id=datos.extinguisher_type_id,
+        capacity=datos.capacity,
+        location=datos.location,
+        last_recharge_date=datos.last_recharge_date,
+        next_recharge_date=datos.next_recharge_date,
         last_hydrostatic_test_date=datos.last_hydrostatic_test_date,
         next_hydrostatic_test_date=datos.next_hydrostatic_test_date,
-        status=datos.status.strip().upper(), is_stock=datos.is_stock, active=True,
+        status=datos.status.strip().upper(),
+        is_stock=datos.is_stock,
+        active=True,
     )
     try:
         repo.add(extinguisher)
@@ -67,19 +79,35 @@ def get_extinguisher(extinguisher_id: int, db: Session, tenant_id: int):
     return extinguisher
 
 
-def update_extinguisher(extinguisher_id: int, datos: ExtinguisherUpdate, db: Session, user_tenant: UserTenantDB):
+def update_extinguisher(
+    extinguisher_id: int,
+    datos: ExtinguisherUpdate,
+    db: Session,
+    user_tenant: UserTenantDB,
+):
     tenant_id = user_tenant.tenant_id
     repo = ExtinguisherRepository(db)
-    extinguisher = repo.get_by_id_and_tenant(extinguisher_id, tenant_id, include_inactive=True)
+    extinguisher = repo.get_by_id_and_tenant(
+        extinguisher_id,
+        tenant_id,
+        include_inactive=True,
+    )
     if extinguisher is None:
         raise HTTPException(status_code=404, detail="Extintor no encontrado")
 
     cambios = datos.model_dump(exclude_unset=True)
     if "code" in cambios:
         code = _normalize_code(cambios["code"])
-        existente = repo.get_by_code_and_tenant(code, tenant_id, include_inactive=True)
+        existente = repo.get_by_code_and_tenant(
+            code,
+            tenant_id,
+            include_inactive=True,
+        )
         if existente is not None and existente.id != extinguisher.id:
-            raise HTTPException(status_code=409, detail="El código del extintor ya existe en este tenant")
+            raise HTTPException(
+                status_code=409,
+                detail="El código del extintor ya existe en este tenant",
+            )
         cambios["code"] = code
     if "extinguisher_type_id" in cambios:
         _validate_type(cambios["extinguisher_type_id"], db)
@@ -94,8 +122,16 @@ def update_extinguisher(extinguisher_id: int, datos: ExtinguisherUpdate, db: Ses
     return extinguisher
 
 
-def delete_extinguisher(extinguisher_id: int, db: Session, user_tenant: UserTenantDB):
-    extinguisher = ExtinguisherRepository(db).get_by_id_and_tenant(extinguisher_id, user_tenant.tenant_id, include_inactive=True)
+def delete_extinguisher(
+    extinguisher_id: int,
+    db: Session,
+    user_tenant: UserTenantDB,
+):
+    extinguisher = ExtinguisherRepository(db).get_by_id_and_tenant(
+        extinguisher_id,
+        user_tenant.tenant_id,
+        include_inactive=True,
+    )
     if extinguisher is None:
         raise HTTPException(status_code=404, detail="Extintor no encontrado")
     extinguisher.active = False
