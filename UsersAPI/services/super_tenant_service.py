@@ -4,11 +4,11 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..models import GlobalUserDB, TenantDB
+from ..logging_config import logger
+from ..models import GlobalUserDB
 from ..repositories.tenant_repository import TenantRepository
 from ..schemas import BootstrapTenantRequest, TenantUpdate
 from .bootstrap_tenant_service import bootstrapTenant
-from ..logging_config import logger
 
 
 def require_super_user(current_user) -> GlobalUserDB:
