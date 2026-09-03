@@ -14,11 +14,12 @@ from .extinguisher_inspection import (
     ExtinguisherInspectionItemDB,
     ExtinguisherInspectionResultDB,
 )
+from .extinguisher_recharge_notification_log import ExtinguisherRechargeNotificationLogDB
 from .otp import OTPCodeDB
 
 __all__ = [
     "UserDB", "TenantDB", "TenantConfigDB", "UserTenantDB", "GlobalUserDB", "RoleDB",
     "PermissionDB", "RolePermissionDB", "UserTenantRoleDB", "ExtinguisherDB",
     "ExtinguisherTypeDB", "ExtinguisherInspectionDB", "ExtinguisherInspectionItemDB",
-    "ExtinguisherInspectionResultDB", "OTPCodeDB",
+    "ExtinguisherInspectionResultDB", "ExtinguisherRechargeNotificationLogDB", "OTPCodeDB",
 ]

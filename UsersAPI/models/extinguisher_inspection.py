@@ -4,7 +4,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    Identity,
     Integer,
     String,
     Text,
@@ -19,7 +18,7 @@ class ExtinguisherInspectionItemDB(Base):
     __tablename__ = "extinguisher_inspection_items"
     __table_args__ = {"schema": "users_api"}
 
-    id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     code = Column(String(50), nullable=False, unique=True, index=True)
     name = Column(String(100), nullable=False)
     active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
@@ -32,7 +31,7 @@ class ExtinguisherInspectionDB(Base):
     __tablename__ = "extinguisher_inspections"
     __table_args__ = {"schema": "users_api"}
 
-    id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     tenant_id = Column(
         Integer,
         ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
@@ -73,7 +72,7 @@ class ExtinguisherInspectionResultDB(Base):
     __tablename__ = "extinguisher_inspection_results"
     __table_args__ = {"schema": "users_api"}
 
-    id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     inspection_id = Column(
         Integer,
         ForeignKey("users_api.extinguisher_inspections.id", ondelete="CASCADE"),
