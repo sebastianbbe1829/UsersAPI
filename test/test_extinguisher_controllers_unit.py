@@ -38,6 +38,7 @@ def test_extinguisher_controller_delegates(monkeypatch):
     db = MagicMock()
     user = MagicMock()
     data = MagicMock()
+    user_tenant = SimpleNamespace(tenant_id=1)
     calls = {
         "create_extinguisher": ((data, db, user), {}),
         "list_extinguishers": ((db, 1, True), {}),
@@ -45,7 +46,6 @@ def test_extinguisher_controller_delegates(monkeypatch):
         "get_extinguisher": ((2, db, 1), {}),
         "update_extinguisher": ((2, data, db, user), {}),
         "delete_extinguisher": ((2, db, user), {}),
-        "export_extinguishers": ((db, user, 1), {}),
     }
     functions = {
         "create_extinguisher": ec.crear_extintor,
@@ -54,7 +54,6 @@ def test_extinguisher_controller_delegates(monkeypatch):
         "get_extinguisher": ec.obtener_extintor,
         "update_extinguisher": ec.actualizar_extintor,
         "delete_extinguisher": ec.eliminar_extintor,
-        "export_extinguishers": ec.exportar_extintores,
     }
     for name, (args, kwargs) in calls.items():
         target = MagicMock(return_value=name)
@@ -62,6 +61,11 @@ def test_extinguisher_controller_delegates(monkeypatch):
         result = functions[name](*args)
         assert result == name
         target.assert_called_once_with(*args, **kwargs)
+
+    target = MagicMock(return_value="export_extinguishers")
+    monkeypatch.setattr(ec, "export_extinguishers", target)
+    assert ec.exportar_extintores(db, user, user_tenant) == "export_extinguishers"
+    target.assert_called_once_with(db, user, 1)
 
 
 def test_inspection_controller_delegates(monkeypatch):
