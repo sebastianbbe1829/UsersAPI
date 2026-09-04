@@ -107,21 +107,24 @@ def create_client(
     if data.consent_given and consent_at is None:
         consent_at = now
 
+    datos = data.model_dump(exclude={"consent_at"})
+    if data.person_type == "NATURAL":
+        datos.update(
+            {
+                "first_name": _normalizar_nombre(data.first_name),
+                "middle_name": _normalizar_nombre(data.middle_name),
+                "last_name": _normalizar_nombre(data.last_name),
+                "second_last_name": _normalizar_nombre(data.second_last_name),
+            }
+        )
+
     client = ClientDB(
         tenant_id=tenant_id,
         full_name=full_name,
         created_at=now,
         created_by=created_by,
         consent_at=consent_at,
-        **data.model_dump(
-            exclude={"consent_at"},
-            update={
-                "first_name": _normalizar_nombre(data.first_name),
-                "middle_name": _normalizar_nombre(data.middle_name),
-                "last_name": _normalizar_nombre(data.last_name),
-                "second_last_name": _normalizar_nombre(data.second_last_name),
-            },
-        ),
+        **datos,
     )
     return repository.add(client)
 
