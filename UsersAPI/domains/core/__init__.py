@@ -5,7 +5,6 @@ import sys
 for module_name in (
     "database",
     "logging_config",
-    "permissions",
     "security",
     "settings",
     "util",
