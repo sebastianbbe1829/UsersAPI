@@ -147,4 +147,33 @@ PERMISSIONS = [
         "Desactivar extintores",
         "Permite desactivar extintores",
     ),
+
+    # ========================================================
+    # CLIENTES
+    # ========================================================
+    (
+        "CLIENT_READ",
+        "Consultar clientes",
+        "Permite consultar clientes",
+    ),
+    (
+        "CLIENT_CREATE",
+        "Crear clientes",
+        "Permite crear clientes",
+    ),
+    (
+        "CLIENT_UPDATE",
+        "Actualizar clientes",
+        "Permite actualizar clientes",
+    ),
+    (
+        "CLIENT_DELETE",
+        "Eliminar clientes",
+        "Permite eliminar clientes",
+    ),
+    (
+        "CLIENT_SCREENING",
+        "Consultar compliance de clientes",
+        "Permite consultar el estado de compliance de clientes",
+    ),
 ]
