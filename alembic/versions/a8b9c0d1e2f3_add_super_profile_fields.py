@@ -8,7 +8,6 @@ Create Date: 2026-09-04
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 revision: str = "a8b9c0d1e2f3"
 down_revision: Union[str, Sequence[str], None] = (
@@ -22,30 +21,29 @@ SCHEMA = "users_api"
 
 
 def upgrade() -> None:
-    op.add_column(
-        "global_users",
-        sa.Column("dni", sa.String(length=20), nullable=True),
-        schema=SCHEMA,
-    )
-    op.add_column(
-        "global_users",
-        sa.Column("name", sa.String(length=100), nullable=True),
-        schema=SCHEMA,
-    )
-    op.add_column(
-        "global_users",
-        sa.Column("phone", sa.String(length=30), nullable=True),
-        schema=SCHEMA,
+    # These profile columns are also reconciled by migration c1d2e3f4a5b6,
+    # which is already an ancestor of this merge path. Keep this migration
+    # safe for both fresh databases and databases upgraded through c1d2e3f4a5b6.
+    op.execute(
+        """
+        ALTER TABLE users_api.global_users
+        ADD COLUMN IF NOT EXISTS dni varchar(20),
+        ADD COLUMN IF NOT EXISTS name varchar(100),
+        ADD COLUMN IF NOT EXISTS phone varchar(30)
+        """
     )
 
+    # The current model intentionally allows repeated DNI values and exposes
+    # a normal (non-unique) index. Do not recreate the historical unique DNI
+    # index here because c1d2e3f4a5b6 removes that constraint.
     op.execute(
-        sa.text(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_global_users_dni
-            ON users_api.global_users (dni)
-            WHERE dni IS NOT NULL
-            """
-        )
+        """
+        DROP INDEX IF EXISTS users_api.uq_global_users_dni;
+        CREATE INDEX IF NOT EXISTS ix_users_api_global_users_dni
+        ON users_api.global_users (dni);
+        CREATE INDEX IF NOT EXISTS ix_users_api.global_users_name
+        ON users_api.global_users (name);
+        """
     )
 
     op.execute(
@@ -58,7 +56,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS users_api.uq_global_users_dni")
-    op.drop_column("global_users", "phone", schema=SCHEMA)
-    op.drop_column("global_users", "name", schema=SCHEMA)
-    op.drop_column("global_users", "dni", schema=SCHEMA)
+    # The profile columns are owned by the reconciliation migration in the
+    # current migration graph, so this merge migration must not remove them.
+    pass
