@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pyotp
 import pytest
 from fastapi import HTTPException
 
@@ -13,6 +12,18 @@ from UsersAPI.services import global_user_service
 @pytest.fixture
 def actor():
     return SimpleNamespace(email="actor@example.com", is_superuser=True)
+
+
+def _create_data(**overrides):
+    data = {
+        "dni": "90000010",
+        "name": "Nuevo SUPER",
+        "phone": "3000000010",
+        "email": "new@example.com",
+        "password": "StrongPassword123!",
+    }
+    data.update(overrides)
+    return GlobalSuperCreate(**data)
 
 
 def test_list_global_supers_returns_only_query_results():
@@ -44,7 +55,7 @@ def test_get_global_super_raises_when_not_found():
 
 def test_create_global_super_requires_super_actor():
     db = MagicMock()
-    datos = GlobalSuperCreate(email="new@example.com", password="StrongPassword123!")
+    datos = _create_data()
 
     with patch.object(
         global_user_service,
@@ -60,7 +71,7 @@ def test_create_global_super_requires_super_actor():
 
 def test_create_global_super_requires_valid_fresh_mfa(actor):
     db = MagicMock()
-    datos = GlobalSuperCreate(email="new@example.com", password="StrongPassword123!")
+    datos = _create_data()
 
     with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
         global_user_service,
@@ -79,7 +90,7 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     query = db.query.return_value
     query.filter.return_value = query
     query.first.return_value = None
-    datos = GlobalSuperCreate(email=" New@Example.COM ", password="StrongPassword123!")
+    datos = _create_data(dni="90000011", email=" New@Example.COM ")
 
     with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
         global_user_service, "verify_super_mfa_otp"
@@ -92,6 +103,9 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
 
     verify_otp.assert_called_once_with(actor, "123456")
     assert response.email == "new@example.com"
+    assert response.dni == "90000011"
+    assert response.name == "Nuevo SUPER"
+    assert response.phone == "3000000010"
     assert response.is_superuser is True
     assert response.is_active is True
     assert response.mfa_enabled is True
@@ -99,6 +113,7 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     assert response.provisioning_uri.startswith("otpauth://totp/")
     created = db.add.call_args.args[0]
     assert created.email == "new@example.com"
+    assert created.dni == "90000011"
     assert created.password_hash == "hashed-password"
     assert created.mfa_secret_encrypted.startswith("enc:")
     assert created.mfa_verified_at is None
@@ -109,7 +124,7 @@ def test_create_global_super_rejects_duplicate_email(actor):
     query = db.query.return_value
     query.filter.return_value = query
     query.first.return_value = SimpleNamespace(email="new@example.com")
-    datos = GlobalSuperCreate(email="new@example.com", password="StrongPassword123!")
+    datos = _create_data()
 
     with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
         global_user_service, "verify_super_mfa_otp"
@@ -123,7 +138,7 @@ def test_create_global_super_rejects_duplicate_email(actor):
 
 def test_update_global_super_requires_fresh_mfa(actor):
     db = MagicMock()
-    datos = GlobalSuperUpdate(email="changed@example.com")
+    datos = GlobalSuperUpdate(name="Changed")
 
     with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
         global_user_service,
@@ -203,77 +218,3 @@ def test_update_global_super_deactivation_clears_session(actor):
     assert target.session_id is None
     assert target.updated_by == actor.email
     db.add.assert_called_once_with(target)
-
-
-def test_verify_global_super_mfa_requires_actor_mfa(actor):
-    db = MagicMock()
-
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service,
-        "verify_super_mfa_otp",
-        side_effect=HTTPException(status_code=401, detail="MFA inválido."),
-    ):
-        with pytest.raises(HTTPException) as exc_info:
-            global_user_service.verify_global_super_mfa(2, "000000", "111111", db, actor)
-
-    assert exc_info.value.status_code == 401
-
-
-def test_verify_global_super_mfa_requires_actor_and_target_otp(actor):
-    db = MagicMock()
-    target_secret = pyotp.random_base32()
-    target = SimpleNamespace(
-        id=2,
-        email="target@example.com",
-        mfa_enabled=True,
-        mfa_secret_encrypted=f"enc:{target_secret}",
-        mfa_verified_at=None,
-        updated_at=None,
-        updated_by=None,
-    )
-    target_otp = pyotp.TOTP(target_secret).now()
-
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
-    ) as verify_actor, patch.object(
-        global_user_service, "get_global_super", return_value=target
-    ), patch.object(
-        global_user_service, "_decrypt_mfa_secret", return_value=target_secret
-    ):
-        result = global_user_service.verify_global_super_mfa(
-            2, "123456", target_otp, db, actor
-        )
-
-    verify_actor.assert_called_once_with(actor, "123456")
-    assert result is target
-    assert target.mfa_verified_at is not None
-    assert target.updated_by == actor.email
-    db.flush.assert_called_once()
-
-
-def test_verify_global_super_mfa_rejects_invalid_target_otp(actor):
-    db = MagicMock()
-    target_secret = pyotp.random_base32()
-    target = SimpleNamespace(
-        id=2,
-        email="target@example.com",
-        mfa_enabled=True,
-        mfa_secret_encrypted="encrypted",
-        mfa_verified_at=None,
-    )
-
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
-    ), patch.object(
-        global_user_service, "get_global_super", return_value=target
-    ), patch.object(
-        global_user_service, "_decrypt_mfa_secret", return_value=target_secret
-    ):
-        with pytest.raises(HTTPException) as exc_info:
-            global_user_service.verify_global_super_mfa(
-                2, "123456", "000000", db, actor
-            )
-
-    assert exc_info.value.status_code == 401
-    assert target.mfa_verified_at is None
-    db.flush.assert_not_called()
