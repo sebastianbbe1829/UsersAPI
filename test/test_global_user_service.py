@@ -90,6 +90,11 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     query = db.query.return_value
     query.filter.return_value = query
     query.first.return_value = None
+
+    def flush_assigns_id():
+        db.add.call_args.args[0].id = 1
+
+    db.flush.side_effect = flush_assigns_id
     datos = _create_data(dni="90000011", email=" New@Example.COM ")
 
     with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
@@ -110,6 +115,7 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     assert email_kwargs["qr_html"].startswith("<table")
     assert email_kwargs["attachments"]
     assert email_kwargs["attachments"][0]["name"] == "mfa_qr.png"
+    assert response.id == 1
     assert response.email == "new@example.com"
     assert response.dni == "90000011"
     assert response.name == "Nuevo SUPER"
@@ -119,6 +125,7 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     assert response.mfa_enabled is True
     assert response.mfa_verified_at is None
     assert response.provisioning_uri.startswith("otpauth://totp/")
+    assert response.email_sent is True
     created = db.add.call_args.args[0]
     assert created.email == "new@example.com"
     assert created.dni == "90000011"
