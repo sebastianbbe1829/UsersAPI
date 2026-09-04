@@ -1,8 +1,8 @@
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
 
-from ..models import CityDB, CountryDB, DepartmentDB, IdentificationTypeDB
+from ..models import CityDB, ClientDB, CountryDB, DepartmentDB, IdentificationTypeDB
 from ..schemas.catalog import (
     CityCreate,
     CityUpdate,
@@ -26,10 +26,9 @@ def _conflict(detail: str):
 def _commit(db: Session):
     try:
         db.commit()
-    except IntegrityError as exc:
+    except IntegrityError:
         db.rollback()
         _conflict("El registro ya existe o está siendo utilizado por otros registros.")
-    return
 
 
 def list_identification_types(db: Session, include_inactive: bool = False) -> list[IdentificationTypeDB]:
@@ -56,7 +55,20 @@ def create_identification_type(db: Session, data: IdentificationTypeCreate) -> I
 
 def update_identification_type(db: Session, item_id: int, data: IdentificationTypeUpdate) -> IdentificationTypeDB:
     item = get_identification_type(db, item_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    values = data.model_dump(exclude_unset=True)
+
+    if "code" in values and values["code"] != item.code:
+        referenced = (
+            db.query(ClientDB.id)
+            .filter(ClientDB.identification_type_id == item.id)
+            .first()
+        )
+        if referenced:
+            _conflict(
+                "No se puede cambiar el código de un tipo de identificación que ya está asociado a clientes."
+            )
+
+    for field, value in values.items():
         setattr(item, field, value)
     _commit(db)
     db.refresh(item)
