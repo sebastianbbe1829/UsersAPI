@@ -37,3 +37,9 @@ class GlobalSuperRead(BaseModel):
 
 class GlobalSuperCreateResponse(GlobalSuperRead):
     provisioning_uri: str
+
+
+class GlobalSuperMfaProvisioningResponse(BaseModel):
+    id: int
+    email: EmailStr
+    provisioning_uri: str
