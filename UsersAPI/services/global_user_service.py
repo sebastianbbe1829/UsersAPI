@@ -1,3 +1,4 @@
+import pyotp
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -6,7 +7,12 @@ from sqlalchemy.orm import Session
 
 from ..logging_config import logger
 from ..models import GlobalUserDB
-from ..schemas.global_user import GlobalSuperCreate, GlobalSuperUpdate
+from ..schemas.global_user import (
+    GlobalSuperCreate,
+    GlobalSuperCreateResponse,
+    GlobalSuperUpdate,
+)
+from .global_auth_service import _encrypt_mfa_secret
 from .password_service import get_password_hash
 from .super_mfa_service import verify_super_mfa_otp
 from .super_tenant_service import require_super_user
@@ -60,13 +66,14 @@ def create_global_super(
         )
 
     now = _now()
+    secret = pyotp.random_base32()
     user = GlobalUserDB(
         email=email,
         password_hash=get_password_hash(datos.password),
         is_active=True,
         is_superuser=True,
         mfa_enabled=True,
-        mfa_secret_encrypted=None,
+        mfa_secret_encrypted=_encrypt_mfa_secret(secret),
         mfa_verified_at=None,
         session_id=None,
         last_login_at=None,
@@ -87,12 +94,25 @@ def create_global_super(
             detail="El correo ya está registrado como usuario global.",
         ) from exc
 
+    provisioning_uri = pyotp.TOTP(secret).provisioning_uri(
+        name=email,
+        issuer_name="UsersAPI",
+    )
+
     logger.info(
         "Usuario SUPER creado por SUPER actor=%s target=%s",
         actor.email,
         user.email,
     )
-    return user
+
+    return GlobalSuperCreateResponse(
+        **{
+            field: getattr(user, field)
+            for field in GlobalSuperCreateResponse.model_fields
+            if field != "provisioning_uri"
+        },
+        provisioning_uri=provisioning_uri,
+    )
 
 
 def update_global_super(
