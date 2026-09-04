@@ -2,12 +2,18 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class SuperBootstrapRequest(BaseModel):
+    dni: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=100)
+    phone: str = Field(min_length=1, max_length=30)
     email: EmailStr
     password: str = Field(min_length=12)
 
 
 class SuperBootstrapResponse(BaseModel):
     id: int
+    dni: str | None
+    name: str | None
+    phone: str | None
     email: EmailStr
     mfa_enabled: bool
     provisioning_uri: str
