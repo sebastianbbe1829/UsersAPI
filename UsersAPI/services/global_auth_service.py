@@ -288,22 +288,19 @@ def login_super_user(
         )
 
     if user.mfa_enabled:
-        if not user.mfa_verified_at:
+        if not user.mfa_secret_encrypted:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="El MFA del usuario SUPER aún no ha sido verificado",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="El usuario SUPER no tiene MFA configurado",
             )
 
         if not datos.otp:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Código MFA requerido",
-            )
-
-        if not user.mfa_secret_encrypted:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="El usuario SUPER no tiene MFA configurado",
+                detail=(
+                    "Código MFA requerido. Si es el primer ingreso, "
+                    "configure el MFA con el QR entregado por el administrador."
+                ),
             )
 
         secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
@@ -312,6 +309,18 @@ def login_super_user(
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Código MFA inválido",
+            )
+
+        if user.mfa_verified_at is None:
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            user.mfa_verified_at = now
+            user.updated_at = now
+            user.updated_by = "super-first-login-mfa"
+            db.add(user)
+            db.flush()
+            logger.info(
+                "MFA SUPER activado en primer login email=%s",
+                user.email,
             )
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
