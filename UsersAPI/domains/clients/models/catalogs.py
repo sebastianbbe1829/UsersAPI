@@ -79,5 +79,5 @@ class CityDB(Base):
     longitude = Column(Numeric(10, 7), nullable=True)
     active = Column(Boolean, nullable=False, server_default=text("true"))
 
-    department = relationship("DepartmentDB", back_populates="country")
+    department = relationship("DepartmentDB", back_populates="cities")
     clients = relationship("ClientDB", back_populates="city")
