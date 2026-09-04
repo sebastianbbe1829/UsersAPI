@@ -92,7 +92,7 @@ def create_login_session(db: Session, token: str, payload: dict, client_ip: str 
     global_user_id = payload.get("global_user_id")
     occurred_at = _now()
     actor_login = payload.get("email")
-    actor_dni = payload.get("sub")
+    actor_dni = payload.get("sub") if session_kind == TENANT_SESSION_KIND else None
 
     session = AuthSessionDB(
         id=session_id,
@@ -148,7 +148,7 @@ def _close_idle_session(db: Session, session: AuthSessionDB, payload: dict) -> N
     session.close_reason = IDLE_TIMEOUT
     session.status = "CLOSED"
     actor_login = payload.get("email")
-    actor_dni = payload.get("sub")
+    actor_dni = payload.get("sub") if session.session_kind == TENANT_SESSION_KIND else None
     db.add(AuthAuditDB(id=str(uuid.uuid4()), tenant_id=session.tenant_id, user_tenant_id=session.user_tenant_id, global_user_id=session.global_user_id, session_id=session.id, session_kind=session.session_kind, event_type=IDLE_TIMEOUT, actor_identifier=actor_dni or actor_login, actor_dni=actor_dni, actor_login=actor_login, occurred_at=now))
     if session.global_user_id is not None:
         user = db.get(GlobalUserDB, session.global_user_id)
@@ -181,7 +181,7 @@ def refresh_login_session(db: Session, token: str, client_ip: str | None = None,
     if user_agent:
         session.user_agent = user_agent
     actor_login = payload.get("email")
-    actor_dni = payload.get("sub")
+    actor_dni = payload.get("sub") if session.session_kind == TENANT_SESSION_KIND else None
     db.add(AuthAuditDB(id=str(uuid.uuid4()), tenant_id=session.tenant_id, user_tenant_id=session.user_tenant_id, global_user_id=session.global_user_id, session_id=session.id, session_kind=session.session_kind, event_type=SESSION_REFRESH, actor_identifier=actor_dni or actor_login, actor_dni=actor_dni, actor_login=actor_login, client_ip=client_ip, user_agent=user_agent, occurred_at=now))
     return {"access_token": new_token, "token_type": "bearer", "session_id": session.id}
 
@@ -208,7 +208,7 @@ def close_login_session(db: Session, token: str, client_ip: str | None = None, u
     session.close_reason = event_type
     session.status = "CLOSED"
     actor_login = payload.get("email")
-    actor_dni = payload.get("sub")
+    actor_dni = payload.get("sub") if session.session_kind == TENANT_SESSION_KIND else None
     db.add(AuthAuditDB(id=str(uuid.uuid4()), tenant_id=session.tenant_id, user_tenant_id=session.user_tenant_id, global_user_id=session.global_user_id, session_id=session.id, session_kind=session.session_kind, event_type=event_type, actor_identifier=actor_dni or actor_login, actor_dni=actor_dni, actor_login=actor_login, client_ip=client_ip, user_agent=user_agent, occurred_at=now))
     if session.global_user_id is not None:
         user = db.get(GlobalUserDB, session.global_user_id)
