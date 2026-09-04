@@ -19,7 +19,7 @@ warnings.filterwarnings(
 )
 
 
-for layer_name in ("controllers", "repositories", "routes", "services"):
+for layer_name in ("controllers", "models", "repositories", "routes", "schemas", "services"):
     sys.modules[f"{__name__}.{layer_name}"] = importlib.import_module(
         f"{__name__}.domains.core.{layer_name}"
     )
