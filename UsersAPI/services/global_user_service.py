@@ -154,6 +154,21 @@ def update_global_super(
         user.password_hash = get_password_hash(datos.password)
 
     if datos.is_active is not None:
+        if not datos.is_active and user.is_active:
+            active_supers = (
+                db.query(GlobalUserDB)
+                .filter(
+                    GlobalUserDB.is_superuser.is_(True),
+                    GlobalUserDB.is_active.is_(True),
+                )
+                .count()
+            )
+            if active_supers <= 1:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="No es posible desactivar el último usuario SUPER activo.",
+                )
+
         user.is_active = datos.is_active
         if not datos.is_active:
             user.session_id = None
