@@ -89,8 +89,7 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
-          APP_DATABASE_URL: postgresql+psycopg://users_api_app:ci_users_api_app@localhost:5432/users_api_ci
+          DATABASE_URL: postgresql+psycopg://users_api_app:ci_users_api_app@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://users_api_bootstrap:ci_users_api_bootstrap@localhost:5432/users_api_ci
           DATABASE_ADMIN_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           USERS_API_APP_PASSWORD: ci_users_api_app
