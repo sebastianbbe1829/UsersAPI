@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -23,6 +23,11 @@ class ClientDB(Base):
     identification_number = Column(String(50), nullable=False)
 
     person_type = Column(String(20), nullable=False)
+    first_name = Column(String(100), nullable=True)
+    middle_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+    second_last_name = Column(String(100), nullable=True)
+    business_name = Column(String(250), nullable=True)
     full_name = Column(String(250), nullable=False)
 
     email = Column(String(255), nullable=True)
