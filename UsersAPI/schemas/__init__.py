@@ -1,24 +1,24 @@
-from .user import UserCreate, UserDeleteResponse, UserRead, UserUpdate, UserActivateResponse
-from .tenant import (
-    TenantCreate,
-    TenantDeleteResponse,
-    TenantRead,
-    TenantUpdate,
-    BootstrapTenantRequest,
-    BootstrapTenantResponse,
-)
-from .tenant_config import TenantConfigUpdate, TenantConfigRead
-from .user_tenant import UserTenantCreate, UserTenantRead, UserTenantDeleteResponse
-from .role import RoleCreate, RoleDeleteResponse, RoleRead, RoleUpdate
-from .user_tenant_role import UserTenantRoleCreate, UserTenantRoleRead, UserTenantRoleDeleteResponse
-from .role_permission import RolePermissionCreate, RolePermissionRead, RolePermissionDeleteResponse
 from .auth import (
     LoginRequest,
     LoginResponse,
-    TokenUserResponse,
     TokenTenantResponse,
+    TokenUserResponse,
     TokenValidationResponse,
 )
+from .extinguisher import (
+    ExtinguisherCreate,
+    ExtinguisherDeleteResponse,
+    ExtinguisherRead,
+    ExtinguisherUpdate,
+)
+from .extinguisher_inspection import (
+    ExtinguisherInspectionCreate,
+    ExtinguisherInspectionItemRead,
+    ExtinguisherInspectionRead,
+    ExtinguisherInspectionResultCreate,
+    ExtinguisherInspectionResultRead,
+)
+from .extinguisher_type import ExtinguisherTypeCreate, ExtinguisherTypeRead, ExtinguisherTypeUpdate
 from .global_auth import (
     SuperBootstrapMfaVerifyRequest,
     SuperBootstrapMfaVerifyResponse,
@@ -27,6 +27,7 @@ from .global_auth import (
     SuperLoginRequest,
     SuperLoginResponse,
 )
+from .otp import OTPGenerateRequest, OTPGenerateResponse, OTPValidateRequest, OTPValidateResponse
 from .password_recovery import (
     PasswordRecoveryRequest,
     PasswordRecoveryResponse,
@@ -34,21 +35,28 @@ from .password_recovery import (
     PasswordResetResponse,
 )
 from .permission import PermissionCreate, PermissionRead, PermissionResponse
-from .extinguisher import (
-    ExtinguisherCreate,
-    ExtinguisherDeleteResponse,
-    ExtinguisherRead,
-    ExtinguisherUpdate,
+from .role import RoleCreate, RoleDeleteResponse, RoleRead, RoleUpdate
+from .role_permission import (
+    RolePermissionCreate,
+    RolePermissionDeleteResponse,
+    RolePermissionRead,
 )
-from .extinguisher_type import ExtinguisherTypeCreate, ExtinguisherTypeRead, ExtinguisherTypeUpdate
-from .extinguisher_inspection import (
-    ExtinguisherInspectionCreate,
-    ExtinguisherInspectionItemRead,
-    ExtinguisherInspectionRead,
-    ExtinguisherInspectionResultCreate,
-    ExtinguisherInspectionResultRead,
+from .tenant import (
+    BootstrapTenantRequest,
+    BootstrapTenantResponse,
+    TenantCreate,
+    TenantDeleteResponse,
+    TenantRead,
+    TenantUpdate,
 )
-from .otp import OTPGenerateRequest, OTPGenerateResponse, OTPValidateRequest, OTPValidateResponse
+from .tenant_config import TenantConfigRead, TenantConfigSuperUpdate, TenantConfigUpdate
+from .user import UserActivateResponse, UserCreate, UserDeleteResponse, UserRead, UserUpdate
+from .user_tenant import UserTenantCreate, UserTenantDeleteResponse, UserTenantRead
+from .user_tenant_role import (
+    UserTenantRoleCreate,
+    UserTenantRoleDeleteResponse,
+    UserTenantRoleRead,
+)
 
 __all__ = [
     "PermissionCreate",
@@ -64,6 +72,7 @@ __all__ = [
     "TenantRead",
     "TenantUpdate",
     "TenantConfigUpdate",
+    "TenantConfigSuperUpdate",
     "TenantConfigRead",
     "UserTenantCreate",
     "UserTenantRead",

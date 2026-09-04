@@ -1,11 +1,8 @@
 from sqlalchemy.orm import Session
 
-from ..models import TenantDB, UserTenantDB
+from ..models import GlobalUserDB, TenantDB, UserTenantDB
 from ..schemas import TenantConfigUpdate
-from ..services.tenant_config_service import (
-    read_tenant_config,
-    update_tenant_config,
-)
+from ..services.tenant_config_service import read_tenant_config, update_tenant_config
 
 
 def _to_response(tenant: TenantDB, config):
@@ -17,6 +14,7 @@ def _to_response(tenant: TenantDB, config):
         "logo_url": config.logo_url,
         "primary_color": config.primary_color,
         "secondary_color": config.secondary_color,
+        "max_login_attempts": config.max_login_attempts,
         "updated_at": config.updated_at,
     }
 
@@ -24,7 +22,7 @@ def _to_response(tenant: TenantDB, config):
 def obtener_config_tenant(
     tenant: TenantDB,
     db: Session,
-    current_user: UserTenantDB,
+    current_user: UserTenantDB | GlobalUserDB,
 ):
     config = read_tenant_config(
         tenant_id=tenant.id,
@@ -39,7 +37,7 @@ def actualizar_config_tenant(
     tenant: TenantDB,
     datos: TenantConfigUpdate,
     db: Session,
-    current_user: UserTenantDB,
+    current_user: UserTenantDB | GlobalUserDB,
 ):
     config = update_tenant_config(
         tenant_id=tenant.id,

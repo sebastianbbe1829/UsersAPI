@@ -31,7 +31,11 @@ class AuthSessionDB(Base):
     session_kind = Column(String(20), nullable=False)
     token_hash = Column(String(64), nullable=False, unique=True)
     login_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
-    last_activity_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    last_activity_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
     logout_at = Column(DateTime, nullable=True)
     close_reason = Column(String(30), nullable=True)
     duration_seconds = Column(Integer, nullable=True)
@@ -67,7 +71,10 @@ class AuthAuditDB(Base):
     session_id = Column(String(36), nullable=True)
     session_kind = Column(String(20), nullable=False)
     event_type = Column(String(30), nullable=False)
+    # Legacy/general identifier retained for compatibility; for tenant auth it stores the DNI.
     actor_identifier = Column(String(255), nullable=True)
+    actor_dni = Column(String(100), nullable=True)
+    actor_login = Column(String(255), nullable=True)
     client_ip = Column(String(45), nullable=True)
     user_agent = Column(String(1000), nullable=True)
     occurred_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
