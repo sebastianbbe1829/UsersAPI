@@ -80,12 +80,14 @@ jobs:
             -v ON_ERROR_STOP=1 \
             -f scripts/database/ci/02_apply_permissions.sql
 
-      - name: Seed test permissions
+      - name: Initialize application master data
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/users_api_ci
           BOOTSTRAP_DATABASE_URL: postgresql+psycopg://users_api_bootstrap:ci_users_api_bootstrap@localhost:5432/users_api_ci
           PYTHONPATH: .
-        run: python scripts/seed_permissions.py
+        run: |
+          python scripts/seed_permissions.py
+          python scripts/bootstrap_clients.py
 
       - name: Run tests with coverage
         env:
