@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Identity, Integer, String, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, ForeignKey, Identity, Integer, Numeric, String, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
@@ -65,6 +65,9 @@ class CityDB(Base):
     department_id = Column(Integer, ForeignKey("users_api.departments.id"), nullable=False, index=True)
     code = Column(String(20), nullable=False)
     name = Column(String(100), nullable=False)
+    type = Column(String(50), nullable=False, server_default=text("'Municipio'"))
+    latitude = Column(Numeric(10, 7), nullable=True)
+    longitude = Column(Numeric(10, 7), nullable=True)
     active = Column(Boolean, nullable=False, server_default=text("true"))
 
     department = relationship("DepartmentDB", back_populates="cities")
