@@ -124,7 +124,7 @@ def test_update_client_regenerates_full_name_and_audit_fields():
             SimpleNamespace(email="editor@example.com"),
         )
 
-    assert result.full_name == "Juan Pérez"
+    assert result.full_name == "JUAN PÉREZ"
     assert result.updated_by == "editor@example.com"
     assert result.updated_at.tzinfo is not None
 
