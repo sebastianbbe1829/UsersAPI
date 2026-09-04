@@ -98,6 +98,24 @@ def logout(
 
 
 @auth_routers.post(
+    "/expire",
+    summary="Cerrar una sesión expirada por inactividad",
+)
+def expire(
+    request: Request,
+    token: str = Depends(auth_controller.oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    client_ip = rate_limiter.client_ip(request)
+    return auth_controller.expire_user_session(
+        token,
+        db,
+        client_ip=client_ip,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+
+@auth_routers.post(
     "/refresh",
     summary="Renovar la sesión autenticada",
 )
