@@ -245,13 +245,22 @@ def close_login_session(
     token: str,
     client_ip: str | None = None,
     user_agent: str | None = None,
-    event_type: str = LOGOUT,
+    event_type: str | None = None,
 ) -> AuthSessionDB | None:
     payload = _decode_token(token, verify_exp=False)
     tenant_id = payload.get("tenant_id")
     session_id = payload.get("session_id")
     if tenant_id is None or session_id is None:
         return None
+
+    if event_type is None:
+        exp = payload.get("exp")
+        now_epoch = int(datetime.now(timezone.utc).timestamp())
+        event_type = (
+            SESSION_EXPIRED
+            if exp is not None and int(exp) <= now_epoch
+            else LOGOUT
+        )
 
     if event_type not in {LOGOUT, SESSION_EXPIRED}:
         raise ValueError("Tipo de evento de cierre de sesión no válido")
