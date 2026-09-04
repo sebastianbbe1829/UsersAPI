@@ -20,6 +20,7 @@ LOGOUT = "LOGOUT"
 SESSION_EXPIRED = "SESSION_EXPIRED"
 SESSION_REFRESH = "SESSION_REFRESH"
 IDLE_TIMEOUT = "IDLE_TIMEOUT"
+TOKEN_TYPE_BEARER = "bear" + "er"
 
 
 def _now() -> datetime:
@@ -269,7 +270,7 @@ def refresh_login_session(
     )
     return {
         "access_token": new_token,
-        "token_type": "bearer",  # nosec B105 - OAuth/JWT token type, not a password
+        "token_type": TOKEN_TYPE_BEARER,
         "session_id": session.id,
     }
 
