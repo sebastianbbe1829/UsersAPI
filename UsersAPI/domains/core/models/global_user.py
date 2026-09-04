@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, text
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, String, text
 from sqlalchemy import Identity
 
 from ..database import Base
@@ -8,13 +8,14 @@ class GlobalUserDB(Base):
 
     __tablename__ = "global_users"
 
-    __table_args__ = {
-        "schema": "users_api"
-    }
+    __table_args__ = (
+        Index("uq_global_users_dni", "dni", unique=True),
+        {"schema": "users_api"},
+    )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
 
-    dni = Column(String(20), nullable=True, index=True)
+    dni = Column(String(20), nullable=True)
     name = Column(String(100), nullable=True, index=True)
     phone = Column(String(30), nullable=True)
 
