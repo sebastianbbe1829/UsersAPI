@@ -36,10 +36,12 @@ def test_create_client_sets_audit_and_consent_fields():
     repository.get_by_identification.return_value = None
     repository.add.side_effect = lambda client: client
 
-    with patch.object(client_service, "ClientRepository", return_value=repository), patch.object(
-        client_service, "_validate_identity_data"
-    ):
-        result = client_service.create_client(data, db, 10, SimpleNamespace(email="user@example.com"))
+    with patch.object(
+        client_service, "ClientRepository", return_value=repository
+    ), patch.object(client_service, "_validate_identity_data"):
+        result = client_service.create_client(
+            data, db, 10, SimpleNamespace(email="user@example.com")
+        )
 
     assert result.created_by == "user@example.com"
     assert result.consent_at is not None
@@ -74,9 +76,9 @@ def test_create_client_uses_system_as_audit_actor_when_user_has_no_identity():
     repository.get_by_identification.return_value = None
     repository.add.side_effect = lambda client: client
 
-    with patch.object(client_service, "ClientRepository", return_value=repository), patch.object(
-        client_service, "_validate_identity_data"
-    ):
+    with patch.object(
+        client_service, "ClientRepository", return_value=repository
+    ), patch.object(client_service, "_validate_identity_data"):
         result = client_service.create_client(data, db, 10, SimpleNamespace())
 
     assert result.created_by == "system"
@@ -102,10 +104,22 @@ def test_update_client_regenerates_full_name_and_audit_fields():
     data = MagicMock()
     data.model_dump.return_value = {"first_name": "Juan", "last_name": "Pérez"}
 
-    with patch.object(client_service, "get_client", return_value=target), patch.object(
+    with patch.object(
+        client_service, "get_client", return_value=target
+    ), patch.object(
         client_service, "_validate_identity_data"
-    ), patch.object(client_service.ClientRepository, "update", side_effect=lambda client: client):
-        result = client_service.update_client(client_id, data, db, 10, SimpleNamespace(email="editor@example.com"))
+    ), patch.object(
+        client_service.ClientRepository,
+        "update",
+        side_effect=lambda client: client,
+    ):
+        result = client_service.update_client(
+            client_id,
+            data,
+            db,
+            10,
+            SimpleNamespace(email="editor@example.com"),
+        )
 
     assert result.full_name == "Juan Pérez"
     assert result.updated_by == "editor@example.com"
@@ -131,10 +145,22 @@ def test_update_client_clears_consent_timestamp_when_consent_revoked():
     )
     data = ClientUpdate(consent_given=False)
 
-    with patch.object(client_service, "get_client", return_value=target), patch.object(
+    with patch.object(
+        client_service, "get_client", return_value=target
+    ), patch.object(
         client_service, "_validate_identity_data"
-    ), patch.object(client_service.ClientRepository, "update", side_effect=lambda client: client):
-        result = client_service.update_client(client_id, data, db, 10, SimpleNamespace(email="editor@example.com"))
+    ), patch.object(
+        client_service.ClientRepository,
+        "update",
+        side_effect=lambda client: client,
+    ):
+        result = client_service.update_client(
+            client_id,
+            data,
+            db,
+            10,
+            SimpleNamespace(email="editor@example.com"),
+        )
 
     assert result.consent_given is False
     assert result.consent_at is None
