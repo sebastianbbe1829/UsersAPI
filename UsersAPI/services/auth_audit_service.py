@@ -236,7 +236,7 @@ def refresh_login_session(
 
     return {
         "access_token": new_token,
-        "token_type": "bearer",
+        "token_type": "bearer",  # nosec B105 - OAuth2 token type, not a credential
         "session_id": session.id,
     }
 
