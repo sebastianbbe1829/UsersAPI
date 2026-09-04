@@ -98,8 +98,11 @@ def test_update_client_regenerates_full_name_and_audit_fields():
         last_name="Buitrago",
         second_last_name=None,
         business_name=None,
+        email="old@example.com",
+        address="CRA 1 # 2-3",
         consent_given=True,
         consent_at=None,
+        consent_source="FORMULARIO",
     )
     data = MagicMock()
     data.model_dump.return_value = {"first_name": "Juan", "last_name": "Pérez"}
@@ -140,8 +143,11 @@ def test_update_client_clears_consent_timestamp_when_consent_revoked():
         last_name="Buitrago",
         second_last_name=None,
         business_name=None,
+        email="old@example.com",
+        address="CRA 1 # 2-3",
         consent_given=True,
         consent_at=datetime.now(UTC),
+        consent_source="FORMULARIO",
     )
     data = ClientUpdate(consent_given=False)
 
