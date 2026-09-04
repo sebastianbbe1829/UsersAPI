@@ -15,6 +15,7 @@ TENANT_SESSION_KIND = "TENANT"
 SUPER_SESSION_KIND = "SUPER"
 LOGIN_SUCCESS = "LOGIN_SUCCESS"
 LOGOUT = "LOGOUT"
+SESSION_EXPIRED = "SESSION_EXPIRED"
 SESSION_REFRESH = "SESSION_REFRESH"
 IDLE_TIMEOUT = "IDLE_TIMEOUT"
 
@@ -209,8 +210,6 @@ def refresh_login_session(
     }
     new_token = create_access_token(claims)
 
-    # Los tokens emitidos durante la misma sesión comparten la sesión activa.
-    # Esto evita invalidar peticiones en vuelo durante la renovación.
     session.last_activity_at = now
 
     if client_ip:
@@ -246,12 +245,16 @@ def close_login_session(
     token: str,
     client_ip: str | None = None,
     user_agent: str | None = None,
+    event_type: str = LOGOUT,
 ) -> AuthSessionDB | None:
     payload = _decode_token(token, verify_exp=False)
     tenant_id = payload.get("tenant_id")
     session_id = payload.get("session_id")
     if tenant_id is None or session_id is None:
         return None
+
+    if event_type not in {LOGOUT, SESSION_EXPIRED}:
+        raise ValueError("Tipo de evento de cierre de sesión no válido")
 
     set_rls_tenant(db, int(tenant_id))
     session = (
@@ -281,7 +284,7 @@ def close_login_session(
             global_user_id=session.global_user_id,
             session_id=session.id,
             session_kind=session.session_kind,
-            event_type=LOGOUT,
+            event_type=event_type,
             actor_identifier=payload.get("email") or payload.get("sub"),
             client_ip=client_ip,
             user_agent=user_agent,
