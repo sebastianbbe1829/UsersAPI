@@ -4,6 +4,7 @@ from ..schemas.global_user import GlobalSuperCreate, GlobalSuperUpdate
 from ..services.global_user_service import (
     create_global_super,
     get_global_super,
+    get_global_super_mfa_provisioning,
     list_global_supers,
     update_global_super,
     verify_global_super_mfa,
@@ -19,6 +20,11 @@ def listar_global_supers(db: Session, current_user):
 def obtener_global_super(super_id: int, db: Session, current_user):
     require_super_user(current_user)
     return get_global_super(super_id, db)
+
+
+def obtener_global_super_mfa_provisioning(super_id: int, db: Session, current_user):
+    require_super_user(current_user)
+    return get_global_super_mfa_provisioning(super_id, db)
 
 
 def crear_global_super(
