@@ -45,9 +45,12 @@ def _qr_attachment(provisioning_uri: str) -> dict[str, str]:
 
 
 def _qr_html(provisioning_uri: str) -> str:
-    """Renderiza el QR como tabla HTML para evitar dependencias de CID/imagenes inline."""
+    """Renderiza el QR como tabla HTML con celdas de tamaño fijo para clientes de correo."""
     qr = _build_qr(provisioning_uri)
     matrix = qr.get_matrix()
+    pixel_size = 4
+    size = len(matrix)
+    table_size = size * pixel_size
     rows = []
 
     for row in matrix:
@@ -55,14 +58,21 @@ def _qr_html(provisioning_uri: str) -> str:
         for dark in row:
             background = "#000000" if dark else "#ffffff"
             cells.append(
-                '<td style="width:4px;height:4px;padding:0;margin:0;'
-                f'background-color:{background};"></td>'
+                f'<td width="{pixel_size}" height="{pixel_size}" '
+                'style="width:4px;height:4px;padding:0;margin:0;'
+                'font-size:0;line-height:0;mso-line-height-rule:exactly;'
+                f'background-color:{background};">'
+                f'<div style="width:{pixel_size}px;height:{pixel_size}px;'
+                f'background-color:{background};font-size:0;line-height:0;">'
+                '</div></td>'
             )
         rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return (
-        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
-        'style="border-collapse:collapse;margin:0 auto;background:#ffffff;">'
+        f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        f'width="{table_size}" height="{table_size}" '
+        f'style="border-collapse:collapse;border-spacing:0;margin:0 auto;'
+        f'width:{table_size}px;height:{table_size}px;background:#ffffff;">'
         + "".join(rows)
         + "</table>"
     )
