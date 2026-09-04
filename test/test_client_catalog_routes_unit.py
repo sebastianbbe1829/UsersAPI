@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import MagicMock, patch
 
 from UsersAPI.domains.clients.routes.catalog_routes import catalog_routes
@@ -35,7 +36,9 @@ def test_catalog_routes_are_registered_as_read_only_get_endpoints():
 
 
 def test_all_catalog_routes_require_client_read_permission():
-    assert all(_permission_code(route) == "CLIENT_READ" for route in catalog_routes.routes)
+    assert all(
+        _permission_code(route) == "CLIENT_READ" for route in catalog_routes.routes
+    )
 
 
 def test_identification_types_route_delegates_to_controller():
@@ -47,7 +50,7 @@ def test_identification_types_route_delegates_to_controller():
         "UsersAPI.domains.clients.routes.catalog_routes.listar_tipos_identificacion",
         return_value=expected,
     ) as controller:
-        result = route.endpoint(db)
+        result = asyncio.run(route.endpoint(db))
 
     assert result == expected
     controller.assert_called_once_with(db)
@@ -62,7 +65,7 @@ def test_countries_route_delegates_to_controller():
         "UsersAPI.domains.clients.routes.catalog_routes.listar_paises",
         return_value=expected,
     ) as controller:
-        result = route.endpoint(db)
+        result = asyncio.run(route.endpoint(db))
 
     assert result == expected
     controller.assert_called_once_with(db)
@@ -77,7 +80,7 @@ def test_departments_route_passes_country_filter():
         "UsersAPI.domains.clients.routes.catalog_routes.listar_departamentos",
         return_value=expected,
     ) as controller:
-        result = route.endpoint(5, db)
+        result = asyncio.run(route.endpoint(5, db))
 
     assert result == expected
     controller.assert_called_once_with(db, 5)
@@ -92,7 +95,7 @@ def test_cities_route_passes_department_filter():
         "UsersAPI.domains.clients.routes.catalog_routes.listar_ciudades",
         return_value=expected,
     ) as controller:
-        result = route.endpoint(7, db)
+        result = asyncio.run(route.endpoint(7, db))
 
     assert result == expected
     controller.assert_called_once_with(db, 7)
