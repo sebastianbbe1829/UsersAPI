@@ -106,7 +106,16 @@ def test_bootstrap_success(monkeypatch):
         name="Initial SUPER",
         phone="3000000000",
         email="x@test.com",
+        is_active=True,
+        is_superuser=True,
         mfa_enabled=True,
+        mfa_verified_at=None,
+        last_login_at=None,
+        last_login_ip=None,
+        created_at=None,
+        created_by="super-bootstrap",
+        updated_at=None,
+        updated_by="super-bootstrap",
     )
     monkeypatch.setattr(service, "GlobalUserDB", MagicMock(return_value=user))
     monkeypatch.setattr(service, "get_password_hash", lambda _: "hash")
