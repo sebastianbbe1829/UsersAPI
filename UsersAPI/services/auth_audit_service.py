@@ -32,18 +32,9 @@ def _token_hash(token: str) -> str:
 
 def _decode_token(token: str, verify_exp: bool = True) -> dict:
     try:
-        return jwt.decode(
-            token,
-            settings.secret_key,
-            algorithms=[settings.algorithm],
-            options={"verify_exp": verify_exp},
-        )
+        return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm], options={"verify_exp": verify_exp})
     except JWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido", headers={"WWW-Authenticate": "Bearer"}) from exc
 
 
 def audit_auth_event(
@@ -52,23 +43,22 @@ def audit_auth_event(
     tenant_id: int,
     event_type: str,
     user_tenant: UserTenantDB | None = None,
+    actor_login: str | None = None,
+    actor_dni: str | None = None,
     client_ip: str | None = None,
     user_agent: str | None = None,
     session_id: str | None = None,
 ) -> AuthAuditDB:
-    """Registra eventos de autenticación, incluidos fallos previos al JWT."""
     set_rls_tenant(db, int(tenant_id))
     occurred_at = _now()
-    dni = None
-    login = None
     user_tenant_id = None
     global_user_id = None
 
     if user_tenant is not None:
         user_tenant_id = user_tenant.id
-        login = user_tenant.email
+        actor_login = actor_login or user_tenant.email
         if user_tenant.user is not None:
-            dni = user_tenant.user.dni
+            actor_dni = actor_dni or user_tenant.user.dni
 
     audit = AuthAuditDB(
         id=str(uuid.uuid4()),
@@ -78,9 +68,9 @@ def audit_auth_event(
         session_id=session_id,
         session_kind=TENANT_SESSION_KIND,
         event_type=event_type,
-        actor_identifier=dni or login,
-        actor_dni=dni,
-        actor_login=login,
+        actor_identifier=actor_dni or actor_login,
+        actor_dni=actor_dni,
+        actor_login=actor_login,
         client_ip=client_ip,
         user_agent=user_agent,
         occurred_at=occurred_at,
@@ -90,13 +80,7 @@ def audit_auth_event(
     return audit
 
 
-def create_login_session(
-    db: Session,
-    token: str,
-    payload: dict,
-    client_ip: str | None = None,
-    user_agent: str | None = None,
-) -> AuthSessionDB:
+def create_login_session(db: Session, token: str, payload: dict, client_ip: str | None = None, user_agent: str | None = None) -> AuthSessionDB:
     tenant_id = payload.get("tenant_id")
     if tenant_id is None:
         raise ValueError("El token de autenticación no contiene tenant_id")
@@ -126,56 +110,34 @@ def create_login_session(
     db.add(session)
     db.flush()
 
-    db.add(
-        AuthAuditDB(
-            id=str(uuid.uuid4()),
-            tenant_id=int(tenant_id),
-            user_tenant_id=user_tenant_id,
-            global_user_id=global_user_id,
-            session_id=session_id,
-            session_kind=session_kind,
-            event_type=LOGIN_SUCCESS,
-            actor_identifier=actor_dni or actor_login,
-            actor_dni=actor_dni,
-            actor_login=actor_login,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            occurred_at=occurred_at,
-        )
-    )
+    db.add(AuthAuditDB(
+        id=str(uuid.uuid4()),
+        tenant_id=int(tenant_id),
+        user_tenant_id=user_tenant_id,
+        global_user_id=global_user_id,
+        session_id=session_id,
+        session_kind=session_kind,
+        event_type=LOGIN_SUCCESS,
+        actor_identifier=actor_dni or actor_login,
+        actor_dni=actor_dni,
+        actor_login=actor_login,
+        client_ip=client_ip,
+        user_agent=user_agent,
+        occurred_at=occurred_at,
+    ))
     return session
 
 
-def _get_active_session(
-    db: Session,
-    token: str,
-    payload: dict,
-) -> AuthSessionDB:
+def _get_active_session(db: Session, token: str, payload: dict) -> AuthSessionDB:
     tenant_id = payload.get("tenant_id")
     session_id = payload.get("session_id")
     if tenant_id is None or session_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="La sesión ya no es válida",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="La sesión ya no es válida", headers={"WWW-Authenticate": "Bearer"})
 
     set_rls_tenant(db, int(tenant_id))
-    session = (
-        db.query(AuthSessionDB)
-        .filter(
-            AuthSessionDB.id == session_id,
-            AuthSessionDB.tenant_id == int(tenant_id),
-            AuthSessionDB.status == "ACTIVE",
-        )
-        .first()
-    )
+    session = db.query(AuthSessionDB).filter(AuthSessionDB.id == session_id, AuthSessionDB.tenant_id == int(tenant_id), AuthSessionDB.status == "ACTIVE").first()
     if session is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="La sesión ya no es válida",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="La sesión ya no es válida", headers={"WWW-Authenticate": "Bearer"})
     return session
 
 
@@ -185,25 +147,9 @@ def _close_idle_session(db: Session, session: AuthSessionDB, payload: dict) -> N
     session.duration_seconds = max(0, int((now - session.login_at).total_seconds()))
     session.close_reason = IDLE_TIMEOUT
     session.status = "CLOSED"
-
     actor_login = payload.get("email")
     actor_dni = payload.get("sub")
-    db.add(
-        AuthAuditDB(
-            id=str(uuid.uuid4()),
-            tenant_id=session.tenant_id,
-            user_tenant_id=session.user_tenant_id,
-            global_user_id=session.global_user_id,
-            session_id=session.id,
-            session_kind=session.session_kind,
-            event_type=IDLE_TIMEOUT,
-            actor_identifier=actor_dni or actor_login,
-            actor_dni=actor_dni,
-            actor_login=actor_login,
-            occurred_at=now,
-        )
-    )
-
+    db.add(AuthAuditDB(id=str(uuid.uuid4()), tenant_id=session.tenant_id, user_tenant_id=session.user_tenant_id, global_user_id=session.global_user_id, session_id=session.id, session_kind=session.session_kind, event_type=IDLE_TIMEOUT, actor_identifier=actor_dni or actor_login, actor_dni=actor_dni, actor_login=actor_login, occurred_at=now))
     if session.global_user_id is not None:
         user = db.get(GlobalUserDB, session.global_user_id)
         if user is not None and user.session_id == session.id:
@@ -213,133 +159,57 @@ def _close_idle_session(db: Session, session: AuthSessionDB, payload: dict) -> N
 def touch_active_session(db: Session, token: str, payload: dict) -> AuthSessionDB:
     session = _get_active_session(db, token, payload)
     now = _now()
-    idle_seconds = (now - session.last_activity_at).total_seconds()
-
-    if idle_seconds >= settings.session_idle_timeout_minutes * 60:
+    if (now - session.last_activity_at).total_seconds() >= settings.session_idle_timeout_minutes * 60:
         _close_idle_session(db, session, payload)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="La sesión expiró por inactividad",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="La sesión expiró por inactividad", headers={"WWW-Authenticate": "Bearer"})
     session.last_activity_at = now
     return session
 
 
-def refresh_login_session(
-    db: Session,
-    token: str,
-    client_ip: str | None = None,
-    user_agent: str | None = None,
-) -> dict:
+def refresh_login_session(db: Session, token: str, client_ip: str | None = None, user_agent: str | None = None) -> dict:
     payload = _decode_token(token, verify_exp=False)
     session = _get_active_session(db, token, payload)
     now = _now()
-
     if (now - session.last_activity_at).total_seconds() >= settings.session_idle_timeout_minutes * 60:
         _close_idle_session(db, session, payload)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="La sesión expiró por inactividad",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="La sesión expiró por inactividad", headers={"WWW-Authenticate": "Bearer"})
     claims = {key: value for key, value in payload.items() if key not in {"exp", "iat"}}
     new_token = create_access_token(claims)
     session.last_activity_at = now
-
     if client_ip:
         session.client_ip = client_ip
     if user_agent:
         session.user_agent = user_agent
-
     actor_login = payload.get("email")
     actor_dni = payload.get("sub")
-    db.add(
-        AuthAuditDB(
-            id=str(uuid.uuid4()),
-            tenant_id=session.tenant_id,
-            user_tenant_id=session.user_tenant_id,
-            global_user_id=session.global_user_id,
-            session_id=session.id,
-            session_kind=session.session_kind,
-            event_type=SESSION_REFRESH,
-            actor_identifier=actor_dni or actor_login,
-            actor_dni=actor_dni,
-            actor_login=actor_login,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            occurred_at=now,
-        )
-    )
-
-    return {
-        "access_token": new_token,
-        "token_type": "bearer",  # nosec B105 - OAuth2 token type, not a credential
-        "session_id": session.id,
-    }
+    db.add(AuthAuditDB(id=str(uuid.uuid4()), tenant_id=session.tenant_id, user_tenant_id=session.user_tenant_id, global_user_id=session.global_user_id, session_id=session.id, session_kind=session.session_kind, event_type=SESSION_REFRESH, actor_identifier=actor_dni or actor_login, actor_dni=actor_dni, actor_login=actor_login, client_ip=client_ip, user_agent=user_agent, occurred_at=now))
+    return {"access_token": new_token, "token_type": "bearer", "session_id": session.id}
 
 
-def close_login_session(
-    db: Session,
-    token: str,
-    client_ip: str | None = None,
-    user_agent: str | None = None,
-    event_type: str | None = None,
-) -> AuthSessionDB | None:
+def close_login_session(db: Session, token: str, client_ip: str | None = None, user_agent: str | None = None, event_type: str | None = None) -> AuthSessionDB | None:
     payload = _decode_token(token, verify_exp=False)
     tenant_id = payload.get("tenant_id")
     session_id = payload.get("session_id")
     if tenant_id is None or session_id is None:
         return None
-
     if event_type is None:
         exp = payload.get("exp")
         now_epoch = int(datetime.now(timezone.utc).timestamp())
         event_type = SESSION_EXPIRED if exp is not None and int(exp) <= now_epoch else LOGOUT
-
     if event_type not in {LOGOUT, SESSION_EXPIRED}:
         raise ValueError("Tipo de evento de cierre de sesión no válido")
-
     set_rls_tenant(db, int(tenant_id))
-    session = (
-        db.query(AuthSessionDB)
-        .filter(
-            AuthSessionDB.id == session_id,
-            AuthSessionDB.tenant_id == int(tenant_id),
-        )
-        .first()
-    )
+    session = db.query(AuthSessionDB).filter(AuthSessionDB.id == session_id, AuthSessionDB.tenant_id == int(tenant_id)).first()
     if session is None or session.status != "ACTIVE":
         return session
-
     now = _now()
     session.logout_at = now
     session.duration_seconds = max(0, int((now - session.login_at).total_seconds()))
     session.close_reason = event_type
     session.status = "CLOSED"
-
     actor_login = payload.get("email")
     actor_dni = payload.get("sub")
-    db.add(
-        AuthAuditDB(
-            id=str(uuid.uuid4()),
-            tenant_id=session.tenant_id,
-            user_tenant_id=session.user_tenant_id,
-            global_user_id=session.global_user_id,
-            session_id=session.id,
-            session_kind=session.session_kind,
-            event_type=event_type,
-            actor_identifier=actor_dni or actor_login,
-            actor_dni=actor_dni,
-            actor_login=actor_login,
-            client_ip=client_ip,
-            user_agent=user_agent,
-            occurred_at=now,
-        )
-    )
-
+    db.add(AuthAuditDB(id=str(uuid.uuid4()), tenant_id=session.tenant_id, user_tenant_id=session.user_tenant_id, global_user_id=session.global_user_id, session_id=session.id, session_kind=session.session_kind, event_type=event_type, actor_identifier=actor_dni or actor_login, actor_dni=actor_dni, actor_login=actor_login, client_ip=client_ip, user_agent=user_agent, occurred_at=now))
     if session.global_user_id is not None:
         user = db.get(GlobalUserDB, session.global_user_id)
         if user is not None and user.session_id == session.id:
