@@ -47,7 +47,9 @@ def validar_fila(row: dict[str, str]) -> tuple[str, str, str, str, str]:
         raise ValueError(f"Fila DIVIPOLA incompleta: {row}")
     if not municipality_code.startswith(department_code):
         raise ValueError(
-            f"Código municipio {municipality_code} no corresponde al departamento {department_code}."
+            "Código municipio "
+            f"{municipality_code} no corresponde al departamento "
+            f"{department_code}."
         )
     return department_code, municipality_code, department_name, municipality_name, unit_type
 
