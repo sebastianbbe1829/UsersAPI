@@ -156,52 +156,6 @@ def create_global_super(
     )
 
 
-def verify_global_super_mfa(
-    super_id: int,
-    actor_otp: str,
-    target_otp: str,
-    db: Session,
-    current_user,
-):
-    actor = require_super_user(current_user)
-    verify_super_mfa_otp(actor, actor_otp)
-
-    user = get_global_super(super_id, db)
-    if not user.mfa_enabled or not user.mfa_secret_encrypted:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El usuario SUPER no tiene un enrolamiento MFA válido.",
-        )
-
-    if user.mfa_verified_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El MFA del usuario SUPER ya está verificado.",
-        )
-
-    secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
-    if not pyotp.TOTP(secret).verify(target_otp, valid_window=1):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Código MFA del usuario SUPER inválido.",
-        )
-
-    now = _now()
-    user.mfa_verified_at = now
-    user.updated_at = now
-    user.updated_by = actor.email
-    db.add(user)
-    db.flush()
-
-    logger.info(
-        "MFA de usuario SUPER verificado por SUPER actor=%s target=%s target_id=%s",
-        actor.email,
-        user.email,
-        user.id,
-    )
-    return user
-
-
 def update_global_super(
     super_id: int,
     datos: GlobalSuperUpdate,
