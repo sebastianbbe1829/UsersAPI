@@ -5,6 +5,7 @@ from .auth import (
     TokenUserResponse,
     TokenValidationResponse,
 )
+from .client import ClientCreate, ClientDeleteResponse, ClientRead, ClientUpdate
 from .extinguisher import (
     ExtinguisherCreate,
     ExtinguisherDeleteResponse,
@@ -80,7 +81,7 @@ __all__ = [
     "SuperBootstrapRequest", "SuperBootstrapResponse",
     "SuperBootstrapMfaVerifyRequest", "SuperBootstrapMfaVerifyResponse",
     "SuperLoginRequest", "SuperLoginResponse",
-    "GlobalSuperCreate", "GlobalSuperCreateResponse", "GlobalSuperRead", "GlobalSuperUpdate",
+    "GlobalSuperCreate", "GlobalSuperCreateResponse", "GlobalSuperUpdate",
     "GlobalSuperMfaProvisioningResponse",
     "PasswordRecoveryRequest", "PasswordRecoveryResponse", "PasswordResetRequest",
     "PasswordResetResponse",
@@ -92,4 +93,5 @@ __all__ = [
     "ExtinguisherInspectionRead", "ExtinguisherInspectionResultCreate",
     "ExtinguisherInspectionResultRead",
     "OTPGenerateRequest", "OTPGenerateResponse", "OTPValidateRequest", "OTPValidateResponse",
+    "ClientCreate", "ClientDeleteResponse", "ClientRead", "ClientUpdate",
 ]
