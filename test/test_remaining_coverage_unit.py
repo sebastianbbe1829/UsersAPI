@@ -108,11 +108,17 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
         password="pw",
         super_mode=False,
     )
+    tenant_db = MagicMock()
     tenant_result = auth_controller.login_user(
-        datos, MagicMock(), client_ip="1.2.3.4"
+        datos, tenant_db, client_ip="1.2.3.4"
     )
     assert tenant_result.access_token == "jwt-tenant"
-    tenant_login.assert_called_once_with(datos, tenant_login.call_args.args[1])
+    tenant_login.assert_called_once_with(
+        datos,
+        tenant_db,
+        client_ip="1.2.3.4",
+        user_agent=None,
+    )
 
     super_datos = SimpleNamespace(
         username="super@example.com",
@@ -121,8 +127,9 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
         tenant="acme",
         super_mode=True,
     )
+    super_db = MagicMock()
     super_result = auth_controller.login_user(
-        super_datos, MagicMock(), client_ip="1.2.3.4"
+        super_datos, super_db, client_ip="1.2.3.4"
     )
     assert super_result.access_token == "jwt-super"
     assert super_login.call_count == 1
