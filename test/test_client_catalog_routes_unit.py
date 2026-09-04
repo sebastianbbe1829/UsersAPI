@@ -14,7 +14,7 @@ def _route(path: str, method: str = "GET"):
 
 def _permission_code(route) -> str:
     dependency = route.dependencies[0]
-    checker = dependency.call
+    checker = dependency.dependency
     closure = checker.__closure__ or ()
     return next(
         cell.cell_contents
