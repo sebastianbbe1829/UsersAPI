@@ -1,6 +1,6 @@
-import pyotp
 from datetime import datetime, timezone
 
+import pyotp
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,7 +12,7 @@ from ..schemas.global_user import (
     GlobalSuperCreateResponse,
     GlobalSuperUpdate,
 )
-from .global_auth_service import _encrypt_mfa_secret
+from .global_auth_service import _decrypt_mfa_secret, _encrypt_mfa_secret
 from .password_service import get_password_hash
 from .super_mfa_service import verify_super_mfa_otp
 from .super_tenant_service import require_super_user
@@ -113,6 +113,50 @@ def create_global_super(
         },
         provisioning_uri=provisioning_uri,
     )
+
+
+def verify_global_super_mfa(
+    super_id: int,
+    otp: str,
+    db: Session,
+    current_user,
+):
+    actor = require_super_user(current_user)
+    verify_super_mfa_otp(actor, otp)
+
+    user = get_global_super(super_id, db)
+    if not user.mfa_enabled or not user.mfa_secret_encrypted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario SUPER no tiene un enrolamiento MFA válido.",
+        )
+
+    if user.mfa_verified_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El MFA del usuario SUPER ya está verificado.",
+        )
+
+    secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
+    if not pyotp.TOTP(secret).verify(otp, valid_window=1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Código MFA del usuario SUPER inválido.",
+        )
+
+    user.mfa_verified_at = _now()
+    user.updated_at = _now()
+    user.updated_by = actor.email
+    db.add(user)
+    db.flush()
+
+    logger.info(
+        "MFA de usuario SUPER verificado por SUPER actor=%s target=%s target_id=%s",
+        actor.email,
+        user.email,
+        user.id,
+    )
+    return user
 
 
 def update_global_super(
