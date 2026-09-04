@@ -9,7 +9,7 @@ from jose import jwt
 from sqlalchemy.exc import IntegrityError
 
 from UsersAPI.controllers import global_user_controller
-from UsersAPI.routes import global_user_routes
+import UsersAPI.routes.global_user_routes as global_user_routes
 from UsersAPI.schemas.user import UserUpdate
 from UsersAPI.services import account_lock_notification_service as lock_service
 from UsersAPI.services import auth_audit_service, user_update_service
