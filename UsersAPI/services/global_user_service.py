@@ -22,13 +22,26 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def list_global_supers(db: Session):
-    return (
+def list_global_supers(db: Session, current_user=None):
+    supers = (
         db.query(GlobalUserDB)
         .filter(GlobalUserDB.is_superuser.is_(True))
         .order_by(GlobalUserDB.id)
         .all()
     )
+
+    # La sesión autenticada SUPER es la fuente de identidad del actor.
+    # Si la conexión de consulta global está sujeta a un contexto/RLS
+    # distinto, el actor debe seguir apareciendo en su propia administración.
+    if (
+        isinstance(current_user, GlobalUserDB)
+        and current_user.is_superuser
+        and current_user.is_active
+        and all(user.id != current_user.id for user in supers)
+    ):
+        supers.insert(0, current_user)
+
+    return supers
 
 
 def get_global_super(super_id: int, db: Session):
