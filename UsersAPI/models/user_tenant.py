@@ -2,6 +2,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     text,
@@ -24,10 +25,12 @@ class UserTenantDB(Base):
             "tenant_id",
             name="uq_user_tenants_user_tenant",
         ),
-        UniqueConstraint(
+        Index(
+            "uq_user_tenants_tenant_email_active",
             "tenant_id",
             "email",
-            name="uq_user_tenants_tenant_email",
+            unique=True,
+            postgresql_where=text("status <> 3"),
         ),
         {"schema": "users_api"},
     )
