@@ -78,7 +78,8 @@ def update_user(
             tenant_id=tenant_id,
             event_type=ACCOUNT_UNLOCKED,
             user_tenant_id=link.id,
-            global_user_id=link.user_id,
+            # user_tenant.user_id references app_users, not global_users.
+            global_user_id=None,
             actor_dni=actor,
             actor_login=actor_login,
         )
