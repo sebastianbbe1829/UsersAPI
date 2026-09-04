@@ -11,8 +11,20 @@ def _user(dni="123", name="User", user_id=1):
     return SimpleNamespace(dni=dni, name=name, id=user_id)
 
 
-def _link(email="user@example.com", phone="3001234567", status=1):
-    return SimpleNamespace(email=email, phone=phone, status=status)
+def _link(
+    email="user@example.com",
+    phone="3001234567",
+    status=1,
+    failed_login_attempts=0,
+    locked_at=None,
+):
+    return SimpleNamespace(
+        email=email,
+        phone=phone,
+        status=status,
+        failed_login_attempts=failed_login_attempts,
+        locked_at=locked_at,
+    )
 
 
 def test_list_users_without_status_filter(monkeypatch):
@@ -32,6 +44,8 @@ def test_list_users_without_status_filter(monkeypatch):
         "phone": "3001234567",
         "status": 1,
         "id": 1,
+        "failed_login_attempts": 0,
+        "locked_at": None,
     }]
     repository.get_all_by_tenant.assert_called_once_with(5, None)
 
