@@ -10,13 +10,14 @@ class GlobalUserDB(Base):
 
     __table_args__ = (
         Index("uq_global_users_dni", "dni", unique=True),
+        Index("uq_global_users_email_lower", text("lower(email)"), unique=True),
         {"schema": "users_api"},
     )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
 
     dni = Column(String(20), nullable=True)
-    name = Column(String(100), nullable=True, index=True)
+    name = Column(String(100), nullable=True)
     phone = Column(String(30), nullable=True)
 
     email = Column(String(255), nullable=False, index=True)
