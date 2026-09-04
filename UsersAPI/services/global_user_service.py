@@ -1,6 +1,9 @@
+import base64
+import io
 from datetime import datetime, timezone
 
 import pyotp
+import qrcode
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,6 +15,7 @@ from ..schemas.global_user import (
     GlobalSuperCreateResponse,
     GlobalSuperUpdate,
 )
+from ..util.email_utils import send_email
 from .global_auth_service import _decrypt_mfa_secret, _encrypt_mfa_secret
 from .password_service import get_password_hash
 from .super_mfa_service import verify_super_mfa_otp
@@ -22,6 +26,20 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _qr_attachment(provisioning_uri: str) -> dict[str, str]:
+    qr = qrcode.QRCode(box_size=8, border=4)
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return {
+        "name": "mfa_qr.png",
+        "content": base64.b64encode(buffer.getvalue()).decode("ascii"),
+        "contentId": "super_mfa_qr",
+    }
+
+
 def list_global_supers(db: Session, current_user=None):
     supers = (
         db.query(GlobalUserDB)
@@ -30,9 +48,6 @@ def list_global_supers(db: Session, current_user=None):
         .all()
     )
 
-    # La sesión autenticada SUPER es la fuente de identidad del actor.
-    # Si la conexión de consulta global está sujeta a un contexto/RLS
-    # distinto, el actor debe seguir apareciendo en su propia administración.
     if (
         isinstance(current_user, GlobalUserDB)
         and current_user.is_superuser
@@ -99,6 +114,8 @@ def create_global_super(
     verify_super_mfa_otp(actor, otp)
 
     email = str(datos.email).strip().lower()
+    dni = datos.dni.strip()
+
     existing = db.query(GlobalUserDB).filter(GlobalUserDB.email == email).first()
     if existing is not None:
         raise HTTPException(
@@ -106,9 +123,19 @@ def create_global_super(
             detail="El correo ya está registrado como usuario global.",
         )
 
+    existing_dni = db.query(GlobalUserDB).filter(GlobalUserDB.dni == dni).first()
+    if existing_dni is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El DNI ya está registrado como usuario SUPER.",
+        )
+
     now = _now()
     secret = pyotp.random_base32()
     user = GlobalUserDB(
+        dni=dni,
+        name=datos.name.strip(),
+        phone=datos.phone.strip(),
         email=email,
         password_hash=get_password_hash(datos.password),
         is_active=True,
@@ -132,7 +159,7 @@ def create_global_super(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="El correo ya está registrado como usuario global.",
+            detail="El correo o DNI ya está registrado como usuario SUPER.",
         ) from exc
 
     provisioning_uri = pyotp.TOTP(secret).provisioning_uri(
@@ -140,19 +167,44 @@ def create_global_super(
         issuer_name="UsersAPI",
     )
 
+    email_sent = False
+    if datos.send_email:
+        send_email(
+            recipient=email,
+            subject="Tu cuenta SUPER de UsersAPI",
+            message=(
+                f"Hola {user.name},\n\n"
+                "Tu cuenta de usuario SUPER ha sido creada. "
+                "Adjuntamos el código QR para configurar tu autenticación MFA.\n\n"
+                "1. Escanea el QR con Google Authenticator, Microsoft Authenticator "
+                "o una aplicación compatible.\n"
+                "2. Ingresa con tu correo y contraseña inicial.\n"
+                "3. En tu primer inicio de sesión introduce el código de 6 dígitos "
+                "generado por tu Authenticator.\n\n"
+                "Por seguridad, no compartas el QR ni el código MFA."
+            ),
+            template="super_invitation",
+            tenant_name="UsersAPI",
+            attachments=[_qr_attachment(provisioning_uri)],
+        )
+        email_sent = True
+
     logger.info(
-        "Usuario SUPER creado por SUPER actor=%s target=%s",
+        "Usuario SUPER creado por SUPER actor=%s target=%s dni=%s email_sent=%s",
         actor.email,
         user.email,
+        user.dni,
+        email_sent,
     )
 
     return GlobalSuperCreateResponse(
         **{
             field: getattr(user, field)
             for field in GlobalSuperCreateResponse.model_fields
-            if field != "provisioning_uri"
+            if field not in {"provisioning_uri", "email_sent"}
         },
         provisioning_uri=provisioning_uri,
+        email_sent=email_sent,
     )
 
 
@@ -168,28 +220,22 @@ def update_global_super(
 
     user = get_global_super(super_id, db)
 
-    if datos.email is None and datos.password is None and datos.is_active is None:
+    if (
+        datos.name is None
+        and datos.phone is None
+        and datos.password is None
+        and datos.is_active is None
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Debe indicar al menos un campo para actualizar.",
         )
 
-    if datos.email is not None:
-        email = str(datos.email).strip().lower()
-        existing = (
-            db.query(GlobalUserDB)
-            .filter(
-                GlobalUserDB.email == email,
-                GlobalUserDB.id != user.id,
-            )
-            .first()
-        )
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="El correo ya está registrado como usuario global.",
-            )
-        user.email = email
+    if datos.name is not None:
+        user.name = datos.name.strip()
+
+    if datos.phone is not None:
+        user.phone = datos.phone.strip()
 
     if datos.password is not None:
         user.password_hash = get_password_hash(datos.password)
