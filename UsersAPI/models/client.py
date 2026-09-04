@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.schema import Computed
 
 from ..database import Base
 
@@ -26,7 +27,22 @@ class ClientDB(Base):
     second_last_name = Column(String(50), nullable=True)
     legal_name = Column(String(150), nullable=True)
     trade_name = Column(String(150), nullable=True)
-    full_name = Column(String(150), nullable=True)
+    full_name = Column(
+        String(150),
+        Computed(
+            "CASE "
+            "WHEN client_type = 'COMPANY' THEN "
+            "NULLIF(trim(COALESCE(legal_name, trade_name, '')), '') "
+            "ELSE NULLIF(trim(concat_ws(' ', "
+            "NULLIF(trim(first_name), ''), "
+            "NULLIF(trim(middle_name), ''), "
+            "NULLIF(trim(last_name), ''), "
+            "NULLIF(trim(second_last_name), '')"
+            ")), '') END",
+            persisted=True,
+        ),
+        nullable=True,
+    )
     birth_date = Column(Date, nullable=True)
     phone = Column(String(20), nullable=True)
     email = Column(String(100), nullable=True)
