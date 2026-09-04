@@ -10,7 +10,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from .routes import (
+from .domains.core.routes import (
     auth_routers,
     bootstrap_tenant_routes,
     email_routes,
@@ -33,7 +33,7 @@ from .routes import (
     user_tenant_role_routes,
     user_tenant_routes,
 )
-from .routes.diagnostics_routes import router as diagnostics_router
+from .domains.core.routes.diagnostics_routes import router as diagnostics_router
 from .logging_config import logger
 
 CURRENT_FILE = os.path.abspath(__file__)
