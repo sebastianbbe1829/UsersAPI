@@ -100,7 +100,12 @@ def login_user(
             client_ip=client_ip,
         )
     else:
-        result = login_user_service(datos, db)
+        result = login_user_service(
+            datos,
+            db,
+            client_ip=client_ip,
+            user_agent=user_agent,
+        )
 
     return _audit_login(result, db, client_ip, user_agent)
 
