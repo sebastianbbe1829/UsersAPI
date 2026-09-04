@@ -97,7 +97,7 @@ jobs:
           BOOTSTRAP_TENANT_KEY: test-bootstrap-tenant-key
           SECRET_KEY: ci-secret-key
           SUPER_SECRET_KEY: ci-super-secret-key
-        run: pytest -q --cov=UsersAPI --cov-report=term-missing --cov-fail-under=80
+        run: pytest -q --cov=UsersAPI --cov-report=term-missing --cov-fail-under=90
 
       - name: Run security scan
         run: bandit -r UsersAPI -l
