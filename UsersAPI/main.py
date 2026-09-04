@@ -10,7 +10,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from .domains.clients.routes import client_routes
+from .domains.clients.routes import catalog_routes, client_routes
 from .domains.core.routes import (
     auth_routers,
     bootstrap_tenant_routes,
@@ -122,6 +122,10 @@ app = FastAPI(
             "name": "Clientes",
             "description": "Gestión de clientes por tenant",
         },
+        {
+            "name": "Catálogos de clientes",
+            "description": "Catálogos de solo lectura utilizados por el dominio de clientes",
+        },
     ],
 )
 
@@ -217,6 +221,8 @@ app.include_router(extinguisher_nested_inspection_routes)
 logger.debug("Rutas de inspecciones anidadas de extintores registradas")
 app.include_router(extinguisher_inspection_item_routes)
 logger.debug("Rutas de ítems de inspección de extintores registradas")
+app.include_router(catalog_routes)
+logger.debug("Rutas de catálogos de clientes registradas")
 app.include_router(client_routes)
 logger.debug("Rutas de clientes registradas")
 app.include_router(diagnostics_router)
