@@ -93,12 +93,16 @@ def create_client(
 
     now = datetime.utcnow()
     created_by = getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
+    consent_at = data.consent_at if data.consent_given else None
+    if data.consent_given and consent_at is None:
+        consent_at = now
+
     client = ClientDB(
         tenant_id=tenant_id,
         full_name=full_name,
         created_at=now,
         created_by=created_by,
-        consent_at=data.consent_at if data.consent_given else None,
+        consent_at=consent_at,
         **data.model_dump(exclude={"consent_at"}),
     )
     return repository.add(client)
