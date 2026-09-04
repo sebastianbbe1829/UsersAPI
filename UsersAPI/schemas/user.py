@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -154,7 +156,7 @@ class UserRead(UserBase):
         description="Cantidad de intentos fallidos de autenticación",
     )
 
-    locked_at: object | None = Field(
+    locked_at: datetime | None = Field(
         default=None,
         description="Fecha y hora en que la cuenta fue bloqueada",
     )
