@@ -92,9 +92,28 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
 
-    # SUPER users: the current model permits normal email indexing and keeps
-    # session_id unique through an index. The historical case-insensitive
-    # email uniqueness constraint is no longer represented by the model.
+    # SUPER users: the current model intentionally has non-unique indexes for
+    # DNI and name. Keep the existing email/session semantics aligned with the
+    # model as well.
+    op.execute(
+        "DROP INDEX IF EXISTS users_api.uq_global_users_dni"
+    )
+    op.create_index(
+        "ix_users_api_global_users_dni",
+        "global_users",
+        ["dni"],
+        unique=False,
+        schema=SCHEMA,
+        if_not_exists=True,
+    )
+    op.create_index(
+        "ix_users_api_global_users_name",
+        "global_users",
+        ["name"],
+        unique=False,
+        schema=SCHEMA,
+        if_not_exists=True,
+    )
     op.drop_index(
         "ix_global_users_email",
         table_name="global_users",
@@ -186,6 +205,23 @@ def downgrade() -> None:
         "uq_global_users_email_lower",
         "global_users",
         ["lower(email)"],
+        unique=True,
+        schema=SCHEMA,
+    )
+    op.drop_index(
+        "ix_users_api_global_users_name",
+        table_name="global_users",
+        schema=SCHEMA,
+    )
+    op.drop_index(
+        "ix_users_api_global_users_dni",
+        table_name="global_users",
+        schema=SCHEMA,
+    )
+    op.create_index(
+        "uq_global_users_dni",
+        "global_users",
+        ["dni"],
         unique=True,
         schema=SCHEMA,
     )
