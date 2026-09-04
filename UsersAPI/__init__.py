@@ -24,6 +24,7 @@ for layer_name in ("controllers", "models", "repositories", "routes", "schemas",
         f"{__name__}.domains.core.{layer_name}"
     )
     sys.modules[f"{__name__}.{layer_name}"] = core_module
+    setattr(sys.modules[__name__], layer_name, core_module)
 
     core_prefix = f"{__name__}.domains.core.{layer_name}."
     legacy_prefix = f"{__name__}.{layer_name}."
