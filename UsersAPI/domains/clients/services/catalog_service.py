@@ -57,15 +57,20 @@ def update_identification_type(db: Session, item_id: int, data: IdentificationTy
     item = get_identification_type(db, item_id)
     values = data.model_dump(exclude_unset=True)
 
-    if "code" in values and values["code"] != item.code:
+    protected_fields = {field for field in ("code", "person_type") if field in values and values[field] != getattr(item, field)}
+    if protected_fields:
         referenced = (
             db.query(ClientDB.id)
             .filter(ClientDB.identification_type_id == item.id)
             .first()
         )
         if referenced:
+            if "code" in protected_fields:
+                _conflict(
+                    "No se puede cambiar el código de un tipo de identificación que ya está asociado a clientes."
+                )
             _conflict(
-                "No se puede cambiar el código de un tipo de identificación que ya está asociado a clientes."
+                "No se puede cambiar el tipo de persona de un tipo de identificación que ya está asociado a clientes."
             )
 
     for field, value in values.items():
