@@ -18,6 +18,19 @@ SCHEMA = "users_api"
 
 
 def upgrade() -> None:
+    # SUPER profile fields were added to the SQLAlchemy model after the
+    # original global_users table migration. Keep them nullable for existing
+    # rows and make fresh-database upgrades deterministic.
+    op.execute(
+        """
+        ALTER TABLE users_api.global_users
+        ADD COLUMN IF NOT EXISTS dni varchar(20),
+        ADD COLUMN IF NOT EXISTS name varchar(100),
+        ADD COLUMN IF NOT EXISTS phone varchar(30),
+        ADD COLUMN IF NOT EXISTS mfa_verified_at timestamp
+        """
+    )
+
     # app_users: current model requires a name and keeps a non-unique DNI index.
     op.alter_column(
         "app_users",
@@ -66,8 +79,7 @@ def upgrade() -> None:
         if_not_exists=True,
     )
 
-    # Extinguisher type catalog: unique indexed code. The historical migration
-    # chain may already have materialized this index, so creation is idempotent.
+    # Extinguisher type catalog: unique indexed code.
     op.drop_constraint(
         "uq_extinguisher_types_code",
         "extinguisher_types",
@@ -92,12 +104,9 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
 
-    # SUPER users: the current model intentionally has non-unique indexes for
-    # DNI and name. Keep the existing email/session semantics aligned with the
-    # model as well.
-    op.execute(
-        "DROP INDEX IF EXISTS users_api.uq_global_users_dni"
-    )
+    # SUPER users: DNI and name are normal indexes; email/session semantics
+    # are aligned with the current SQLAlchemy model.
+    op.execute("DROP INDEX IF EXISTS users_api.uq_global_users_dni")
     op.create_index(
         "ix_users_api_global_users_dni",
         "global_users",
@@ -280,4 +289,14 @@ def downgrade() -> None:
         "name",
         nullable=True,
         schema=SCHEMA,
+    )
+
+    op.execute(
+        """
+        ALTER TABLE users_api.global_users
+        DROP COLUMN IF EXISTS mfa_verified_at,
+        DROP COLUMN IF EXISTS phone,
+        DROP COLUMN IF EXISTS name,
+        DROP COLUMN IF EXISTS dni
+        """
     )
