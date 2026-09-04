@@ -57,9 +57,10 @@ def audit_auth_event(
     client_ip: str | None = None,
     user_agent: str | None = None,
     session_id: str | None = None,
+    occurred_at: datetime | None = None,
 ) -> AuthAuditDB:
     set_rls_tenant(db, int(tenant_id))
-    occurred_at = _now()
+    occurred_at = occurred_at or _now()
     user_tenant_id = None
     global_user_id = None
 
@@ -134,6 +135,7 @@ def create_login_session(
         client_ip=client_ip,
         user_agent=user_agent,
         session_id=session_id,
+        occurred_at=occurred_at,
     )
     return session
 
@@ -195,7 +197,7 @@ def _close_idle_session(
         actor_dni=actor_dni,
         session_id=session.id,
         occurred_at=now,
-    ) if False else None
+    )
 
     if session.global_user_id is not None:
         user = db.get(GlobalUserDB, session.global_user_id)
@@ -265,6 +267,7 @@ def refresh_login_session(
         client_ip=client_ip,
         user_agent=user_agent,
         session_id=session.id,
+        occurred_at=now,
     )
     return {
         "access_token": new_token,
@@ -329,6 +332,7 @@ def close_login_session(
         client_ip=client_ip,
         user_agent=user_agent,
         session_id=session.id,
+        occurred_at=now,
     )
     if session.global_user_id is not None:
         user = db.get(GlobalUserDB, session.global_user_id)
