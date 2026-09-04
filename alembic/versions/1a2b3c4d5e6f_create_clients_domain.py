@@ -11,12 +11,10 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-
 revision: str = "1a2b3c4d5e6f"
 down_revision: Union[str, Sequence[str], None] = "f7a9c2e1b304"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
 SCHEMA = "users_api"
 
 
@@ -32,13 +30,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("code", name="uq_identification_types_code"),
         schema=SCHEMA,
     )
-    op.create_index(
-        "ix_users_api_identification_types_code",
-        "identification_types",
-        ["code"],
-        unique=True,
-        schema=SCHEMA,
-    )
+    op.create_index("ix_users_api_identification_types_code", "identification_types", ["code"], unique=True, schema=SCHEMA)
 
     op.create_table(
         "countries",
@@ -116,19 +108,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["department_id"], [f"{SCHEMA}.departments.id"]),
         sa.ForeignKeyConstraint(["city_id"], [f"{SCHEMA}.cities.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "tenant_id",
-            "identification_type_id",
-            "identification_number",
-            name="uq_clients_tenant_identification",
-        ),
+        sa.UniqueConstraint("tenant_id", "identification_type_id", "identification_number", name="uq_clients_tenant_identification"),
         schema=SCHEMA,
     )
-    op.create_index("ix_users_api_clients_tenant_id", "clients", ["tenant_id"], schema=SCHEMA)
-    op.create_index("ix_users_api_clients_identification_type_id", "clients", ["identification_type_id"], schema=SCHEMA)
-    op.create_index("ix_users_api_clients_country_id", "clients", ["country_id"], schema=SCHEMA)
-    op.create_index("ix_users_api_clients_department_id", "clients", ["department_id"], schema=SCHEMA)
-    op.create_index("ix_users_api_clients_city_id", "clients", ["city_id"], schema=SCHEMA)
+    for index_name, columns in (
+        ("ix_users_api_clients_tenant_id", ["tenant_id"]),
+        ("ix_users_api_clients_identification_type_id", ["identification_type_id"]),
+        ("ix_users_api_clients_country_id", ["country_id"]),
+        ("ix_users_api_clients_department_id", ["department_id"]),
+        ("ix_users_api_clients_city_id", ["city_id"]),
+    ):
+        op.create_index(index_name, "clients", columns, schema=SCHEMA)
 
     op.create_table(
         "client_screenings",
@@ -151,75 +141,53 @@ def upgrade() -> None:
     op.create_index("ix_users_api_client_screenings_tenant_id", "client_screenings", ["tenant_id"], schema=SCHEMA)
     op.create_index("ix_users_api_client_screenings_client_id", "client_screenings", ["client_id"], schema=SCHEMA)
 
-    op.execute(
-        """
-        INSERT INTO users_api.identification_types (code, name, person_type)
-        VALUES
-            ('CC', 'Cédula de ciudadanía', 'NATURAL'),
-            ('CE', 'Cédula de extranjería', 'NATURAL'),
-            ('PASSPORT', 'Pasaporte', 'NATURAL'),
-            ('NIT', 'Número de identificación tributaria', 'JURIDICA')
-        """
-    )
-    op.execute(
-        """
-        INSERT INTO users_api.countries (code, name)
-        VALUES ('CO', 'Colombia')
-        """
-    )
+    op.execute("""
+        INSERT INTO users_api.identification_types (code, name, person_type) VALUES
+        ('RC', 'Registro civil', 'NATURAL'),
+        ('TI', 'Tarjeta de identidad', 'NATURAL'),
+        ('CC', 'Cédula de ciudadanía', 'NATURAL'),
+        ('TE', 'Tarjeta de extranjería', 'NATURAL'),
+        ('CE', 'Cédula de extranjería', 'NATURAL'),
+        ('NIT', 'Número de identificación tributaria', 'JURIDICA'),
+        ('PP', 'Pasaporte', 'NATURAL'),
+        ('PEP', 'Permiso especial de permanencia', 'NATURAL'),
+        ('DIE', 'Documento de identificación extranjero', 'NATURAL'),
+        ('NUIP', 'NUIP', 'NATURAL'),
+        ('FOREIGN_NIT', 'NIT de otro país', 'JURIDICA')
+    """)
+    op.execute("INSERT INTO users_api.countries (code, name) VALUES ('CO', 'Colombia')")
 
     for table in ("clients", "client_screenings"):
         op.execute(f"ALTER TABLE {SCHEMA}.{table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {SCHEMA}.{table} FORCE ROW LEVEL SECURITY")
 
-    op.execute(
-        f"""
-        CREATE POLICY clients_isolation
-        ON {SCHEMA}.clients
-        USING (
-            tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer
-        )
-        WITH CHECK (
-            tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer
-        )
-        """
-    )
-    op.execute(
-        f"""
-        CREATE POLICY client_screenings_isolation
-        ON {SCHEMA}.client_screenings
-        USING (
-            tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer
-        )
-        WITH CHECK (
-            tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer
-        )
-        """
-    )
+    op.execute(f"""CREATE POLICY clients_isolation ON {SCHEMA}.clients
+        USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)
+        WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)""")
+    op.execute(f"""CREATE POLICY client_screenings_isolation ON {SCHEMA}.client_screenings
+        USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)
+        WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)""")
 
 
 def downgrade() -> None:
     op.execute("DROP POLICY IF EXISTS client_screenings_isolation ON users_api.client_screenings")
     op.execute("DROP POLICY IF EXISTS clients_isolation ON users_api.clients")
-
-    for table in ("client_screenings", "clients"):
+    for table in ("clients", "client_screenings"):
         op.execute(f"ALTER TABLE users_api.{table} NO FORCE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE users_api.{table} DISABLE ROW LEVEL SECURITY")
-
-    op.drop_index("ix_users_api_client_screenings_client_id", table_name="client_screenings", schema=SCHEMA)
-    op.drop_index("ix_users_api_client_screenings_tenant_id", table_name="client_screenings", schema=SCHEMA)
-    op.drop_table("client_screenings", schema=SCHEMA)
-
     for index_name, table_name in (
-        ("ix_users_api_clients_city_id", "clients"),
-        ("ix_users_api_clients_department_id", "clients"),
-        ("ix_users_api_clients_country_id", "clients"),
-        ("ix_users_api_clients_identification_type_id", "clients"),
-        ("ix_users_api_clients_tenant_id", "clients"),
+        ("ix_users_api_client_screenings_client_id", "client_screenings"),
+        ("ix_users_api_client_screenings_tenant_id", "client_screenings"),
     ):
         op.drop_index(index_name, table_name=table_name, schema=SCHEMA)
+    op.drop_table("client_screenings", schema=SCHEMA)
+    for index_name in (
+        "ix_users_api_clients_city_id", "ix_users_api_clients_department_id",
+        "ix_users_api_clients_country_id", "ix_users_api_clients_identification_type_id",
+        "ix_users_api_clients_tenant_id",
+    ):
+        op.drop_index(index_name, table_name="clients", schema=SCHEMA)
     op.drop_table("clients", schema=SCHEMA)
-
     op.drop_index("ix_users_api_cities_department_id", table_name="cities", schema=SCHEMA)
     op.drop_table("cities", schema=SCHEMA)
     op.drop_index("ix_users_api_departments_country_id", table_name="departments", schema=SCHEMA)
