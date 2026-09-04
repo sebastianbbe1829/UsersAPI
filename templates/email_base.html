@@ -32,13 +32,15 @@
     {% if template == "super_invitation" %}
       <div class="qr-container">
         <p><strong>Configura tu autenticación MFA</strong></p>
-        {{ qr_html | safe }}
+        <p style="font-size:14px;color:#333333;margin-top:15px;">
+          El <strong>QR de la imagen adjunta</strong> contiene la configuración necesaria para activar tu autenticación MFA.
+        </p>
         <p style="font-size:13px;color:#666666;margin-top:15px;">
-          También encontrarás el QR como archivo adjunto por si tu cliente de correo no lo muestra directamente.
+          Descarga la imagen adjunta y escanéala desde Google Authenticator, Microsoft Authenticator o una aplicación compatible.
         </p>
       </div>
       <div class="notice">
-        <strong>Importante:</strong> escanea este QR desde Google Authenticator, Microsoft Authenticator o una aplicación compatible. Después ingresa con tu correo y contraseña inicial. En tu primer inicio de sesión deberás introducir el código de 6 dígitos generado por tu Authenticator.
+        <strong>Importante:</strong> después de configurar el MFA, ingresa con tu correo y contraseña inicial. En tu primer inicio de sesión deberás introducir el código de 6 dígitos generado por tu Authenticator.
       </div>
 
     {% elif template == "activation" %}
