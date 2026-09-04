@@ -30,6 +30,8 @@ from .global_auth import (
 from .global_user import (
     GlobalSuperCreate,
     GlobalSuperCreateResponse,
+    GlobalSuperMfaProvisioningResponse,
+    GlobalSuperMfaVerifyRequest,
     GlobalSuperRead,
     GlobalSuperUpdate,
 )
@@ -80,6 +82,7 @@ __all__ = [
     "SuperBootstrapMfaVerifyRequest", "SuperBootstrapMfaVerifyResponse",
     "SuperLoginRequest", "SuperLoginResponse",
     "GlobalSuperCreate", "GlobalSuperCreateResponse", "GlobalSuperRead", "GlobalSuperUpdate",
+    "GlobalSuperMfaProvisioningResponse", "GlobalSuperMfaVerifyRequest",
     "PasswordRecoveryRequest", "PasswordRecoveryResponse", "PasswordResetRequest",
     "PasswordResetResponse",
     "BootstrapTenantRequest", "BootstrapTenantResponse",
