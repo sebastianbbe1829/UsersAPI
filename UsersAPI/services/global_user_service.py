@@ -61,6 +61,34 @@ def get_global_super(super_id: int, db: Session):
     return user
 
 
+def get_global_super_mfa_provisioning(super_id: int, db: Session):
+    user = get_global_super(super_id, db)
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No es posible visualizar el MFA de un usuario SUPER inactivo.",
+        )
+
+    if not user.mfa_enabled or not user.mfa_secret_encrypted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario SUPER no tiene un enrolamiento MFA válido.",
+        )
+
+    secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
+    provisioning_uri = pyotp.TOTP(secret).provisioning_uri(
+        name=user.email,
+        issuer_name="UsersAPI",
+    )
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "provisioning_uri": provisioning_uri,
+    }
+
+
 def create_global_super(
     datos: GlobalSuperCreate,
     otp: str,
