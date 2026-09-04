@@ -9,17 +9,23 @@ from ..repositories.client_repository import ClientRepository
 from ..schemas.client import ClientCreate, ClientUpdate
 
 
+def _normalizar_nombre(valor: str | None) -> str:
+    if not valor:
+        return ""
+    return " ".join(valor.strip().lower().split()).title()
+
+
 def _full_name(data: ClientCreate | ClientUpdate | ClientDB) -> str:
     if data.person_type == "JURIDICA":
         return (data.business_name or "").strip()
 
     parts = [
-        data.first_name,
-        data.middle_name,
-        data.last_name,
-        data.second_last_name,
+        _normalizar_nombre(data.first_name),
+        _normalizar_nombre(data.middle_name),
+        _normalizar_nombre(data.last_name),
+        _normalizar_nombre(data.second_last_name),
     ]
-    return " ".join(part.strip() for part in parts if part and part.strip())
+    return " ".join(part for part in parts if part)
 
 
 def _validate_identity_data(
@@ -107,7 +113,15 @@ def create_client(
         created_at=now,
         created_by=created_by,
         consent_at=consent_at,
-        **data.model_dump(exclude={"consent_at"}),
+        **data.model_dump(
+            exclude={"consent_at"},
+            update={
+                "first_name": _normalizar_nombre(data.first_name),
+                "middle_name": _normalizar_nombre(data.middle_name),
+                "last_name": _normalizar_nombre(data.last_name),
+                "second_last_name": _normalizar_nombre(data.second_last_name),
+            },
+        ),
     )
     return repository.add(client)
 
@@ -139,6 +153,12 @@ def update_client(
 
     for field, value in changes.items():
         setattr(client, field, value)
+
+    if client.person_type == "NATURAL":
+        client.first_name = _normalizar_nombre(client.first_name)
+        client.middle_name = _normalizar_nombre(client.middle_name)
+        client.last_name = _normalizar_nombre(client.last_name)
+        client.second_last_name = _normalizar_nombre(client.second_last_name)
 
     full_name = _full_name(client)
     _validate_identity_data(
