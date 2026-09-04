@@ -14,6 +14,10 @@ class GlobalSuperUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class GlobalSuperMfaVerifyRequest(BaseModel):
+    otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 class GlobalSuperRead(BaseModel):
     id: int
     email: EmailStr
