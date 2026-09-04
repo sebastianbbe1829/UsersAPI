@@ -1,14 +1,13 @@
 from sqlalchemy.orm import Session
 
-from ..models import GlobalUserDB
 from ..schemas.global_user import GlobalSuperCreate, GlobalSuperUpdate
 from ..services.global_user_service import (
     create_global_super,
     get_global_super,
     list_global_supers,
     update_global_super,
+    verify_global_super_mfa,
 )
-from ..services.super_mfa_service import verify_super_mfa_otp
 from ..services.super_tenant_service import require_super_user
 
 
@@ -31,6 +30,22 @@ def crear_global_super(
     return create_global_super(
         datos=datos,
         otp=otp,
+        db=db,
+        current_user=current_user,
+    )
+
+
+def verificar_global_super_mfa(
+    super_id: int,
+    actor_otp: str,
+    target_otp: str,
+    db: Session,
+    current_user,
+):
+    return verify_global_super_mfa(
+        super_id=super_id,
+        actor_otp=actor_otp,
+        target_otp=target_otp,
         db=db,
         current_user=current_user,
     )
