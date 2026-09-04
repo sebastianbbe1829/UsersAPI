@@ -43,6 +43,14 @@ from .extinguisher_inspection_item_controller import (
 )
 from .user_tenant_controller import listar_tenants_usuario
 from .otp_controller import create_otp, verify_otp, validate_otp_api_key
+from .client_controller import (
+    crear_cliente,
+    listar_clientes,
+    buscar_clientes,
+    obtener_cliente,
+    actualizar_cliente,
+    eliminar_cliente,
+)
 
 __all__ = [
     "listar_permisos",
@@ -81,4 +89,10 @@ __all__ = [
     "create_otp",
     "verify_otp",
     "validate_otp_api_key",
+    "crear_cliente",
+    "listar_clientes",
+    "buscar_clientes",
+    "obtener_cliente",
+    "actualizar_cliente",
+    "eliminar_cliente",
 ]
