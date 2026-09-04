@@ -41,7 +41,7 @@ def upgrade() -> None:
         DROP INDEX IF EXISTS users_api.uq_global_users_dni;
         CREATE INDEX IF NOT EXISTS ix_users_api_global_users_dni
         ON users_api.global_users (dni);
-        CREATE INDEX IF NOT EXISTS ix_users_api.global_users_name
+        CREATE INDEX IF NOT EXISTS ix_users_api_global_users_name
         ON users_api.global_users (name);
         """
     )
