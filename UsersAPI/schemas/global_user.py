@@ -29,3 +29,7 @@ class GlobalSuperRead(BaseModel):
     updated_by: str | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GlobalSuperCreateResponse(GlobalSuperRead):
+    provisioning_uri: str
