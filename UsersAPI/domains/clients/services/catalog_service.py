@@ -31,7 +31,10 @@ def _commit(db: Session):
         _conflict("El registro ya existe o está siendo utilizado por otros registros.")
 
 
-def list_identification_types(db: Session, include_inactive: bool = False) -> list[IdentificationTypeDB]:
+def list_identification_types(
+    db: Session,
+    include_inactive: bool = False,
+) -> list[IdentificationTypeDB]:
     query = db.query(IdentificationTypeDB)
     if not include_inactive:
         query = query.filter(IdentificationTypeDB.active.is_(True))
@@ -45,7 +48,10 @@ def get_identification_type(db: Session, item_id: int) -> IdentificationTypeDB:
     return item
 
 
-def create_identification_type(db: Session, data: IdentificationTypeCreate) -> IdentificationTypeDB:
+def create_identification_type(
+    db: Session,
+    data: IdentificationTypeCreate,
+) -> IdentificationTypeDB:
     item = IdentificationTypeDB(**data.model_dump())
     db.add(item)
     _commit(db)
@@ -53,11 +59,19 @@ def create_identification_type(db: Session, data: IdentificationTypeCreate) -> I
     return item
 
 
-def update_identification_type(db: Session, item_id: int, data: IdentificationTypeUpdate) -> IdentificationTypeDB:
+def update_identification_type(
+    db: Session,
+    item_id: int,
+    data: IdentificationTypeUpdate,
+) -> IdentificationTypeDB:
     item = get_identification_type(db, item_id)
     values = data.model_dump(exclude_unset=True)
 
-    protected_fields = {field for field in ("code", "person_type") if field in values and values[field] != getattr(item, field)}
+    protected_fields = {
+        field
+        for field in ("code", "person_type")
+        if field in values and values[field] != getattr(item, field)
+    }
     if protected_fields:
         referenced = (
             db.query(ClientDB.id)
@@ -67,10 +81,12 @@ def update_identification_type(db: Session, item_id: int, data: IdentificationTy
         if referenced:
             if "code" in protected_fields:
                 _conflict(
-                    "No se puede cambiar el código de un tipo de identificación que ya está asociado a clientes."
+                    "No se puede cambiar el código de un tipo de identificación "
+                    "que ya está asociado a clientes."
                 )
             _conflict(
-                "No se puede cambiar el tipo de persona de un tipo de identificación que ya está asociado a clientes."
+                "No se puede cambiar el tipo de persona de un tipo de identificación "
+                "que ya está asociado a clientes."
             )
 
     for field, value in values.items():
@@ -86,7 +102,10 @@ def delete_identification_type(db: Session, item_id: int) -> None:
     _commit(db)
 
 
-def list_countries(db: Session, include_inactive: bool = False) -> list[CountryDB]:
+def list_countries(
+    db: Session,
+    include_inactive: bool = False,
+) -> list[CountryDB]:
     query = db.query(CountryDB)
     if not include_inactive:
         query = query.filter(CountryDB.active.is_(True))
@@ -108,7 +127,11 @@ def create_country(db: Session, data: CountryCreate) -> CountryDB:
     return item
 
 
-def update_country(db: Session, item_id: int, data: CountryUpdate) -> CountryDB:
+def update_country(
+    db: Session,
+    item_id: int,
+    data: CountryUpdate,
+) -> CountryDB:
     item = get_country(db, item_id)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
@@ -150,7 +173,10 @@ def _require_active_country(db: Session, country_id: int) -> CountryDB:
     return country
 
 
-def create_department(db: Session, data: DepartmentCreate) -> DepartmentDB:
+def create_department(
+    db: Session,
+    data: DepartmentCreate,
+) -> DepartmentDB:
     _require_active_country(db, data.country_id)
     item = DepartmentDB(**data.model_dump())
     db.add(item)
@@ -159,7 +185,11 @@ def create_department(db: Session, data: DepartmentCreate) -> DepartmentDB:
     return item
 
 
-def update_department(db: Session, item_id: int, data: DepartmentUpdate) -> DepartmentDB:
+def update_department(
+    db: Session,
+    item_id: int,
+    data: DepartmentUpdate,
+) -> DepartmentDB:
     item = get_department(db, item_id)
     values = data.model_dump(exclude_unset=True)
     if "country_id" in values:
@@ -215,7 +245,11 @@ def create_city(db: Session, data: CityCreate) -> CityDB:
     return item
 
 
-def update_city(db: Session, item_id: int, data: CityUpdate) -> CityDB:
+def update_city(
+    db: Session,
+    item_id: int,
+    data: CityUpdate,
+) -> CityDB:
     item = get_city(db, item_id)
     values = data.model_dump(exclude_unset=True)
     if "department_id" in values:
