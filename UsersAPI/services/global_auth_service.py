@@ -22,6 +22,7 @@ from ..schemas.global_auth import (
     SuperLoginRequest,
     SuperLoginResponse,
 )
+from ..services.jwt_service import create_access_token
 from ..services.password_service import get_password_hash, verify_password
 from ..settings import settings
 
@@ -78,9 +79,7 @@ def _validate_bootstrap_secret(bootstrap_secret: str) -> None:
 
 
 def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
-    now = datetime.now(timezone.utc)
-    exp = now.timestamp() + settings.access_token_expire_minutes * 60
-
+    """Create a SUPER token using the same JWT lifecycle metadata as tenant tokens."""
     payload = {
         "sub": str(user.id),
         "name": user.email,
@@ -90,15 +89,9 @@ def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
         "session_id": user.session_id,
         "tenant_id": tenant.id,
         "tenant_slug": tenant.slug,
-        "iat": int(now.timestamp()),
-        "exp": int(exp),
     }
 
-    return jwt.encode(
-        payload,
-        settings.secret_key,
-        algorithm=settings.algorithm,
-    )
+    return create_access_token(payload)
 
 
 def bootstrap_super_user(
