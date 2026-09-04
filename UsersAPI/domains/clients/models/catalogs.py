@@ -1,0 +1,65 @@
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.orm import relationship
+
+from UsersAPI.domains.core.database import Base
+
+
+class IdentificationTypeDB(Base):
+    __tablename__ = "identification_types"
+    __table_args__ = {"schema": "users_api"}
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(30), nullable=False, unique=True, index=True)
+    name = Column(String(100), nullable=False)
+    person_type = Column(String(20), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+    clients = relationship("ClientDB", back_populates="identification_type")
+
+
+class CountryDB(Base):
+    __tablename__ = "countries"
+    __table_args__ = {"schema": "users_api"}
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String(2), nullable=False, unique=True, index=True)
+    name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+    departments = relationship("DepartmentDB", back_populates="country")
+    clients = relationship("ClientDB", back_populates="country")
+
+
+class DepartmentDB(Base):
+    __tablename__ = "departments"
+    __table_args__ = (
+        UniqueConstraint("country_id", "code", name="uq_departments_country_code"),
+        {"schema": "users_api"},
+    )
+
+    id = Column(Integer, primary_key=True)
+    country_id = Column(Integer, ForeignKey("users_api.countries.id"), nullable=False, index=True)
+    code = Column(String(20), nullable=False)
+    name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+    country = relationship("CountryDB", back_populates="departments")
+    cities = relationship("CityDB", back_populates="department")
+    clients = relationship("ClientDB", back_populates="department")
+
+
+class CityDB(Base):
+    __tablename__ = "cities"
+    __table_args__ = (
+        UniqueConstraint("department_id", "code", name="uq_cities_department_code"),
+        {"schema": "users_api"},
+    )
+
+    id = Column(Integer, primary_key=True)
+    department_id = Column(Integer, ForeignKey("users_api.departments.id"), nullable=False, index=True)
+    code = Column(String(20), nullable=False)
+    name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+    department = relationship("DepartmentDB", back_populates="cities")
+    clients = relationship("ClientDB", back_populates="city")
