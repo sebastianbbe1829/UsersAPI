@@ -32,6 +32,25 @@ def upgrade() -> None:
     op.create_index("ix_users_api_countries_alpha3_code", "countries", ["alpha3_code"], unique=True, schema=SCHEMA)
     op.create_index("ix_users_api_countries_numeric_code", "countries", ["numeric_code"], unique=True, schema=SCHEMA)
 
+    op.execute(
+        """
+        UPDATE users_api.countries
+        SET
+            code = 'CO',
+            name = 'COLOMBIA',
+            short_name_lower = 'Colombia',
+            full_name = 'the Republic of Colombia',
+            alpha3_code = 'COL',
+            numeric_code = 170,
+            remarks = NULL,
+            independent = TRUE,
+            territory_name = 'Malpelo Island, San Andrés y Providencia Islands',
+            status = 'Officially assigned',
+            active = TRUE
+        WHERE code = 'CO'
+        """
+    )
+
 
 def downgrade() -> None:
     op.drop_index("ix_users_api_countries_numeric_code", table_name="countries", schema=SCHEMA)
