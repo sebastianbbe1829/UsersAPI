@@ -12,8 +12,8 @@ from ..services.super_tenant_service import require_super_user
 
 
 def listar_global_supers(db: Session, current_user):
-    require_super_user(current_user)
-    return list_global_supers(db)
+    actor = require_super_user(current_user)
+    return list_global_supers(db, current_user=actor)
 
 
 def obtener_global_super(super_id: int, db: Session, current_user):
