@@ -10,7 +10,6 @@ class GlobalUserDB(Base):
 
     __table_args__ = (
         Index("uq_global_users_dni", "dni", unique=True),
-        Index("uq_global_users_email_lower", text("lower(email)"), unique=True),
         {"schema": "users_api"},
     )
 
