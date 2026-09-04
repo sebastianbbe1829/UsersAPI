@@ -52,6 +52,8 @@ def audit_auth_event(
     tenant_id: int,
     event_type: str,
     user_tenant: UserTenantDB | None = None,
+    user_tenant_id: int | None = None,
+    global_user_id: int | None = None,
     actor_login: str | None = None,
     actor_dni: str | None = None,
     client_ip: str | None = None,
@@ -59,11 +61,7 @@ def audit_auth_event(
     session_id: str | None = None,
     occurred_at: datetime | None = None,
 ) -> AuthAuditDB:
-    set_rls_tenant(db, int(tenant_id))
     occurred_at = occurred_at or _now()
-    user_tenant_id = None
-    global_user_id = None
-
     if user_tenant is not None:
         user_tenant_id = user_tenant.id
         actor_login = actor_login or user_tenant.email
@@ -130,6 +128,8 @@ def create_login_session(
         db,
         tenant_id=int(tenant_id),
         event_type=LOGIN_SUCCESS,
+        user_tenant_id=user_tenant_id,
+        global_user_id=global_user_id,
         actor_login=actor_login,
         actor_dni=actor_dni,
         client_ip=client_ip,
@@ -264,8 +264,6 @@ def refresh_login_session(
         event_type=SESSION_REFRESH,
         actor_login=actor_login,
         actor_dni=actor_dni,
-        client_ip=client_ip,
-        user_agent=user_agent,
         session_id=session.id,
         occurred_at=now,
     )
