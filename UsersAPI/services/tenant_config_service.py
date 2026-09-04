@@ -46,14 +46,28 @@ def get_or_create_tenant_config(
         config = repo.get_by_tenant_id(tenant_id)
         if config is not None:
             return config
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No fue posible crear la configuración del tenant") from None
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No fue posible crear la configuración del tenant",
+        ) from None
 
 
-def read_tenant_config(tenant_id: int, tenant_name: str, db: Session, current_user: UserTenantDB | GlobalUserDB):
+def read_tenant_config(
+    tenant_id: int,
+    tenant_name: str,
+    db: Session,
+    current_user: UserTenantDB | GlobalUserDB,
+):
     return get_or_create_tenant_config(tenant_id, tenant_name, db, current_user)
 
 
-def update_tenant_config(tenant_id: int, tenant_name: str, datos: TenantConfigUpdate, db: Session, current_user: UserTenantDB | GlobalUserDB):
+def update_tenant_config(
+    tenant_id: int,
+    tenant_name: str,
+    datos: TenantConfigUpdate,
+    db: Session,
+    current_user: UserTenantDB | GlobalUserDB,
+):
     config = get_or_create_tenant_config(tenant_id, tenant_name, db, current_user)
     values = datos.model_dump(exclude_unset=True)
     for field, value in values.items():
