@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -91,7 +91,7 @@ def create_client(
             detail="Client identification already exists in this tenant",
         )
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     created_by = getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     consent_at = data.consent_at if data.consent_given else None
     if data.consent_given and consent_at is None:
@@ -157,7 +157,7 @@ def update_client(
             )
 
     client.full_name = full_name
-    client.updated_at = datetime.utcnow()
+    client.updated_at = datetime.now(UTC)
     client.updated_by = (
         getattr(current_user, "email", None)
         or getattr(current_user, "username", None)
