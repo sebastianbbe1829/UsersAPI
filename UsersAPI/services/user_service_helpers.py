@@ -33,6 +33,8 @@ def _user_payload(
         "phone": link.phone,
         "status": link.status,
         "id": user.id,
+        "failed_login_attempts": link.failed_login_attempts or 0,
+        "locked_at": link.locked_at,
     }
 
     if message is not None:
