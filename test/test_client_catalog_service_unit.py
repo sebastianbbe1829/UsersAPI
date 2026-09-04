@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import HTTPException
@@ -32,7 +32,14 @@ def _query_mock(result):
 
 def test_list_identification_types_returns_only_active_catalog_rows():
     db = MagicMock()
-    rows = [IdentificationTypeDB(id=1, code="CC", name="Cédula de ciudadanía", person_type="NATURAL")]
+    rows = [
+        IdentificationTypeDB(
+            id=1,
+            code="CC",
+            name="Cédula de ciudadanía",
+            person_type="NATURAL",
+        )
+    ]
     db.query.return_value = _query_mock(rows)
 
     result = list_identification_types(db)
@@ -104,7 +111,9 @@ def test_list_cities_filters_by_department():
 
 def test_update_identification_type_allows_code_change_when_not_referenced():
     db = MagicMock()
-    item = IdentificationTypeDB(id=1, code="OLD", name="Antiguo", person_type="NATURAL")
+    item = IdentificationTypeDB(
+        id=1, code="OLD", name="Antiguo", person_type="NATURAL"
+    )
     db.get.return_value = item
     query = _query_mock(None)
     db.query.return_value = query
@@ -121,7 +130,9 @@ def test_update_identification_type_allows_code_change_when_not_referenced():
 
 def test_update_identification_type_rejects_code_change_when_referenced_by_client():
     db = MagicMock()
-    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL")
+    item = IdentificationTypeDB(
+        id=1, code="CC", name="Cédula", person_type="NATURAL"
+    )
     db.get.return_value = item
     db.query.return_value = _query_mock((1,))
 
@@ -139,7 +150,9 @@ def test_update_identification_type_rejects_code_change_when_referenced_by_clien
 
 def test_update_identification_type_does_not_query_clients_when_code_is_unchanged():
     db = MagicMock()
-    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL")
+    item = IdentificationTypeDB(
+        id=1, code="CC", name="Cédula", person_type="NATURAL"
+    )
     db.get.return_value = item
 
     result = update_identification_type(
@@ -155,7 +168,13 @@ def test_update_identification_type_does_not_query_clients_when_code_is_unchange
 
 def test_delete_identification_type_soft_deletes_catalog_row():
     db = MagicMock()
-    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL", active=True)
+    item = IdentificationTypeDB(
+        id=1,
+        code="CC",
+        name="Cédula",
+        person_type="NATURAL",
+        active=True,
+    )
     db.get.return_value = item
 
     delete_identification_type(db, 1)
@@ -166,12 +185,18 @@ def test_delete_identification_type_soft_deletes_catalog_row():
 
 def test_update_identification_type_uses_client_fk_reference_check():
     db = MagicMock()
-    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL")
+    item = IdentificationTypeDB(
+        id=1, code="CC", name="Cédula", person_type="NATURAL"
+    )
     db.get.return_value = item
     query = _query_mock(None)
     db.query.return_value = query
 
-    update_identification_type(db, 1, IdentificationTypeUpdate(name="Cédula de ciudadanía"))
+    update_identification_type(
+        db,
+        1,
+        IdentificationTypeUpdate(name="Cédula de ciudadanía"),
+    )
 
     db.query.assert_not_called()
     assert ClientDB.identification_type_id is not None
