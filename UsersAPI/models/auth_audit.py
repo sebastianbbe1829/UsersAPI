@@ -13,13 +13,29 @@ class AuthSessionDB(Base):
         {"schema": "users_api"},
     )
     id = Column(String(36), primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id", ondelete="CASCADE"), nullable=False)
-    user_tenant_id = Column(Integer, ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"), nullable=True)
-    global_user_id = Column(Integer, ForeignKey("users_api.global_users.id", ondelete="SET NULL"), nullable=True)
+    tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    global_user_id = Column(
+        Integer,
+        ForeignKey("users_api.global_users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     session_kind = Column(String(20), nullable=False)
     token_hash = Column(String(64), nullable=False, unique=True)
     login_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
-    last_activity_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    last_activity_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
     logout_at = Column(DateTime, nullable=True)
     close_reason = Column(String(30), nullable=True)
     duration_seconds = Column(Integer, nullable=True)
@@ -37,9 +53,21 @@ class AuthAuditDB(Base):
         {"schema": "users_api"},
     )
     id = Column(String(36), primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id", ondelete="CASCADE"), nullable=False)
-    user_tenant_id = Column(Integer, ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"), nullable=True)
-    global_user_id = Column(Integer, ForeignKey("users_api.global_users.id", ondelete="SET NULL"), nullable=True)
+    tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    global_user_id = Column(
+        Integer,
+        ForeignKey("users_api.global_users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     session_id = Column(String(36), nullable=True)
     session_kind = Column(String(20), nullable=False)
     event_type = Column(String(30), nullable=False)
