@@ -13,21 +13,9 @@ class AuthSessionDB(Base):
         {"schema": "users_api"},
     )
     id = Column(String(36), primary_key=True)
-    tenant_id = Column(
-        Integer,
-        ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    user_tenant_id = Column(
-        Integer,
-        ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    global_user_id = Column(
-        Integer,
-        ForeignKey("users_api.global_users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id", ondelete="CASCADE"), nullable=False)
+    user_tenant_id = Column(Integer, ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"), nullable=True)
+    global_user_id = Column(Integer, ForeignKey("users_api.global_users.id", ondelete="SET NULL"), nullable=True)
     session_kind = Column(String(20), nullable=False)
     token_hash = Column(String(64), nullable=False, unique=True)
     login_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
@@ -49,25 +37,16 @@ class AuthAuditDB(Base):
         {"schema": "users_api"},
     )
     id = Column(String(36), primary_key=True)
-    tenant_id = Column(
-        Integer,
-        ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    user_tenant_id = Column(
-        Integer,
-        ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    global_user_id = Column(
-        Integer,
-        ForeignKey("users_api.global_users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id", ondelete="CASCADE"), nullable=False)
+    user_tenant_id = Column(Integer, ForeignKey("users_api.user_tenants.id", ondelete="SET NULL"), nullable=True)
+    global_user_id = Column(Integer, ForeignKey("users_api.global_users.id", ondelete="SET NULL"), nullable=True)
     session_id = Column(String(36), nullable=True)
     session_kind = Column(String(20), nullable=False)
     event_type = Column(String(30), nullable=False)
+    # Legacy/general identifier retained for compatibility; for tenant auth it stores the DNI.
     actor_identifier = Column(String(255), nullable=True)
+    actor_dni = Column(String(100), nullable=True)
+    actor_login = Column(String(255), nullable=True)
     client_ip = Column(String(45), nullable=True)
     user_agent = Column(String(1000), nullable=True)
     occurred_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
