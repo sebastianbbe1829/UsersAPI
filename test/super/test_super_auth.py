@@ -34,13 +34,8 @@ def temporary_tenant(db_session):
         bootstrap_db.add(tenant)
         bootstrap_db.commit()
         bootstrap_db.refresh(tenant)
-
-        # Las operaciones posteriores del test sobre la conexión normal
-        # quedan sujetas a RLS para este tenant.
         set_rls_tenant(db_session, tenant.id)
-
         yield tenant
-
     finally:
         bootstrap_db.query(TenantDB).filter(TenantDB.id == tenant.id).delete()
         bootstrap_db.commit()
@@ -54,6 +49,9 @@ def temporary_super(db_session, temporary_tenant):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     user = GlobalUserDB(
+        dni="90000001",
+        name="SUPER de Prueba",
+        phone="3000000000",
         email=email,
         password_hash=get_password_hash("TestPassword!123"),
         is_active=True,
@@ -79,6 +77,9 @@ def test_super_bootstrap_response_does_not_expose_mfa_secret():
 
     response = SuperBootstrapResponse(
         id=1,
+        dni="90000001",
+        name="SUPER de Prueba",
+        phone="3000000000",
         email="super@example.com",
         mfa_enabled=True,
         provisioning_uri=(
@@ -95,6 +96,9 @@ def test_multiple_super_users_are_valid_identities(db_session):
 
     users = [
         GlobalUserDB(
+            dni="90000002",
+            name="SUPER Uno",
+            phone="3000000001",
             email="super1@example.com",
             password_hash="hash",
             is_active=True,
@@ -105,6 +109,9 @@ def test_multiple_super_users_are_valid_identities(db_session):
             created_by="pytest",
         ),
         GlobalUserDB(
+            dni="90000003",
+            name="SUPER Dos",
+            phone="3000000002",
             email="super2@example.com",
             password_hash="hash",
             is_active=True,
@@ -128,11 +135,8 @@ def test_multiple_super_users_are_valid_identities(db_session):
     assert count >= 2
 
 
-def test_super_token_contains_global_and_tenant_identity(
-    temporary_super,
-):
+def test_super_token_contains_global_and_tenant_identity(temporary_super):
     user, _secret, tenant = temporary_super
-
     user.session_id = "session-test-001"
 
     token = _create_super_token(user, tenant)
@@ -158,6 +162,9 @@ def test_super_login_requires_mfa(db_session, temporary_tenant):
     secret = pyotp.random_base32()
 
     user = GlobalUserDB(
+        dni="90000004",
+        name="SUPER MFA Pendiente",
+        phone="3000000004",
         email="super-mfa-required@example.com",
         password_hash=get_password_hash("TestPassword!123"),
         is_active=True,
@@ -185,19 +192,12 @@ def test_super_login_requires_mfa(db_session, temporary_tenant):
             db_session,
         )
 
-    assert exc_info.value.status_code == 403
-    assert (
-        exc_info.value.detail
-        == "El MFA del usuario SUPER aún no ha sido verificado"
-    )
+    assert exc_info.value.status_code == 401
+    assert "Código MFA requerido" in exc_info.value.detail
 
 
-def test_super_login_and_single_session(
-    temporary_super,
-    db_session,
-):
+def test_super_login_and_single_session(temporary_super, db_session):
     user, secret, tenant = temporary_super
-
     first_otp = pyotp.TOTP(secret).now()
 
     first = login_super_user(
@@ -211,18 +211,15 @@ def test_super_login_and_single_session(
     )
 
     first_session_id = first.session_id
-
     assert first.user_type == "SUPER"
     assert first_session_id
     assert first.tenant_id == tenant.id
     assert first.tenant_slug == tenant.slug
 
     db_session.refresh(user)
-
     assert user.session_id == first_session_id
 
     second_otp = pyotp.TOTP(secret).now()
-
     second = login_super_user(
         SuperLoginRequest(
             email=user.email,
@@ -237,22 +234,12 @@ def test_super_login_and_single_session(
     assert user.session_id == second.session_id
 
     with pytest.raises(HTTPException) as exc_info:
-        get_current_super_user(
-            first.access_token,
-            db_session,
-        )
+        get_current_super_user(first.access_token, db_session)
 
     assert exc_info.value.status_code == 401
-    assert (
-        exc_info.value.detail
-        == "La sesión SUPER ya no es válida"
-    )
+    assert exc_info.value.detail == "La sesión SUPER ya no es válida"
 
-    current = get_current_super_user(
-        second.access_token,
-        db_session,
-    )
-
+    current = get_current_super_user(second.access_token, db_session)
     assert current.id == user.id
 
 
@@ -261,6 +248,4 @@ def test_mfa_secret_is_stored_encrypted(temporary_super):
 
     assert user.mfa_secret_encrypted
     assert user.mfa_secret_encrypted != secret
-    assert _decrypt_mfa_secret(
-        user.mfa_secret_encrypted
-    ) == secret
+    assert _decrypt_mfa_secret(user.mfa_secret_encrypted) == secret

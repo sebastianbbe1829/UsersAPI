@@ -33,14 +33,18 @@ def send_email(
     template: str = "default",
     otp_code: str | None = None,
     otp_expire_minutes: int | None = None,
+    qr_html: str | None = None,
     attachments: list[dict[str, str]] | None = None,
 ):
-    """Envía un correo transaccional utilizando Brevo.
-
-    attachments acepta elementos con ``name`` y ``content`` (contenido en base64),
-    en el formato esperado por la API de Brevo.
-    """
-    allowed_templates = {"activation", "reactivation", "updated", "otp", "default"}
+    """Envía un correo transaccional utilizando Brevo."""
+    allowed_templates = {
+        "activation",
+        "reactivation",
+        "updated",
+        "otp",
+        "super_invitation",
+        "default",
+    }
     if template not in allowed_templates:
         allowed_values = ", ".join(sorted(allowed_templates))
         raise ValueError(
@@ -62,7 +66,7 @@ def send_email(
     logo_url = f"{backend_url}/static/logo.png"
     tenant_display_name = (
         tenant_name.strip() if tenant_name and tenant_name.strip() else tenant_slug
-    )
+    ) or "UsersAPI"
 
     if "UsersAPI" in subject:
         if template == "activation":
@@ -119,6 +123,7 @@ def send_email(
                 if otp_expire_minutes is not None
                 else settings.otp_expire_minutes
             ),
+            qr_html=qr_html,
         )
     except Exception:
         logger.exception("Error loading or rendering HTML email template")

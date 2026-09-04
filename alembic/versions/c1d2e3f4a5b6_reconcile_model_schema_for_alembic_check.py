@@ -18,6 +18,19 @@ SCHEMA = "users_api"
 
 
 def upgrade() -> None:
+    # SUPER profile fields were added to the SQLAlchemy model after the
+    # original global_users table migration. Keep them nullable for existing
+    # rows and make fresh-database upgrades deterministic.
+    op.execute(
+        """
+        ALTER TABLE users_api.global_users
+        ADD COLUMN IF NOT EXISTS dni varchar(20),
+        ADD COLUMN IF NOT EXISTS name varchar(100),
+        ADD COLUMN IF NOT EXISTS phone varchar(30),
+        ADD COLUMN IF NOT EXISTS mfa_verified_at timestamp
+        """
+    )
+
     # app_users: current model requires a name and keeps a non-unique DNI index.
     op.alter_column(
         "app_users",
@@ -66,8 +79,7 @@ def upgrade() -> None:
         if_not_exists=True,
     )
 
-    # Extinguisher type catalog: unique indexed code. The historical migration
-    # chain may already have materialized this index, so creation is idempotent.
+    # Extinguisher type catalog: unique indexed code.
     op.drop_constraint(
         "uq_extinguisher_types_code",
         "extinguisher_types",
@@ -92,9 +104,25 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
 
-    # SUPER users: the current model permits normal email indexing and keeps
-    # session_id unique through an index. The historical case-insensitive
-    # email uniqueness constraint is no longer represented by the model.
+    # SUPER users: DNI and name are normal indexes; email/session semantics
+    # are aligned with the current SQLAlchemy model.
+    op.execute("DROP INDEX IF EXISTS users_api.uq_global_users_dni")
+    op.create_index(
+        "ix_users_api_global_users_dni",
+        "global_users",
+        ["dni"],
+        unique=False,
+        schema=SCHEMA,
+        if_not_exists=True,
+    )
+    op.create_index(
+        "ix_users_api_global_users_name",
+        "global_users",
+        ["name"],
+        unique=False,
+        schema=SCHEMA,
+        if_not_exists=True,
+    )
     op.drop_index(
         "ix_global_users_email",
         table_name="global_users",
@@ -189,6 +217,23 @@ def downgrade() -> None:
         unique=True,
         schema=SCHEMA,
     )
+    op.drop_index(
+        "ix_users_api_global_users_name",
+        table_name="global_users",
+        schema=SCHEMA,
+    )
+    op.drop_index(
+        "ix_users_api_global_users_dni",
+        table_name="global_users",
+        schema=SCHEMA,
+    )
+    op.create_index(
+        "uq_global_users_dni",
+        "global_users",
+        ["dni"],
+        unique=True,
+        schema=SCHEMA,
+    )
 
     op.create_unique_constraint(
         "uq_extinguishers_tenant_code",
@@ -244,4 +289,14 @@ def downgrade() -> None:
         "name",
         nullable=True,
         schema=SCHEMA,
+    )
+
+    op.execute(
+        """
+        ALTER TABLE users_api.global_users
+        DROP COLUMN IF EXISTS mfa_verified_at,
+        DROP COLUMN IF EXISTS phone,
+        DROP COLUMN IF EXISTS name,
+        DROP COLUMN IF EXISTS dni
+        """
     )
