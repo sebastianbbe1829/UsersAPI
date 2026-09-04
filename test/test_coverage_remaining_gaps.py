@@ -2,6 +2,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import importlib
 import pytest
 import requests
 from fastapi import HTTPException
@@ -9,7 +10,7 @@ from jose import jwt
 from sqlalchemy.exc import IntegrityError
 
 from UsersAPI.controllers import global_user_controller
-import UsersAPI.routes.global_user_routes as global_user_routes
+global_user_routes = importlib.import_module("UsersAPI.routes.global_user_routes")
 from UsersAPI.schemas.user import UserUpdate
 from UsersAPI.services import account_lock_notification_service as lock_service
 from UsersAPI.services import auth_audit_service, user_update_service
