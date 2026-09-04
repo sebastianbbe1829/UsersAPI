@@ -45,11 +45,12 @@ def _qr_attachment(provisioning_uri: str) -> dict[str, str]:
 
 
 def _qr_html(provisioning_uri: str) -> str:
-    """Renderiza el QR como una tabla compacta y compatible con clientes de correo."""
+    """Renderiza el QR como una tabla compacta preservando exactamente su matriz."""
     qr = _build_qr(provisioning_uri)
     matrix = qr.get_matrix()
     pixel_size = 4
-    table_size = len(matrix) * pixel_size
+    module_count = len(matrix)
+    table_size = module_count * pixel_size
     rows = []
 
     for row in matrix:
@@ -57,27 +58,34 @@ def _qr_html(provisioning_uri: str) -> str:
         start = 0
         current = row[0]
 
-        for index in range(1, len(row) + 1):
-            if index == len(row) or row[index] != current:
-                run_width = (index - start) * pixel_size
+        for index in range(1, module_count + 1):
+            if index == module_count or row[index] != current:
+                run_modules = index - start
+                run_width = run_modules * pixel_size
                 background = "#000000" if current else "#ffffff"
                 runs.append(
-                    f'<td colspan="{index - start}" width="{run_width}" height="{pixel_size}" '
-                    f'bgcolor="{background}" '
-                    'style="padding:0;margin:0;font-size:0;line-height:4px;'
-                    f'width:{run_width}px;height:{pixel_size}px;background-color:{background};">&nbsp;</td>'
+                    f'<td colspan="{run_modules}" width="{run_width}" height="{pixel_size}" '
+                    f'bgcolor="{background}" style="width:{run_width}px;height:{pixel_size}px;'
+                    'padding:0;margin:0;border:0;font-size:0;line-height:0;'
+                    'mso-line-height-rule:exactly;">'
+                    f'<div style="width:{run_width}px;height:{pixel_size}px;'
+                    f'background-color:{background};font-size:0;line-height:0;">&nbsp;</div>'
+                    "</td>"
                 )
-                if index < len(row):
+                if index < module_count:
                     start = index
                     current = row[index]
 
-        rows.append("<tr>" + "".join(runs) + "</tr>")
+        rows.append("<tr style=\"height:4px;\">" + "".join(runs) + "</tr>")
+
+    colgroup = "<colgroup>" + (f'<col width="{pixel_size}">' * module_count) + "</colgroup>"
 
     return (
         f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
         f'width="{table_size}" height="{table_size}" '
-        f'style="border-collapse:collapse;border-spacing:0;table-layout:fixed;'
-        f'margin:0 auto;width:{table_size}px;height:{table_size}px;background:#ffffff;">'
+        'style="border-collapse:collapse;border-spacing:0;margin:0 auto;'
+        f'width:{table_size}px;height:{table_size}px;background:#ffffff;">'
+        + colgroup
         + "".join(rows)
         + "</table>"
     )
