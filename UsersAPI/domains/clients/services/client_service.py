@@ -9,21 +9,21 @@ from ..repositories.client_repository import ClientRepository
 from ..schemas.client import ClientCreate, ClientUpdate
 
 
-def _normalizar_nombre(valor: str | None) -> str:
+def _normalizar_texto(valor: str | None) -> str:
     if not valor:
         return ""
-    return " ".join(valor.strip().lower().split()).title()
+    return " ".join(valor.strip().upper().split())
 
 
 def _full_name(data: ClientCreate | ClientUpdate | ClientDB) -> str:
     if data.person_type == "JURIDICA":
-        return (data.business_name or "").strip()
+        return _normalizar_texto(data.business_name)
 
     parts = [
-        _normalizar_nombre(data.first_name),
-        _normalizar_nombre(data.middle_name),
-        _normalizar_nombre(data.last_name),
-        _normalizar_nombre(data.second_last_name),
+        _normalizar_texto(data.first_name),
+        _normalizar_texto(data.middle_name),
+        _normalizar_texto(data.last_name),
+        _normalizar_texto(data.second_last_name),
     ]
     return " ".join(part for part in parts if part)
 
@@ -108,15 +108,18 @@ def create_client(
         consent_at = now
 
     datos = data.model_dump(exclude={"consent_at"})
-    if data.person_type == "NATURAL":
-        datos.update(
-            {
-                "first_name": _normalizar_nombre(data.first_name),
-                "middle_name": _normalizar_nombre(data.middle_name),
-                "last_name": _normalizar_nombre(data.last_name),
-                "second_last_name": _normalizar_nombre(data.second_last_name),
-            }
-        )
+    datos.update(
+        {
+            "first_name": _normalizar_texto(data.first_name),
+            "middle_name": _normalizar_texto(data.middle_name),
+            "last_name": _normalizar_texto(data.last_name),
+            "second_last_name": _normalizar_texto(data.second_last_name),
+            "business_name": _normalizar_texto(data.business_name),
+            "email": _normalizar_texto(data.email) or None,
+            "address": _normalizar_texto(data.address),
+            "consent_source": _normalizar_texto(data.consent_source),
+        }
+    )
 
     client = ClientDB(
         tenant_id=tenant_id,
@@ -157,11 +160,14 @@ def update_client(
     for field, value in changes.items():
         setattr(client, field, value)
 
-    if client.person_type == "NATURAL":
-        client.first_name = _normalizar_nombre(client.first_name)
-        client.middle_name = _normalizar_nombre(client.middle_name)
-        client.last_name = _normalizar_nombre(client.last_name)
-        client.second_last_name = _normalizar_nombre(client.second_last_name)
+    client.first_name = _normalizar_texto(client.first_name)
+    client.middle_name = _normalizar_texto(client.middle_name)
+    client.last_name = _normalizar_texto(client.last_name)
+    client.second_last_name = _normalizar_texto(client.second_last_name)
+    client.business_name = _normalizar_texto(client.business_name)
+    client.email = _normalizar_texto(client.email) or None
+    client.address = _normalizar_texto(client.address)
+    client.consent_source = _normalizar_texto(client.consent_source)
 
     full_name = _full_name(client)
     _validate_identity_data(
