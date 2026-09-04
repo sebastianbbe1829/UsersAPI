@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pyotp
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, status
-from jose import JWTError, ExpiredSignatureError, jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -34,11 +34,15 @@ AUTH_SCHEME = "bearer"
 def _fernet() -> Fernet:
     key = settings.super_mfa_encryption_key
     if not key:
-        key = base64.urlsafe_b64encode(hashlib.sha256(settings.secret_key.encode("utf-8")).digest()).decode("ascii")
+        key = base64.urlsafe_b64encode(
+            hashlib.sha256(settings.secret_key.encode("utf-8")).digest()
+        ).decode("ascii")
     try:
         return Fernet(key.encode("ascii"))
     except Exception as exc:
-        raise RuntimeError("SUPER_MFA_ENCRYPTION_KEY no contiene una clave Fernet válida") from exc
+        raise RuntimeError(
+            "SUPER_MFA_ENCRYPTION_KEY no contiene una clave Fernet válida"
+        ) from exc
 
 
 def _encrypt_mfa_secret(secret: str) -> str:
@@ -49,14 +53,23 @@ def _decrypt_mfa_secret(value: str) -> str:
     try:
         return _fernet().decrypt(value.encode("ascii")).decode("utf-8")
     except InvalidToken as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No fue posible validar la configuración MFA") from exc
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No fue posible validar la configuración MFA",
+        ) from exc
 
 
 def _validate_bootstrap_secret(bootstrap_secret: str) -> None:
     if not settings.super_bootstrap_secret:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="El bootstrap del usuario SUPER no está configurado")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El bootstrap del usuario SUPER no está configurado",
+        )
     if not hmac.compare_digest(bootstrap_secret, settings.super_bootstrap_secret):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Secret de bootstrap inválida")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Secret de bootstrap inválida",
+        )
 
 
 def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
@@ -73,18 +86,38 @@ def _create_super_token(user: GlobalUserDB, tenant: TenantDB) -> str:
     return create_access_token(payload)
 
 
-def bootstrap_super_user(datos: SuperBootstrapRequest, bootstrap_secret: str, db: Session) -> SuperBootstrapResponse:
+def bootstrap_super_user(
+    datos: SuperBootstrapRequest,
+    bootstrap_secret: str,
+    db: Session,
+) -> SuperBootstrapResponse:
     _validate_bootstrap_secret(bootstrap_secret)
-    existing = db.query(GlobalUserDB).filter(GlobalUserDB.is_superuser.is_(True)).first()
+    existing = (
+        db.query(GlobalUserDB)
+        .filter(GlobalUserDB.is_superuser.is_(True))
+        .first()
+    )
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya existe al menos un usuario SUPER; utilice la administración de usuarios globales")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Ya existe al menos un usuario SUPER; utilice la "
+                "administración de usuarios globales"
+            ),
+        )
 
     email = datos.email.strip().lower()
     dni = datos.dni.strip()
     if db.query(GlobalUserDB).filter(GlobalUserDB.email == email).first() is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado como usuario global")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El correo ya está registrado como usuario global",
+        )
     if db.query(GlobalUserDB).filter(GlobalUserDB.dni == dni).first() is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El DNI ya está registrado como usuario SUPER")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El DNI ya está registrado como usuario SUPER",
+        )
 
     secret = pyotp.random_base32()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -107,7 +140,10 @@ def bootstrap_super_user(datos: SuperBootstrapRequest, bootstrap_secret: str, db
     )
     db.add(user)
     db.flush()
-    provisioning_uri = pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name="UsersAPI")
+    provisioning_uri = pyotp.TOTP(secret).provisioning_uri(
+        name=email,
+        issuer_name="UsersAPI",
+    )
     logger.info("Usuario SUPER creado correctamente email=%s", email)
     return SuperBootstrapResponse(
         id=user.id,
@@ -120,50 +156,120 @@ def bootstrap_super_user(datos: SuperBootstrapRequest, bootstrap_secret: str, db
     )
 
 
-def verify_bootstrap_mfa(datos: SuperBootstrapMfaVerifyRequest, bootstrap_secret: str, db: Session) -> SuperBootstrapMfaVerifyResponse:
+def verify_bootstrap_mfa(
+    datos: SuperBootstrapMfaVerifyRequest,
+    bootstrap_secret: str,
+    db: Session,
+) -> SuperBootstrapMfaVerifyResponse:
     _validate_bootstrap_secret(bootstrap_secret)
-    user = db.query(GlobalUserDB).filter(GlobalUserDB.id == datos.user_id, GlobalUserDB.is_active.is_(True), GlobalUserDB.is_superuser.is_(True)).first()
+    user = (
+        db.query(GlobalUserDB)
+        .filter(
+            GlobalUserDB.id == datos.user_id,
+            GlobalUserDB.is_active.is_(True),
+            GlobalUserDB.is_superuser.is_(True),
+        )
+        .first()
+    )
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario SUPER no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario SUPER no encontrado",
+        )
     if user.mfa_verified_at is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El MFA del usuario SUPER ya fue verificado")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El MFA del usuario SUPER ya fue verificado",
+        )
     if not user.mfa_enabled or not user.mfa_secret_encrypted:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El usuario SUPER no tiene un enrolamiento MFA pendiente")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El usuario SUPER no tiene un enrolamiento MFA pendiente",
+        )
     secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
     if not pyotp.TOTP(secret).verify(datos.otp, valid_window=1):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código MFA inválido")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Código MFA inválido",
+        )
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     user.mfa_verified_at = now
     user.updated_at = now
     user.updated_by = "super-bootstrap-mfa"
     db.add(user)
     db.flush()
-    return SuperBootstrapMfaVerifyResponse(id=user.id, email=user.email, mfa_enabled=user.mfa_enabled, mfa_verified=True)
+    return SuperBootstrapMfaVerifyResponse(
+        id=user.id,
+        email=user.email,
+        mfa_enabled=user.mfa_enabled,
+        mfa_verified=True,
+    )
 
 
-def login_super_user(datos: SuperLoginRequest, db: Session, client_ip: str | None = None) -> SuperLoginResponse:
+def login_super_user(
+    datos: SuperLoginRequest,
+    db: Session,
+    client_ip: str | None = None,
+) -> SuperLoginResponse:
     email = datos.email.strip().lower()
     tenant_slug = datos.tenant.strip().lower()
-    tenant_id = db.execute(text("SELECT users_api.resolve_tenant_id(:tenant_slug)"), {"tenant_slug": tenant_slug}).scalar()
+    tenant_id = db.execute(
+        text("SELECT users_api.resolve_tenant_id(:tenant_slug)"),
+        {"tenant_slug": tenant_slug},
+    ).scalar()
     if tenant_id is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant no encontrado o inactivo")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado o inactivo",
+        )
     set_rls_tenant(db, tenant_id)
-    tenant = db.query(TenantDB).filter(TenantDB.id == tenant_id, TenantDB.slug == tenant_slug, TenantDB.status == 1).first()
+    tenant = (
+        db.query(TenantDB)
+        .filter(
+            TenantDB.id == tenant_id,
+            TenantDB.slug == tenant_slug,
+            TenantDB.status == 1,
+        )
+        .first()
+    )
     if tenant is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant no encontrado o inactivo")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant no encontrado o inactivo",
+        )
     user = db.query(GlobalUserDB).filter(GlobalUserDB.email == email).first()
     if user is None or not user.is_active or not user.is_superuser:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales inválidas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     if not verify_password(datos.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales inválidas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     if user.mfa_enabled:
         if not user.mfa_secret_encrypted:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="El usuario SUPER no tiene MFA configurado")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="El usuario SUPER no tiene MFA configurado",
+            )
         if not datos.otp:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código MFA requerido. Si es el primer ingreso, configure el MFA con el QR entregado por el administrador.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=(
+                    "Código MFA requerido. Si es el primer ingreso, "
+                    "configure el MFA con el QR entregado por el administrador."
+                ),
+            )
         secret = _decrypt_mfa_secret(user.mfa_secret_encrypted)
         if not pyotp.TOTP(secret).verify(datos.otp, valid_window=1):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código MFA inválido")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Código MFA inválido",
+            )
         if user.mfa_verified_at is None:
             now = datetime.now(timezone.utc).replace(tzinfo=None)
             user.mfa_verified_at = now
@@ -180,15 +286,34 @@ def login_super_user(datos: SuperLoginRequest, db: Session, client_ip: str | Non
     db.add(user)
     db.flush()
     token = _create_super_token(user, tenant)
-    return SuperLoginResponse(access_token=token, token_type=AUTH_SCHEME, user_type=SUPER_SESSION_KIND, session_id=user.session_id, tenant_id=tenant.id, tenant_slug=tenant.slug)
+    return SuperLoginResponse(
+        access_token=token,
+        token_type=AUTH_SCHEME,
+        user_type=SUPER_SESSION_KIND,
+        session_id=user.session_id,
+        tenant_id=tenant.id,
+        tenant_slug=tenant.slug,
+    )
 
 
 def get_current_super_user(token: str, db: Session) -> GlobalUserDB:
-    credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No se pudo validar el token SUPER", headers={"WWW-Authenticate": "Bearer"})
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar el token SUPER",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+        )
     except ExpiredSignatureError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token SUPER expirado", headers={"WWW-Authenticate": "Bearer"}) from exc
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token SUPER expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
     except JWTError as exc:
         raise credentials_exception from exc
     if payload.get("user_type") != SUPER_SESSION_KIND:
@@ -197,13 +322,40 @@ def get_current_super_user(token: str, db: Session) -> GlobalUserDB:
     session_id = payload.get("session_id")
     tenant_id = payload.get("tenant_id")
     tenant_slug = payload.get("tenant_slug")
-    if global_user_id is None or session_id is None or tenant_id is None or tenant_slug is None:
+    if (
+        global_user_id is None
+        or session_id is None
+        or tenant_id is None
+        or tenant_slug is None
+    ):
         raise credentials_exception
-    user = db.query(GlobalUserDB).filter(GlobalUserDB.id == global_user_id, GlobalUserDB.is_active.is_(True), GlobalUserDB.is_superuser.is_(True)).first()
+    user = (
+        db.query(GlobalUserDB)
+        .filter(
+            GlobalUserDB.id == global_user_id,
+            GlobalUserDB.is_active.is_(True),
+            GlobalUserDB.is_superuser.is_(True),
+        )
+        .first()
+    )
     if user is None or user.session_id != session_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="La sesión SUPER ya no es válida", headers={"WWW-Authenticate": "Bearer"})
-    resolved_tenant_id = db.execute(text("SELECT users_api.resolve_tenant_id(:tenant_slug)"), {"tenant_slug": tenant_slug}).scalar()
-    if resolved_tenant_id is None or int(resolved_tenant_id) != int(tenant_id):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="El tenant asociado a la sesión SUPER ya no es válido", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="La sesión SUPER ya no es válida",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    resolved_tenant_id = db.execute(
+        text("SELECT users_api.resolve_tenant_id(:tenant_slug)"),
+        {"tenant_slug": tenant_slug},
+    ).scalar()
+    if (
+        resolved_tenant_id is None
+        or int(resolved_tenant_id) != int(tenant_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El tenant asociado a la sesión SUPER ya no es válido",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     set_rls_tenant(db, int(resolved_tenant_id))
     return user
