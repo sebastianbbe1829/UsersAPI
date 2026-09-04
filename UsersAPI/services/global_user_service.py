@@ -136,9 +136,9 @@ def create_global_super(
     datos: GlobalSuperCreate,
     otp: str,
     db: Session,
-    current_user,
+    actor,
 ):
-    actor = require_super_user(current_user)
+    actor = require_super_user(actor)
     verify_super_mfa_otp(actor, otp)
 
     email = str(datos.email).strip().lower()
