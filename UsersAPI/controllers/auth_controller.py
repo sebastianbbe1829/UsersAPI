@@ -9,6 +9,7 @@ from ..settings import settings
 
 from ..services.auth_context_service import get_current_user_from_token
 from ..services.auth_audit_service import (
+    SESSION_EXPIRED,
     close_login_session,
     create_login_session,
     refresh_login_session,
@@ -132,6 +133,22 @@ def logout_user(
         user_agent=user_agent,
     )
     return {"message": "Sesión cerrada correctamente"}
+
+
+def expire_user_session(
+    token: str,
+    db: Session,
+    client_ip: str | None = None,
+    user_agent: str | None = None,
+):
+    close_login_session(
+        db,
+        token,
+        client_ip=client_ip,
+        user_agent=user_agent,
+        event_type=SESSION_EXPIRED,
+    )
+    return {"message": "Sesión expirada por inactividad"}
 
 
 def refresh_user_session(
