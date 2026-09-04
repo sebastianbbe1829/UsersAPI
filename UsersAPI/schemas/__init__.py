@@ -81,7 +81,7 @@ __all__ = [
     "SuperBootstrapRequest", "SuperBootstrapResponse",
     "SuperBootstrapMfaVerifyRequest", "SuperBootstrapMfaVerifyResponse",
     "SuperLoginRequest", "SuperLoginResponse",
-    "GlobalSuperCreate", "GlobalSuperCreateResponse", "GlobalSuperUpdate",
+    "GlobalSuperCreate", "GlobalSuperCreateResponse", "GlobalSuperRead", "GlobalSuperUpdate",
     "GlobalSuperMfaProvisioningResponse",
     "PasswordRecoveryRequest", "PasswordRecoveryResponse", "PasswordResetRequest",
     "PasswordResetResponse",
