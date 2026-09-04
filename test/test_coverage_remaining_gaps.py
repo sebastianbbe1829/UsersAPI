@@ -1,8 +1,8 @@
+import importlib
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import importlib
 import pytest
 import requests
 from fastapi import HTTPException
@@ -10,7 +10,6 @@ from jose import jwt
 from sqlalchemy.exc import IntegrityError
 
 from UsersAPI.controllers import global_user_controller
-global_user_routes = importlib.import_module("UsersAPI.routes.global_user_routes")
 from UsersAPI.schemas.user import UserUpdate
 from UsersAPI.services import account_lock_notification_service as lock_service
 from UsersAPI.services import auth_audit_service, user_update_service
@@ -43,6 +42,7 @@ def test_global_user_controller_adapters(monkeypatch):
 
 
 def test_global_user_routes_delegate_all_paths(monkeypatch):
+    global_user_routes = importlib.import_module("UsersAPI.routes.global_user_routes")
     db = MagicMock()
     current = SimpleNamespace(id=1)
     data = SimpleNamespace()
