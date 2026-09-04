@@ -66,5 +66,6 @@ async def obtener_config_tenant_publica_route(
         "logo_url": config.logo_url,
         "primary_color": config.primary_color,
         "secondary_color": config.secondary_color,
+        "max_login_attempts": config.max_login_attempts,
         "updated_at": config.updated_at,
     }
