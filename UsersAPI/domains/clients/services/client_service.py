@@ -92,7 +92,11 @@ def create_client(
         )
 
     now = datetime.now(UTC)
-    created_by = getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
+    created_by = (
+        getattr(current_user, "email", None)
+        or getattr(current_user, "username", None)
+        or "system"
+    )
     consent_at = data.consent_at if data.consent_given else None
     if data.consent_given and consent_at is None:
         consent_at = now
