@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -9,7 +9,15 @@ from UsersAPI.domains.core.database import Base
 
 class ClientDB(Base):
     __tablename__ = "clients"
-    __table_args__ = {"schema": "users_api"}
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "identification_type_id",
+            "identification_number",
+            name="uq_clients_tenant_identification",
+        ),
+        {"schema": "users_api"},
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
