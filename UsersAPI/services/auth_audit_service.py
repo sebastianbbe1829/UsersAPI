@@ -140,6 +140,7 @@ def _close_idle_session(
         0,
         int((now - session.login_at).total_seconds()),
     )
+    session.close_reason = IDLE_TIMEOUT
     session.status = "CLOSED"
 
     db.add(
@@ -283,6 +284,7 @@ def close_login_session(
         0,
         int((now - session.login_at).total_seconds()),
     )
+    session.close_reason = event_type
     session.status = "CLOSED"
 
     db.add(
