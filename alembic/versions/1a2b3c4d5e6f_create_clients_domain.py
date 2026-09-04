@@ -141,22 +141,6 @@ def upgrade() -> None:
     op.create_index("ix_users_api_client_screenings_tenant_id", "client_screenings", ["tenant_id"], schema=SCHEMA)
     op.create_index("ix_users_api_client_screenings_client_id", "client_screenings", ["client_id"], schema=SCHEMA)
 
-    op.execute("""
-        INSERT INTO users_api.identification_types (code, name, person_type) VALUES
-        ('RC', 'Registro civil', 'NATURAL'),
-        ('TI', 'Tarjeta de identidad', 'NATURAL'),
-        ('CC', 'Cédula de ciudadanía', 'NATURAL'),
-        ('TE', 'Tarjeta de extranjería', 'NATURAL'),
-        ('CE', 'Cédula de extranjería', 'NATURAL'),
-        ('NIT', 'Número de identificación tributaria', 'JURIDICA'),
-        ('PP', 'Pasaporte', 'NATURAL'),
-        ('PEP', 'Permiso especial de permanencia', 'NATURAL'),
-        ('DIE', 'Documento de identificación extranjero', 'NATURAL'),
-        ('NUIP', 'NUIP', 'NATURAL'),
-        ('FOREIGN_NIT', 'NIT de otro país', 'JURIDICA')
-    """)
-    op.execute("INSERT INTO users_api.countries (code, name) VALUES ('CO', 'Colombia')")
-
     for table in ("clients", "client_screenings"):
         op.execute(f"ALTER TABLE {SCHEMA}.{table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {SCHEMA}.{table} FORCE ROW LEVEL SECURITY")
