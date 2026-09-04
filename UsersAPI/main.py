@@ -20,6 +20,7 @@ from .routes import (
     extinguisher_routes,
     extinguisher_type_routes,
     global_auth_routes,
+    global_user_routes,
     otp_routes,
     password_recovery_routes,
     permission_routes,
@@ -71,6 +72,7 @@ app = FastAPI(
             "name": "Autenticación SUPER",
             "description": "Autenticación global del usuario SUPER con MFA",
         },
+        {"name": "Usuarios SUPER", "description": "Administración global de usuarios SUPER"},
         {"name": "Tenants", "description": "Operaciones sobre tenants"},
         {
             "name": "Configuración UI",
@@ -118,9 +120,6 @@ app = FastAPI(
     ],
 )
 
-# Orígenes permitidos para desarrollo local y despliegue en Cloudflare.
-# La IP LAN corresponde al PC de desarrollo actual y permite acceder al Front
-# desde dispositivos conectados a la misma red Wi-Fi.
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -179,6 +178,8 @@ app.include_router(password_recovery_routes)
 logger.debug("Rutas de recuperación de contraseña registradas")
 app.include_router(global_auth_routes)
 logger.debug("Rutas de autenticación global registradas")
+app.include_router(global_user_routes)
+logger.debug("Rutas de administración de usuarios SUPER registradas")
 app.include_router(tenant_routes)
 logger.debug("Rutas de tenants registradas")
 app.include_router(tenant_config_routes)
@@ -228,9 +229,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception("Error no controlado en %s", request.url.path)
+async def generic_exception_handler(request: Request, exc: Exception):
+    logger.exception("Error no controlado en la API: %s", exc)
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Error interno del servidor"},
+        content={"detail": "Error interno del servidor."},
     )
