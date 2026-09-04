@@ -1,4 +1,14 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Identity, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Identity,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
@@ -53,7 +63,12 @@ class DepartmentDB(Base):
     )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
-    country_id = Column(Integer, ForeignKey("users_api.countries.id"), nullable=False, index=True)
+    country_id = Column(
+        Integer,
+        ForeignKey("users_api.countries.id"),
+        nullable=False,
+        index=True,
+    )
     code = Column(String(20), nullable=False)
     name = Column(String(100), nullable=False)
     active = Column(Boolean, nullable=False, server_default=text("true"))
@@ -71,10 +86,17 @@ class CityDB(Base):
     )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
-    department_id = Column(Integer, ForeignKey("users_api.departments.id"), nullable=False, index=True)
+    department_id = Column(
+        Integer,
+        ForeignKey("users_api.departments.id"),
+        nullable=False,
+        index=True,
+    )
     code = Column(String(20), nullable=False)
     name = Column(String(100), nullable=False)
-    type = Column(String(50), nullable=False, server_default=text("'Municipio'"))
+    type = Column(
+        String(50), nullable=False, server_default=text("'Municipio'")
+    )
     latitude = Column(Numeric(10, 7), nullable=True)
     longitude = Column(Numeric(10, 7), nullable=True)
     active = Column(Boolean, nullable=False, server_default=text("true"))
