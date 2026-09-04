@@ -71,14 +71,23 @@ def test_bootstrap_existing_super_and_duplicate_email(monkeypatch):
     db, _ = _db(existing)
     with pytest.raises(HTTPException) as exc:
         service.bootstrap_super_user(
-            SimpleNamespace(email="x", password="p"), "secret", db
+            SimpleNamespace(
+                dni="1", name="Existing", phone="3000000000", email="x", password="p"
+            ),
+            "secret",
+            db,
         )
     assert exc.value.status_code == 409
+
     db, query = _db(None)
     query.first.side_effect = [None, SimpleNamespace(id=2)]
     with pytest.raises(HTTPException) as exc:
         service.bootstrap_super_user(
-            SimpleNamespace(email=" X@TEST ", password="p"), "secret", db
+            SimpleNamespace(
+                dni="1", name="Duplicate", phone="3000000000", email=" X@TEST ", password="p"
+            ),
+            "secret",
+            db,
         )
     assert exc.value.status_code == 409
 
@@ -91,15 +100,33 @@ def test_bootstrap_success(monkeypatch):
     )
     db, query = _db(None)
     query.first.return_value = None
-    user = SimpleNamespace(id=7, email="x@test.com")
+    user = SimpleNamespace(
+        id=7,
+        dni="123",
+        name="Initial SUPER",
+        phone="3000000000",
+        email="x@test.com",
+        mfa_enabled=True,
+    )
     monkeypatch.setattr(service, "GlobalUserDB", MagicMock(return_value=user))
     monkeypatch.setattr(service, "get_password_hash", lambda _: "hash")
     monkeypatch.setattr(service.pyotp, "random_base32", lambda: "SECRET")
     result = service.bootstrap_super_user(
-        SimpleNamespace(email=" X@TEST.COM ", password="p"), "secret", db
+        SimpleNamespace(
+            dni="123",
+            name=" Initial SUPER ",
+            phone=" 3000000000 ",
+            email=" X@TEST.COM ",
+            password="p",
+        ),
+        "secret",
+        db,
     )
     assert result.id == 7
     assert result.email == "x@test.com"
+    assert result.dni == "123"
+    assert result.name == "Initial SUPER"
+    assert result.phone == "3000000000"
     db.add.assert_called_once_with(user)
     db.flush.assert_called_once()
 
@@ -203,20 +230,16 @@ def test_login_super_mfa_branches(monkeypatch):
     query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
-    assert exc.value.status_code == 403
-    user.mfa_verified_at = object()
+    assert exc.value.status_code == 500
+
+    user.mfa_secret_encrypted = "enc"
     db, query = _db(None, 5)
     query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
+
     data.otp = "123"
-    db, query = _db(None, 5)
-    query.first.side_effect = [tenant, user]
-    with pytest.raises(HTTPException) as exc:
-        service.login_super_user(data, db)
-    assert exc.value.status_code == 500
-    user.mfa_secret_encrypted = "enc"
     monkeypatch.setattr(service, "_decrypt_mfa_secret", lambda _: "SECRET")
     monkeypatch.setattr(
         service.pyotp.TOTP, "verify", lambda *args, **kwargs: False
@@ -226,6 +249,7 @@ def test_login_super_mfa_branches(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
+
     monkeypatch.setattr(
         service.pyotp.TOTP, "verify", lambda *args, **kwargs: True
     )
@@ -235,6 +259,7 @@ def test_login_super_mfa_branches(monkeypatch):
     result = service.login_super_user(data, db, "1.2.3.4")
     assert result.access_token == "token"
     assert user.last_login_ip == "1.2.3.4"
+    assert user.mfa_verified_at is not None
 
 
 def test_get_current_super_user_token_branches(monkeypatch):
