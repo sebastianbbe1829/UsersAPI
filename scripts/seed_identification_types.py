@@ -1,86 +1,20 @@
-"""Seed the official Colombian identification types.
-
-The operation is idempotent and safe for existing databases. Legacy codes not
-in the official set are deactivated instead of deleted so existing clients keep
-valid foreign-key references.
-"""
-
-from sqlalchemy.orm import Session
+"""CLI compatibility wrapper for the CLIENTS identification type seeder."""
 
 from UsersAPI.database import SessionLocal
-from UsersAPI.domains.clients.models import IdentificationTypeDB
+from UsersAPI.domains.clients.seeds.identification_types import seed_identification_types
 
 
-IDENTIFICATION_TYPES = [
-    ("RC", "Registro civil", "NATURAL"),
-    ("TI", "Tarjeta de identidad", "NATURAL"),
-    ("CC", "Cédula de ciudadanía", "NATURAL"),
-    ("TE", "Tarjeta de extranjería", "NATURAL"),
-    ("CE", "Cédula de extranjería", "NATURAL"),
-    ("NIT", "Número de identificación tributaria", "JURIDICA"),
-    ("PP", "Pasaporte", "NATURAL"),
-    ("PEP", "Permiso especial de permanencia", "NATURAL"),
-    ("DIE", "Documento de identificación extranjero", "NATURAL"),
-    ("NUIP", "NUIP", "NATURAL"),
-    ("FOREIGN_NIT", "NIT de otro país", "JURIDICA"),
-]
-
-
-def seed_identification_types(db: Session) -> tuple[int, int, int]:
-    official_codes = {code for code, _, _ in IDENTIFICATION_TYPES}
-    created = 0
-    updated = 0
-    deactivated = 0
-
-    for code, name, person_type in IDENTIFICATION_TYPES:
-        item = (
-            db.query(IdentificationTypeDB)
-            .filter(IdentificationTypeDB.code == code)
-            .first()
-        )
-        if item is None:
-            db.add(
-                IdentificationTypeDB(
-                    code=code,
-                    name=name,
-                    person_type=person_type,
-                    active=True,
-                )
-            )
-            created += 1
-            continue
-
-        changed = (
-            item.name != name
-            or item.person_type != person_type
-            or item.active is not True
-        )
-        item.name = name
-        item.person_type = person_type
-        item.active = True
-        if changed:
-            updated += 1
-
-    for item in db.query(IdentificationTypeDB).all():
-        if item.code not in official_codes and item.active:
-            item.active = False
-            deactivated += 1
-
-    db.commit()
-    return created, updated, deactivated
-
-
-def main() -> None:
+if __name__ == "__main__":
     db = SessionLocal()
     try:
         created, updated, deactivated = seed_identification_types(db)
+        db.commit()
         print(
             "Identification types: "
             f"created={created}, updated={updated}, deactivated={deactivated}"
         )
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
-
-
-if __name__ == "__main__":
-    main()
