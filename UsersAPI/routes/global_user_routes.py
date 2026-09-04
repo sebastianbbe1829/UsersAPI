@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 from ..controllers import global_user_controller
 from ..controllers.auth_controller import get_current_user
 from ..database import get_bootstrap_db
-from ..schemas.global_user import (
+from ..schemas import (
     GlobalSuperCreate,
     GlobalSuperCreateResponse,
     GlobalSuperMfaVerifyRequest,
     GlobalSuperRead,
     GlobalSuperUpdate,
 )
+from ..schemas.global_user import GlobalSuperMfaProvisioningResponse
 
 
 global_user_routes = APIRouter(
@@ -49,6 +50,24 @@ def obtener_global_super_route(
     current_user=Depends(get_current_user),
 ):
     return global_user_controller.obtener_global_super(
+        super_id=super_id,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@global_user_routes.get(
+    "/supers/{super_id}/mfa-provisioning",
+    response_model=GlobalSuperMfaProvisioningResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Obtener datos de enrolamiento MFA de un usuario SUPER",
+)
+def obtener_global_super_mfa_provisioning_route(
+    super_id: int = Path(..., description="ID del usuario SUPER"),
+    db: Session = Depends(get_bootstrap_db),
+    current_user=Depends(get_current_user),
+):
+    return global_user_controller.obtener_global_super_mfa_provisioning(
         super_id=super_id,
         db=db,
         current_user=current_user,
