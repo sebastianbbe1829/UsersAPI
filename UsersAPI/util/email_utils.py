@@ -33,6 +33,7 @@ def send_email(
     template: str = "default",
     otp_code: str | None = None,
     otp_expire_minutes: int | None = None,
+    qr_html: str | None = None,
     attachments: list[dict[str, str]] | None = None,
 ):
     """Envía un correo transaccional utilizando Brevo."""
@@ -102,8 +103,6 @@ def send_email(
     if not os.path.isfile(template_path):
         raise RuntimeError(f"Email template not found: {template_path}")
 
-    qr_cid = "super_mfa_qr" if template == "super_invitation" else None
-
     try:
         email_template = env.get_template(template_filename)
         html_content = email_template.render(
@@ -124,7 +123,7 @@ def send_email(
                 if otp_expire_minutes is not None
                 else settings.otp_expire_minutes
             ),
-            qr_cid=qr_cid,
+            qr_html=qr_html,
         )
     except Exception:
         logger.exception("Error loading or rendering HTML email template")
