@@ -28,8 +28,17 @@ class CountryDB(Base):
     )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
+    # code/name remain the physical compatibility fields: Alpha-2 / short name.
     code = Column(String(2), nullable=False, unique=True, index=True)
     name = Column(String(100), nullable=False)
+    short_name_lower = Column(String(100), nullable=True)
+    full_name = Column(String(200), nullable=True)
+    alpha3_code = Column(String(3), nullable=True, unique=True, index=True)
+    numeric_code = Column(Integer, nullable=True, unique=True, index=True)
+    remarks = Column(String(500), nullable=True)
+    independent = Column(Boolean, nullable=True)
+    territory_name = Column(String(250), nullable=True)
+    status = Column(String(50), nullable=True)
     active = Column(Boolean, nullable=False, server_default=text("true"))
 
     departments = relationship("DepartmentDB", back_populates="country")
@@ -70,5 +79,5 @@ class CityDB(Base):
     longitude = Column(Numeric(10, 7), nullable=True)
     active = Column(Boolean, nullable=False, server_default=text("true"))
 
-    department = relationship("DepartmentDB", back_populates="cities")
+    department = relationship("DepartmentDB", back_populates="country")
     clients = relationship("ClientDB", back_populates="city")
