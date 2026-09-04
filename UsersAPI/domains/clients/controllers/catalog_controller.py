@@ -46,7 +46,9 @@ def crear_tipo_identificacion(db: Session, data: IdentificationTypeCreate):
     return create_identification_type(db, data)
 
 
-def actualizar_tipo_identificacion(db: Session, item_id: int, data: IdentificationTypeUpdate):
+def actualizar_tipo_identificacion(
+    db: Session, item_id: int, data: IdentificationTypeUpdate
+):
     return update_identification_type(db, item_id, data)
 
 
@@ -74,7 +76,11 @@ def eliminar_pais(db: Session, item_id: int):
     delete_country(db, item_id)
 
 
-def listar_departamentos(db: Session, country_id: int | None = None, include_inactive: bool = False):
+def listar_departamentos(
+    db: Session,
+    country_id: int | None = None,
+    include_inactive: bool = False,
+):
     return list_departments(db, country_id, include_inactive)
 
 
@@ -86,7 +92,9 @@ def crear_departamento(db: Session, data: DepartmentCreate):
     return create_department(db, data)
 
 
-def actualizar_departamento(db: Session, item_id: int, data: DepartmentUpdate):
+def actualizar_departamento(
+    db: Session, item_id: int, data: DepartmentUpdate
+):
     return update_department(db, item_id, data)
 
 
@@ -94,7 +102,11 @@ def eliminar_departamento(db: Session, item_id: int):
     delete_department(db, item_id)
 
 
-def listar_ciudades(db: Session, department_id: int | None = None, include_inactive: bool = False):
+def listar_ciudades(
+    db: Session,
+    department_id: int | None = None,
+    include_inactive: bool = False,
+):
     return list_cities(db, department_id, include_inactive)
 
 
