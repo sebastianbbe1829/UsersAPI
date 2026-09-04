@@ -26,18 +26,46 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def _qr_attachment(provisioning_uri: str) -> dict[str, str]:
+def _build_qr(provisioning_uri: str):
     qr = qrcode.QRCode(box_size=8, border=4)
     qr.add_data(provisioning_uri)
     qr.make(fit=True)
+    return qr
+
+
+def _qr_attachment(provisioning_uri: str) -> dict[str, str]:
+    qr = _build_qr(provisioning_uri)
     image = qr.make_image(fill_color="black", back_color="white")
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return {
         "name": "mfa_qr.png",
         "content": base64.b64encode(buffer.getvalue()).decode("ascii"),
-        "contentId": "super_mfa_qr",
     }
+
+
+def _qr_html(provisioning_uri: str) -> str:
+    """Renderiza el QR como tabla HTML para evitar dependencias de CID/imagenes inline."""
+    qr = _build_qr(provisioning_uri)
+    matrix = qr.get_matrix()
+    rows = []
+
+    for row in matrix:
+        cells = []
+        for dark in row:
+            background = "#000000" if dark else "#ffffff"
+            cells.append(
+                '<td style="width:4px;height:4px;padding:0;margin:0;'
+                f'background-color:{background};"></td>'
+            )
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+
+    return (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        'style="border-collapse:collapse;margin:0 auto;background:#ffffff;">'
+        + "".join(rows)
+        + "</table>"
+    )
 
 
 def list_global_supers(db: Session, current_user=None):
@@ -185,6 +213,7 @@ def create_global_super(
             ),
             template="super_invitation",
             tenant_name="UsersAPI",
+            qr_html=_qr_html(provisioning_uri),
             attachments=[_qr_attachment(provisioning_uri)],
         )
         email_sent = True
