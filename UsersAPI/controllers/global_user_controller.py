@@ -32,11 +32,12 @@ def crear_global_super(
     db: Session,
     current_user,
 ):
+    actor = require_super_user(current_user)
     return create_global_super(
         datos=datos,
         otp=otp,
         db=db,
-        current_user=current_user,
+        actor=actor,
     )
 
 
