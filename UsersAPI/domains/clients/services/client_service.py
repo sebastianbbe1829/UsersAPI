@@ -22,6 +22,24 @@ def _full_name(data: ClientCreate | ClientUpdate | ClientDB) -> str:
     return " ".join(part.strip() for part in parts if part and part.strip())
 
 
+def _validate_identity_data(
+    db: Session,
+    identification_type_id: int,
+    person_type: str,
+    full_name: str,
+) -> None:
+    _validate_identification_type(db, identification_type_id, person_type)
+    if not full_name:
+        if person_type == "NATURAL":
+            detail = "Natural person requires first_name and last_name"
+        else:
+            detail = "Legal person requires business_name"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
+
+
 def _validate_identification_type(
     db: Session,
     identification_type_id: int,
@@ -54,7 +72,13 @@ def create_client(
     tenant_id: int,
     current_user: object,
 ) -> ClientDB:
-    _validate_identification_type(db, data.identification_type_id, data.person_type)
+    full_name = _full_name(data)
+    _validate_identity_data(
+        db,
+        data.identification_type_id,
+        data.person_type,
+        full_name,
+    )
 
     repository = ClientRepository(db)
     if repository.get_by_identification(
@@ -71,7 +95,7 @@ def create_client(
     created_by = getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     client = ClientDB(
         tenant_id=tenant_id,
-        full_name=_full_name(data),
+        full_name=full_name,
         created_at=now,
         created_by=created_by,
         consent_at=data.consent_at if data.consent_given else None,
@@ -108,12 +132,13 @@ def update_client(
     for field, value in changes.items():
         setattr(client, field, value)
 
-    if "identification_type_id" in changes or "person_type" in changes:
-        _validate_identification_type(
-            db,
-            client.identification_type_id,
-            client.person_type,
-        )
+    full_name = _full_name(client)
+    _validate_identity_data(
+        db,
+        client.identification_type_id,
+        client.person_type,
+        full_name,
+    )
 
     if "identification_type_id" in changes or "identification_number" in changes:
         duplicate = repository.get_by_identification(
@@ -127,7 +152,7 @@ def update_client(
                 detail="Client identification already exists in this tenant",
             )
 
-    client.full_name = _full_name(client)
+    client.full_name = full_name
     client.updated_at = datetime.utcnow()
     client.updated_by = (
         getattr(current_user, "email", None)
@@ -136,6 +161,8 @@ def update_client(
     )
     if client.consent_given and client.consent_at is None:
         client.consent_at = client.updated_at
+    elif not client.consent_given:
+        client.consent_at = None
 
     return repository.update(client)
 
