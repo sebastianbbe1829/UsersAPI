@@ -27,7 +27,10 @@ class TenantConfigSuperUpdate(TenantConfigUpdate):
     max_login_attempts: int | None = Field(
         default=None,
         ge=0,
-        description="Máximo de intentos fallidos antes de bloquear. 0 o vacío deshabilita el bloqueo.",
+        description=(
+            "Máximo de intentos fallidos antes de bloquear. "
+            "0 o vacío deshabilita el bloqueo."
+        ),
     )
 
 
