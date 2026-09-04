@@ -3,8 +3,8 @@ from typing import List
 from fastapi import APIRouter, Depends, Header, Path, status
 from sqlalchemy.orm import Session
 
-from ..controllers.auth_controller import get_current_user
 from ..controllers import global_user_controller
+from ..controllers.auth_controller import get_current_user
 from ..database import get_bootstrap_db
 from ..schemas.global_user import GlobalSuperCreate, GlobalSuperRead, GlobalSuperUpdate
 
@@ -77,7 +77,7 @@ def crear_global_super_route(
 )
 def actualizar_global_super_route(
     super_id: int = Path(..., description="ID del usuario SUPER"),
-    datos: GlobalSuperUpdate = None,
+    datos: GlobalSuperUpdate = ...,
     x_super_mfa_otp: str = Header(..., alias="X-Super-MFA-OTP"),
     db: Session = Depends(get_bootstrap_db),
     current_user=Depends(get_current_user),
