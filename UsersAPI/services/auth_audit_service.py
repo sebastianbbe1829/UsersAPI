@@ -119,7 +119,7 @@ def _get_active_session(
         )
         .first()
     )
-    if session is None or session.token_hash != _token_hash(token):
+    if session is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="La sesión ya no es válida",
@@ -209,9 +209,8 @@ def refresh_login_session(
     }
     new_token = create_access_token(claims)
 
-    # No invalidamos el token anterior durante el refresh. Esto permite que
-    # peticiones que ya estaban en vuelo terminen con el token anterior sin
-    # recibir 401 mientras el navegador instala el token renovado.
+    # Los tokens emitidos durante la misma sesión comparten la sesión activa.
+    # Esto evita invalidar peticiones en vuelo durante la renovación.
     session.last_activity_at = now
 
     if client_ip:
@@ -250,13 +249,15 @@ def close_login_session(
 ) -> AuthSessionDB | None:
     payload = _decode_token(token, verify_exp=False)
     tenant_id = payload.get("tenant_id")
-    if tenant_id is None:
+    session_id = payload.get("session_id")
+    if tenant_id is None or session_id is None:
         return None
 
+    set_rls_tenant(db, int(tenant_id))
     session = (
         db.query(AuthSessionDB)
         .filter(
-            AuthSessionDB.token_hash == _token_hash(token),
+            AuthSessionDB.id == session_id,
             AuthSessionDB.tenant_id == int(tenant_id),
         )
         .first()
@@ -264,7 +265,6 @@ def close_login_session(
     if session is None or session.status != "ACTIVE":
         return session
 
-    set_rls_tenant(db, int(tenant_id))
     now = _now()
     session.logout_at = now
     session.duration_seconds = max(
