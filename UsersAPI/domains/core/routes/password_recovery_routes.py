@@ -12,7 +12,7 @@ from ..schemas.password_recovery import (
     PasswordResetRequest,
     PasswordResetResponse,
 )
-from ..security.rate_limiter import (
+from UsersAPI.security.rate_limiter import (
     PASSWORD_RECOVERY_REQUEST_LIMIT,
     PASSWORD_RECOVERY_REQUEST_WINDOW,
     PASSWORD_RECOVERY_RESET_LIMIT,
