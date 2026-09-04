@@ -56,24 +56,18 @@ def validar_fila(row: dict[str, str]) -> tuple[str, str, str, str, str]:
 
 def seed_divipola(csv_path: Path = DEFAULT_CSV_PATH) -> None:
     if not csv_path.exists():
-        raise FileNotFoundError(
-            f"No se encontró el archivo DIVIPOLA: {csv_path}"
-        )
+        raise FileNotFoundError(f"No se encontró el archivo DIVIPOLA: {csv_path}")
 
     db = SessionLocal()
 
     try:
-        country = (
-            db.query(CountryDB)
-            .filter(CountryDB.code == "CO")
-            .first()
-        )
-
+        country = db.query(CountryDB).filter(CountryDB.code == "CO").first()
         if country is None:
-            country = CountryDB(code="CO", name="Colombia", active=True)
-            db.add(country)
-            db.flush()
-            print("País creado: CO - Colombia")
+            raise RuntimeError(
+                "No existe el país CO - Colombia. Ejecute primero: python scripts/seed_countries.py"
+            )
+        if not country.active:
+            raise RuntimeError("El país CO - Colombia está inactivo y no puede recibir DIVIPOLA.")
 
         departamentos_creados = 0
         departamentos_actualizados = 0
@@ -130,10 +124,7 @@ def seed_divipola(csv_path: Path = DEFAULT_CSV_PATH) -> None:
                     db.flush()
                     departamentos_creados += 1
                 else:
-                    changed = (
-                        department.name != department_name
-                        or not department.active
-                    )
+                    changed = department.name != department_name or not department.active
                     department.name = department_name
                     department.active = True
                     if changed:
