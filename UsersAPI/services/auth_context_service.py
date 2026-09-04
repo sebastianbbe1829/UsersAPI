@@ -6,19 +6,15 @@ from ..database import set_rls_tenant
 from ..logging_config import logger
 from ..models import AuthSessionDB, TenantDB, UserTenantDB
 from ..settings import settings
+from .auth_audit_service import touch_active_session
 
 
-def get_current_user_from_token(
-    token: str,
-    db: Session,
-) -> UserTenantDB:
-    """Resolve and validate the active tenant user represented by a JWT."""
+def get_current_user_from_token(token: str, db: Session) -> UserTenantDB:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar el token",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
     try:
         payload = jwt.decode(
             token,
@@ -47,7 +43,6 @@ def get_current_user_from_token(
         )
 
     set_rls_tenant(db, token_tenant_id)
-
     session_id = payload.get("session_id")
     if session_id is not None:
         session = (
@@ -65,6 +60,7 @@ def get_current_user_from_token(
                 detail="La sesión ya no es válida",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        touch_active_session(db, token, payload)
 
     user_tenant = (
         db.query(UserTenantDB)
@@ -76,7 +72,6 @@ def get_current_user_from_token(
         )
         .first()
     )
-
     if user_tenant is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -95,5 +90,4 @@ def get_current_user_from_token(
             detail="El tenant del token no coincide con el usuario",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     return user_tenant

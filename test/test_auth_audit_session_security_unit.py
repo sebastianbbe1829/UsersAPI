@@ -119,12 +119,14 @@ def test_close_login_session_closes_session_records_duration_and_logout_audit():
     assert audit.user_agent == "test-agent"
 
 
-def test_close_login_session_returns_none_for_invalid_token():
+def test_close_login_session_rejects_invalid_token():
     db = MagicMock()
 
-    result = auth_audit_service.close_login_session(db, "invalid-token")
+    with pytest.raises(HTTPException) as exc_info:
+        auth_audit_service.close_login_session(db, "invalid-token")
 
-    assert result is None
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Token inválido"
     db.query.assert_not_called()
 
 
@@ -143,7 +145,14 @@ def test_close_login_session_does_not_duplicate_audit_for_closed_session():
     query.filter.return_value.first.return_value = session
     db.query.return_value = query
 
-    token = _token({"tenant_id": 1, "user_tenant_id": 7, "sub": "user-7"})
+    token = _token(
+        {
+            "tenant_id": 1,
+            "user_tenant_id": 7,
+            "session_id": "session-4",
+            "sub": "user-7",
+        }
+    )
     result = auth_audit_service.close_login_session(db, token)
 
     assert result is session

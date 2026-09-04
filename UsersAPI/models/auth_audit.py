@@ -9,9 +9,9 @@ class AuthSessionDB(Base):
         Index("ix_users_api_auth_sessions_tenant_id", "tenant_id"),
         Index("ix_users_api_auth_sessions_user_tenant_id", "user_tenant_id"),
         Index("ix_users_api_auth_sessions_global_user_id", "global_user_id"),
+        Index("ix_users_api_auth_sessions_last_activity_at", "last_activity_at"),
         {"schema": "users_api"},
     )
-
     id = Column(String(36), primary_key=True)
     tenant_id = Column(
         Integer,
@@ -31,7 +31,9 @@ class AuthSessionDB(Base):
     session_kind = Column(String(20), nullable=False)
     token_hash = Column(String(64), nullable=False, unique=True)
     login_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    last_activity_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     logout_at = Column(DateTime, nullable=True)
+    close_reason = Column(String(30), nullable=True)
     duration_seconds = Column(Integer, nullable=True)
     client_ip = Column(String(45), nullable=True)
     user_agent = Column(String(1000), nullable=True)
@@ -46,7 +48,6 @@ class AuthAuditDB(Base):
         Index("ix_users_api_auth_audit_session_id", "session_id"),
         {"schema": "users_api"},
     )
-
     id = Column(String(36), primary_key=True)
     tenant_id = Column(
         Integer,
