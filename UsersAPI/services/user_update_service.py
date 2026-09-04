@@ -12,8 +12,11 @@ from ..repositories.tenant_repository import TenantRepository
 from ..schemas import UserUpdate
 from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
+from .auth_audit_service import audit_auth_event
 from .password_service import get_password_hash
 from .user_service_helpers import _actor_dni, _get_user_entity, _tenant_link, _user_payload
+
+ACCOUNT_UNLOCKED = "ACCOUNT_UNLOCKED"
 
 
 def update_user(
@@ -46,6 +49,40 @@ def update_user(
     link = _tenant_link(usuario, tenant_id, user_tenant_repository)
 
     cambios = datos.model_dump(exclude_unset=True)
+    desbloquear = cambios.pop("unlock", False) is True
+
+    if desbloquear:
+        if link.locked_at is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="La cuenta no se encuentra bloqueada",
+            )
+
+        ahora = datetime.now()
+        actor = _actor_dni(current_user)
+        actor_login = (
+            current_user.email
+            if isinstance(current_user, UserTenantDB)
+            else current_user.email
+        )
+
+        link.failed_login_attempts = 0
+        link.last_failed_login_at = None
+        link.locked_at = None
+        link.locked_ip = None
+        link.updated_at = ahora
+        link.updated_by = actor
+
+        audit_auth_event(
+            db,
+            tenant_id=tenant_id,
+            event_type=ACCOUNT_UNLOCKED,
+            user_tenant_id=link.id,
+            # user_tenant.user_id references app_users, not global_users.
+            global_user_id=None,
+            actor_dni=actor,
+            actor_login=actor_login,
+        )
 
     if "name" in cambios:
         usuario.name = cambios["name"]
@@ -91,6 +128,13 @@ def update_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al actualizar usuario",
         ) from exc
+
+    if desbloquear and not cambios:
+        return _user_payload(
+            usuario,
+            link,
+            message="Cuenta desbloqueada correctamente",
+        )
 
     try:
         send_email(

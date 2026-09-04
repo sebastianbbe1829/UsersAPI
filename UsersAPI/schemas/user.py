@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -101,6 +103,14 @@ class UserUpdate(BaseModel):
         ),
     )
 
+    unlock: bool | None = Field(
+        default=None,
+        description=(
+            "Desbloquea la cuenta y reinicia los intentos fallidos "
+            "de autenticación"
+        ),
+    )
+
 
 # ============================================================
 # RESPUESTA DE USUARIO
@@ -139,6 +149,16 @@ class UserRead(UserBase):
         description=(
             "Id del usuario"
         ),
+    )
+
+    failed_login_attempts: int = Field(
+        default=0,
+        description="Cantidad de intentos fallidos de autenticación",
+    )
+
+    locked_at: datetime | None = Field(
+        default=None,
+        description="Fecha y hora en que la cuenta fue bloqueada",
     )
 
     model_config = ConfigDict(

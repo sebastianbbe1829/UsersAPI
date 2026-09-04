@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
@@ -20,6 +21,12 @@ from .password_service import verify_password
 AUTH_SCHEME = "bearer"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 LOCKED_ACCOUNT_MESSAGE = "Cuenta bloqueada, comuníquese con el administrador"
+
+
+@dataclass(frozen=True)
+class LoginFailure:
+    status_code: int
+    detail: str
 
 
 def _now() -> datetime:
@@ -126,7 +133,7 @@ def login_user(
             client_ip=client_ip,
             user_agent=user_agent,
         )
-        raise HTTPException(
+        return LoginFailure(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Credenciales inválidas o usuario inactivo",
         )
@@ -147,7 +154,7 @@ def login_user(
             client_ip=client_ip,
             user_agent=user_agent,
         )
-        raise HTTPException(
+        return LoginFailure(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=LOCKED_ACCOUNT_MESSAGE,
         )
@@ -182,12 +189,12 @@ def login_user(
                     "Unexpected error notifying tenant admins about account lock user_tenant_id=%s",
                     user_tenant.id,
                 )
-            raise HTTPException(
+            return LoginFailure(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=LOCKED_ACCOUNT_MESSAGE,
             )
 
-        raise HTTPException(
+        return LoginFailure(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Credenciales inválidas",
         )

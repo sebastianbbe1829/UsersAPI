@@ -1,4 +1,5 @@
 from fastapi import Depends
+from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,7 @@ from ..services.auth_audit_service import (
     refresh_login_session,
 )
 from ..services.auth_service import (
+    LoginFailure,
     create_access_token as create_access_token_service,
     login_user as login_user_service,
     oauth2_scheme,
@@ -60,6 +62,12 @@ def _audit_login(
     client_ip: str | None,
     user_agent: str | None,
 ):
+    if isinstance(result, LoginFailure):
+        return JSONResponse(
+            status_code=result.status_code,
+            content={"detail": result.detail},
+        )
+
     token = (
         result.access_token
         if hasattr(result, "access_token")
