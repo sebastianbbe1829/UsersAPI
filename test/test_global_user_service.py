@@ -98,10 +98,18 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
         global_user_service, "get_password_hash", return_value="hashed-password"
     ), patch.object(
         global_user_service, "_encrypt_mfa_secret", side_effect=lambda secret: f"enc:{secret}"
-    ):
+    ), patch.object(global_user_service, "send_email") as send_email_mock:
         response = global_user_service.create_global_super(datos, "123456", db, actor)
 
     verify_otp.assert_called_once_with(actor, "123456")
+    send_email_mock.assert_called_once()
+    email_kwargs = send_email_mock.call_args.kwargs
+    assert email_kwargs["recipient"] == "new@example.com"
+    assert email_kwargs["template"] == "super_invitation"
+    assert email_kwargs["tenant_name"] == "UsersAPI"
+    assert email_kwargs["qr_html"].startswith("<table")
+    assert email_kwargs["attachments"]
+    assert email_kwargs["attachments"][0]["name"] == "mfa_qr.png"
     assert response.email == "new@example.com"
     assert response.dni == "90000011"
     assert response.name == "Nuevo SUPER"
