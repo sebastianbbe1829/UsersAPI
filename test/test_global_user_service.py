@@ -112,7 +112,7 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     assert email_kwargs["recipient"] == "new@example.com"
     assert email_kwargs["template"] == "super_invitation"
     assert email_kwargs["tenant_name"] == "UsersAPI"
-    assert email_kwargs["qr_html"].startswith("<table")
+    assert "qr_html" not in email_kwargs
     assert email_kwargs["attachments"]
     assert email_kwargs["attachments"][0]["name"] == "mfa_qr.png"
     assert response.id == 1
