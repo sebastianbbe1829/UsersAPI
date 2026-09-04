@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from ..controllers import global_user_controller
 from ..controllers.auth_controller import get_current_user
 from ..database import get_bootstrap_db
-from ..schemas.global_user import GlobalSuperCreate, GlobalSuperRead, GlobalSuperUpdate
+from ..schemas.global_user import (
+    GlobalSuperCreate,
+    GlobalSuperCreateResponse,
+    GlobalSuperMfaVerifyRequest,
+    GlobalSuperRead,
+    GlobalSuperUpdate,
+)
 
 
 global_user_routes = APIRouter(
@@ -51,7 +57,7 @@ def obtener_global_super_route(
 
 @global_user_routes.post(
     "/supers",
-    response_model=GlobalSuperRead,
+    response_model=GlobalSuperCreateResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Crear usuario SUPER",
 )
@@ -64,6 +70,28 @@ def crear_global_super_route(
     return global_user_controller.crear_global_super(
         datos=datos,
         otp=x_super_mfa_otp,
+        db=db,
+        current_user=current_user,
+    )
+
+
+@global_user_routes.post(
+    "/supers/{super_id}/verify-mfa",
+    response_model=GlobalSuperRead,
+    status_code=status.HTTP_200_OK,
+    summary="Verificar enrolamiento MFA de un usuario SUPER",
+)
+def verificar_global_super_mfa_route(
+    datos: GlobalSuperMfaVerifyRequest,
+    super_id: int = Path(..., description="ID del usuario SUPER"),
+    x_super_mfa_otp: str = Header(..., alias="X-Super-MFA-OTP"),
+    db: Session = Depends(get_bootstrap_db),
+    current_user=Depends(get_current_user),
+):
+    return global_user_controller.verificar_global_super_mfa(
+        super_id=super_id,
+        actor_otp=x_super_mfa_otp,
+        target_otp=datos.otp,
         db=db,
         current_user=current_user,
     )
