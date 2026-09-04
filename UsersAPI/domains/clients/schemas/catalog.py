@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -34,3 +36,6 @@ class CityRead(BaseModel):
     department_id: int
     code: str
     name: str
+    type: str
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
