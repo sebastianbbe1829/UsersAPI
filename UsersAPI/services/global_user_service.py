@@ -45,34 +45,39 @@ def _qr_attachment(provisioning_uri: str) -> dict[str, str]:
 
 
 def _qr_html(provisioning_uri: str) -> str:
-    """Renderiza el QR como tabla HTML con celdas de tamaño fijo para clientes de correo."""
+    """Renderiza el QR como una tabla compacta y compatible con clientes de correo."""
     qr = _build_qr(provisioning_uri)
     matrix = qr.get_matrix()
     pixel_size = 4
-    size = len(matrix)
-    table_size = size * pixel_size
+    table_size = len(matrix) * pixel_size
     rows = []
 
     for row in matrix:
-        cells = []
-        for dark in row:
-            background = "#000000" if dark else "#ffffff"
-            cells.append(
-                f'<td width="{pixel_size}" height="{pixel_size}" '
-                'style="width:4px;height:4px;padding:0;margin:0;'
-                'font-size:0;line-height:0;mso-line-height-rule:exactly;'
-                f'background-color:{background};">'
-                f'<div style="width:{pixel_size}px;height:{pixel_size}px;'
-                f'background-color:{background};font-size:0;line-height:0;">'
-                '</div></td>'
-            )
-        rows.append("<tr>" + "".join(cells) + "</tr>")
+        runs = []
+        start = 0
+        current = row[0]
+
+        for index in range(1, len(row) + 1):
+            if index == len(row) or row[index] != current:
+                run_width = (index - start) * pixel_size
+                background = "#000000" if current else "#ffffff"
+                runs.append(
+                    f'<td colspan="{index - start}" width="{run_width}" height="{pixel_size}" '
+                    f'bgcolor="{background}" '
+                    'style="padding:0;margin:0;font-size:0;line-height:4px;'
+                    f'width:{run_width}px;height:{pixel_size}px;background-color:{background};">&nbsp;</td>'
+                )
+                if index < len(row):
+                    start = index
+                    current = row[index]
+
+        rows.append("<tr>" + "".join(runs) + "</tr>")
 
     return (
         f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
         f'width="{table_size}" height="{table_size}" '
-        f'style="border-collapse:collapse;border-spacing:0;margin:0 auto;'
-        f'width:{table_size}px;height:{table_size}px;background:#ffffff;">'
+        f'style="border-collapse:collapse;border-spacing:0;table-layout:fixed;'
+        f'margin:0 auto;width:{table_size}px;height:{table_size}px;background:#ffffff;">'
         + "".join(rows)
         + "</table>"
     )
