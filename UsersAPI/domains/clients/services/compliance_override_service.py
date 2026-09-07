@@ -1,12 +1,11 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-import pyotp
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.models import GlobalUserDB
-from UsersAPI.domains.core.services.global_auth_service import _decrypt_mfa_secret
+from UsersAPI.domains.core.services.super_mfa_service import verify_super_mfa_otp
 
 from ..models import ClientComplianceOverrideDB
 from ..repositories.client_repository import ClientRepository
@@ -25,18 +24,8 @@ def override_client_compliance(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="La liberación de una restricción requiere una sesión SUPER",
         )
-    if not current_user.mfa_enabled or not current_user.mfa_secret_encrypted:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El usuario SUPER no tiene MFA configurado",
-        )
 
-    secret = _decrypt_mfa_secret(current_user.mfa_secret_encrypted)
-    if not pyotp.TOTP(secret).verify(data.otp, valid_window=1):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Código MFA inválido",
-        )
+    verify_super_mfa_otp(current_user, data.otp)
 
     client = ClientRepository(db).get_by_id(client_id, tenant_id)
     if client is None:
@@ -61,8 +50,8 @@ def override_client_compliance(
     )
     db.add(override)
 
-    # The original screening remains MATCH/listed. The override is an
-    # auditable exception and is the only supported way to release BLOCKED.
+    # Keep the original MATCH/listing history intact. The override is an
+    # auditable exception and the only supported way to release BLOCKED.
     client.status = "ACTIVE"
     client.updated_at = now
     client.updated_by = current_user.email
