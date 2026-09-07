@@ -27,8 +27,20 @@ def crear_cliente(data: ClientCreate, db: Session, tenant_id: int, current_user:
     return create_client(data, db, tenant_id, current_user)
 
 
-def listar_clientes(db: Session, tenant_id: int):
-    return list_clients(db, tenant_id)
+def listar_clientes(
+    db: Session,
+    tenant_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+    search: str | None = None,
+):
+    return list_clients(
+        db,
+        tenant_id,
+        limit=limit,
+        offset=offset,
+        search=search,
+    )
 
 
 def obtener_cliente(client_id: UUID, db: Session, tenant_id: int):
