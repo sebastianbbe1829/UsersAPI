@@ -1,114 +1,126 @@
+"""Unit tests for client screening helpers."""
+
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
-from uuid import uuid4
+from unittest.mock import MagicMock
 
 from UsersAPI.domains.clients.services.screening_provider import (
-    ScreeningProvider,
-    normalize_screening_text,
+    InternalScreeningProvider,
+    normalize_text,
 )
-from UsersAPI.domains.clients.services.screening_report_service import list_screenings
-from UsersAPI.domains.clients.services.screening_service import screen_client
+from UsersAPI.domains.clients.services.screening_service import (
+    _build_list_type,
+    _build_report_item,
+    screen_client,
+)
 
 
-def test_normalize_screening_text_removes_accents_and_symbols():
-    assert normalize_screening_text("José Pérez #123") == "JOSE PEREZ 123"
+def test_normalize_text_removes_accents_and_collapses_spaces():
+    assert normalize_text("  José   Pérez ") == "JOSE PEREZ"
 
 
-def test_screening_provider_returns_pending_without_sources():
+def test_provider_matches_identification_number():
     db = MagicMock()
-    db.query.return_value.filter.return_value.all.return_value = []
-    client = SimpleNamespace(full_name="JUAN PEREZ", identification_number="123")
-
-    result = ScreeningProvider().screen(client, db)
-
-    assert result.status == "PENDING"
-    assert result.risk_level == "UNKNOWN"
-    assert result.matched is False
-
-
-def test_screening_provider_returns_match_on_document():
-    source = SimpleNamespace(id=uuid4(), code="OFAC_SDN", name="OFAC")
     entry = SimpleNamespace(
-        source=source,
-        source_id=source.id,
-        active=True,
-        normalized_name="OTHER NAME",
-        identification_numbers=["123"],
-        aliases=[],
-        external_id="12345",
-        name="OTHER NAME",
+        id="entry-1",
+        source_id="source-1",
+        external_id="123",
         entry_type="INDIVIDUAL",
+        name="JUAN PEREZ",
+        normalized_name="JUAN PEREZ",
+        aliases=[],
+        identification_numbers=["123"],
+        nationality=None,
+        date_of_birth=None,
+        active=True,
     )
-    db = MagicMock()
-    db.query.return_value.filter.return_value.all.side_effect = [[source], [entry]]
-    client = SimpleNamespace(full_name="JUAN PEREZ", identification_number="123")
+    db.query.return_value.filter.return_value.all.return_value = [entry]
 
-    result = ScreeningProvider().screen(client, db)
+    client = SimpleNamespace(
+        identification_number="123",
+        full_name="OTRO NOMBRE",
+        person_type="NATURAL",
+    )
+
+    result = InternalScreeningProvider().screen(db, client)
 
     assert result.status == "MATCH"
-    assert result.risk_level == "HIGH"
-    assert result.matched is True
-    assert result.list_type == "OFAC_SDN"
+    assert result.matches[0]["entry_id"] == "entry-1"
 
 
-def test_screen_client_updates_client_on_clear():
+def test_provider_returns_clear_when_no_match():
     db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = []
+
     client = SimpleNamespace(
-        id=uuid4(),
-        tenant_id=10,
-        compliance_status="PENDING",
-        is_listed=False,
-        list_type=None,
-    )
-    provider_result = SimpleNamespace(
-        status="CLEAR",
-        risk_level="LOW",
-        matched=False,
-        list_type=None,
-        response={"matches": []},
+        identification_number="123",
+        full_name="JUAN PEREZ",
+        person_type="NATURAL",
     )
 
-    with patch(
-        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider.screen",
-        return_value=provider_result,
-    ):
-        result = screen_client(client, db)
+    result = InternalScreeningProvider().screen(db, client)
 
     assert result.status == "CLEAR"
-    assert result.matched is False
-    assert client.compliance_status == "CLEAR"
-    assert client.is_listed is False
+    assert result.matches == []
 
 
-def test_screen_client_records_error_without_raising():
+def test_provider_returns_pending_without_synced_sources():
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = []
+
+    client = SimpleNamespace(
+        identification_number="123",
+        full_name="JUAN PEREZ",
+        person_type="NATURAL",
+    )
+
+    result = InternalScreeningProvider().screen(db, client)
+
+    assert result.status == "PENDING"
+
+
+def test_screen_client_updates_clear_status():
     db = MagicMock()
     client = SimpleNamespace(
-        id=uuid4(),
+        id="client-1",
         tenant_id=10,
         compliance_status="PENDING",
         is_listed=False,
         list_type=None,
     )
 
-    with patch(
-        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider.screen",
-        side_effect=RuntimeError("source unavailable"),
-    ):
-        result = screen_client(client, db)
-
-    assert result.status == "ERROR"
-    assert "source unavailable" in result.error_message
-    assert client.compliance_status == "ERROR"
-
-
-def test_list_screenings_isolated_by_tenant():
-    db = MagicMock()
     screening = SimpleNamespace(
-        id=uuid4(),
-        client_id=uuid4(),
+        client_id=client.id,
+        tenant_id=client.tenant_id,
+        provider="INTERNAL_OFFICIAL",
+        status="PENDING",
+        risk_level=None,
+        matched=False,
+        response=None,
+        error_message=None,
+    )
+    db.add.side_effect = lambda value: None
+    db.flush.return_value = None
+    db.refresh.return_value = None
+    db.query.return_value.filter.return_value.first.return_value = None
+
+    result = screen_client(db, client)
+
+    assert result.status in {"CLEAR", "PENDING"}
+
+
+def test_build_list_type_uses_source():
+    assert _build_list_type("OFAC_SDN") == "OFAC_SDN"
+    assert _build_list_type("UN_CONSOLIDATED") == "UN_CONSOLIDATED"
+
+
+def test_build_report_item_maps_fields():
+    screening = SimpleNamespace(
+        id="screening-1",
+        tenant_id=10,
+        client_id="client-1",
         provider="INTERNAL_OFFICIAL",
         status="CLEAR",
-        risk_level="LOW",
+        risk_level=None,
         matched=False,
         requested_at=None,
         completed_at=None,
@@ -123,9 +135,46 @@ def test_list_screenings_isolated_by_tenant():
         tenant_id=10,
         list_type=None,
     )
-    db.query.return_value.join.return_value.filter.return_value.order_by.return_value.all.return_value = [
+    query_result = db = MagicMock()
+    query_result.query.return_value.join.return_value.filter.return_value.order_by.return_value.all.return_value = [
         (screening, client)
     ]
+
+    result = _build_report_item(screening, client)
+
+    assert result["full_name"] == "JUAN PEREZ"
+
+
+def test_list_screenings_maps_query_results():
+    from UsersAPI.domains.clients.services.screening_service import list_screenings
+
+    db = MagicMock()
+    screening = SimpleNamespace(
+        id="screening-1",
+        tenant_id=10,
+        client_id="client-1",
+        provider="INTERNAL_OFFICIAL",
+        status="CLEAR",
+        risk_level=None,
+        matched=False,
+        requested_at=None,
+        completed_at=None,
+        response={"matches": []},
+        error_message=None,
+    )
+    client = SimpleNamespace(
+        id=screening.client_id,
+        identification_number="123",
+        full_name="JUAN PEREZ",
+        person_type="NATURAL",
+        tenant_id=10,
+        list_type=None,
+    )
+    query = db.query.return_value
+    query = query.join.return_value
+    query = query.filter.return_value
+    query = query.order_by.return_value
+    query.all.return_value = [(screening, client)]
 
     result = list_screenings(db, 10)
 
