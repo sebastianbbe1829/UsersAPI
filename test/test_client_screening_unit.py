@@ -4,22 +4,31 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from UsersAPI.domains.clients.services.screening_provider import (
-    InternalScreeningProvider,
-    normalize_text,
+    ScreeningProvider,
+    normalize_screening_text,
 )
 from UsersAPI.domains.clients.services.screening_service import (
-    _build_list_type,
     _build_report_item,
     screen_client,
 )
 
 
+def _query_results(source_results, entry_results):
+    db = MagicMock()
+    source_query = db.query.return_value
+    source_query.filter.return_value.all.return_value = source_results
+    entry_query = MagicMock()
+    entry_query.filter.return_value.all.return_value = entry_results
+    db.query.side_effect = [source_query, entry_query]
+    return db
+
+
 def test_normalize_text_removes_accents_and_collapses_spaces():
-    assert normalize_text("  José   Pérez ") == "JOSE PEREZ"
+    assert normalize_screening_text("  José   Pérez ") == "JOSE PEREZ"
 
 
 def test_provider_matches_identification_number():
-    db = MagicMock()
+    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
     entry = SimpleNamespace(
         id="entry-1",
         source_id="source-1",
@@ -32,74 +41,70 @@ def test_provider_matches_identification_number():
         nationality=None,
         date_of_birth=None,
         active=True,
+        source=source,
     )
-    db.query.return_value.filter.return_value.all.return_value = [entry]
-
+    db = _query_results([source], [entry])
     client = SimpleNamespace(
         identification_number="123",
         full_name="OTRO NOMBRE",
         person_type="NATURAL",
     )
 
-    result = InternalScreeningProvider().screen(db, client)
+    result = ScreeningProvider().screen(client, db)
 
     assert result.status == "MATCH"
-    assert result.matches[0]["entry_id"] == "entry-1"
+    assert result.matched is True
+    assert result.response["matches"][0]["external_id"] == "123"
 
 
 def test_provider_returns_clear_when_no_match():
-    db = MagicMock()
-    db.query.return_value.filter.return_value.all.return_value = []
-
+    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
+    db = _query_results([source], [])
     client = SimpleNamespace(
         identification_number="123",
         full_name="JUAN PEREZ",
         person_type="NATURAL",
     )
 
-    result = InternalScreeningProvider().screen(db, client)
+    result = ScreeningProvider().screen(client, db)
 
     assert result.status == "CLEAR"
-    assert result.matches == []
+    assert result.matches if hasattr(result, "matches") else True
+    assert result.response["matches"] == []
 
 
 def test_provider_returns_pending_without_synced_sources():
-    db = MagicMock()
-    db.query.return_value.filter.return_value.all.return_value = []
-
+    db = _query_results([], [])
     client = SimpleNamespace(
         identification_number="123",
         full_name="JUAN PEREZ",
         person_type="NATURAL",
     )
 
-    result = InternalScreeningProvider().screen(db, client)
+    result = ScreeningProvider().screen(client, db)
 
     assert result.status == "PENDING"
 
 
 def test_screen_client_updates_clear_status():
-    db = MagicMock()
+    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
+    db = _query_results([source], [])
+    db.flush.return_value = None
     client = SimpleNamespace(
         id="client-1",
         tenant_id=10,
+        identification_number="123",
+        full_name="JUAN PEREZ",
         compliance_status="PENDING",
         is_listed=False,
         list_type=None,
     )
-    db.add.side_effect = lambda value: None
-    db.flush.return_value = None
-    db.refresh.return_value = None
-    db.query.return_value.filter.return_value.first.return_value = None
 
-    result = screen_client(db, client)
+    result = screen_client(client, db)
 
-    assert result.status in {"CLEAR", "PENDING"}
-
-
-def test_build_list_type_uses_source():
-    assert _build_list_type("OFAC_SDN") == "OFAC_SDN"
-    assert _build_list_type("UN_CONSOLIDATED") == "UN_CONSOLIDATED"
+    assert result.status == "CLEAR"
+    assert client.compliance_status == "CLEAR"
+    assert client.is_listed is False
 
 
 def test_build_report_item_maps_fields():
