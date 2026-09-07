@@ -35,7 +35,11 @@ def test_provider_matches_identification_number():
         date_of_birth=None, active=True, source=source,
     )
     db = _query_results([source], [entry])
-    client = SimpleNamespace(identification_number="123", full_name="OTRO NOMBRE", person_type="NATURAL")
+    client = SimpleNamespace(
+        identification_number="123",
+        full_name="OTRO NOMBRE",
+        person_type="NATURAL",
+    )
 
     result = ScreeningProvider().screen(client, db)
 
@@ -47,7 +51,11 @@ def test_provider_matches_identification_number():
 def test_provider_returns_clear_when_no_match():
     source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
     db = _query_results([source], [])
-    client = SimpleNamespace(identification_number="123", full_name="JUAN PEREZ", person_type="NATURAL")
+    client = SimpleNamespace(
+        identification_number="123",
+        full_name="JUAN PEREZ",
+        person_type="NATURAL",
+    )
 
     result = ScreeningProvider().screen(client, db)
 
@@ -57,7 +65,11 @@ def test_provider_returns_clear_when_no_match():
 
 def test_provider_returns_pending_without_synced_sources():
     db = _query_results([], [])
-    client = SimpleNamespace(identification_number="123", full_name="JUAN PEREZ", person_type="NATURAL")
+    client = SimpleNamespace(
+        identification_number="123",
+        full_name="JUAN PEREZ",
+        person_type="NATURAL",
+    )
 
     result = ScreeningProvider().screen(client, db)
 
@@ -66,10 +78,25 @@ def test_provider_returns_pending_without_synced_sources():
 
 def test_screen_client_updates_client_on_clear():
     db = MagicMock()
-    client = SimpleNamespace(id=uuid4(), tenant_id=10, status="ACTIVE", compliance_status="PENDING", is_listed=False, list_type=None)
-    provider_result = SimpleNamespace(status="CLEAR", risk_level="LOW", matched=False, list_type=None, response={"matches": []})
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
+        status="ACTIVE",
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
+    provider_result = SimpleNamespace(
+        status="CLEAR",
+        risk_level="LOW",
+        matched=False,
+        list_type=None,
+        response={"matches": []},
+    )
 
-    with patch("UsersAPI.domains.clients.services.screening_service.ScreeningProvider") as provider:
+    with patch(
+        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
+    ) as provider:
         provider.return_value.screen.return_value = provider_result
         result = screen_client(client, db)
 
@@ -81,13 +108,25 @@ def test_screen_client_updates_client_on_clear():
 
 def test_screen_client_blocks_client_on_match():
     db = MagicMock()
-    client = SimpleNamespace(id=uuid4(), tenant_id=10, status="ACTIVE", compliance_status="PENDING", is_listed=False, list_type=None)
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
+        status="ACTIVE",
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
     provider_result = SimpleNamespace(
-        status="MATCH", risk_level="HIGH", matched=True, list_type="OFAC_SDN",
+        status="MATCH",
+        risk_level="HIGH",
+        matched=True,
+        list_type="OFAC_SDN",
         response={"matches": [{"external_id": "35784"}]},
     )
 
-    with patch("UsersAPI.domains.clients.services.screening_service.ScreeningProvider") as provider:
+    with patch(
+        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
+    ) as provider:
         provider.return_value.screen.return_value = provider_result
         result = screen_client(client, db)
 
@@ -100,9 +139,18 @@ def test_screen_client_blocks_client_on_match():
 
 def test_screen_client_records_error_without_raising():
     db = MagicMock()
-    client = SimpleNamespace(id=uuid4(), tenant_id=10, status="ACTIVE", compliance_status="PENDING", is_listed=False, list_type=None)
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
+        status="ACTIVE",
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
 
-    with patch("UsersAPI.domains.clients.services.screening_service.ScreeningProvider") as provider:
+    with patch(
+        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
+    ) as provider:
         provider.return_value.screen.side_effect = RuntimeError("provider error")
         result = screen_client(client, db)
 
