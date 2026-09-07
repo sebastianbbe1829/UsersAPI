@@ -27,12 +27,24 @@ def test_normalize_text_removes_accents_and_collapses_spaces():
 
 
 def test_provider_matches_identification_number():
-    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
+    source = SimpleNamespace(
+        id="source-1",
+        code="OFAC_SDN",
+        name="OFAC SDN",
+    )
     entry = SimpleNamespace(
-        id="entry-1", source_id="source-1", external_id="123",
-        entry_type="INDIVIDUAL", name="JUAN PEREZ", normalized_name="JUAN PEREZ",
-        aliases=[], identification_numbers=["123"], nationality=None,
-        date_of_birth=None, active=True, source=source,
+        id="entry-1",
+        source_id="source-1",
+        external_id="123",
+        entry_type="INDIVIDUAL",
+        name="JUAN PEREZ",
+        normalized_name="JUAN PEREZ",
+        aliases=[],
+        identification_numbers=["123"],
+        nationality=None,
+        date_of_birth=None,
+        active=True,
+        source=source,
     )
     db = _query_results([source], [entry])
     client = SimpleNamespace(
@@ -49,7 +61,11 @@ def test_provider_matches_identification_number():
 
 
 def test_provider_returns_clear_when_no_match():
-    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
+    source = SimpleNamespace(
+        id="source-1",
+        code="OFAC_SDN",
+        name="OFAC SDN",
+    )
     db = _query_results([source], [])
     client = SimpleNamespace(
         identification_number="123",
@@ -162,13 +178,25 @@ def test_screen_client_records_error_without_raising():
 def test_list_screenings_maps_query_results():
     db = MagicMock()
     screening = SimpleNamespace(
-        id="screening-1", tenant_id=10, client_id="client-1", provider="INTERNAL_OFFICIAL",
-        status="CLEAR", risk_level=None, matched=False, requested_at=None,
-        completed_at=None, response={"matches": []}, error_message=None,
+        id="screening-1",
+        tenant_id=10,
+        client_id="client-1",
+        provider="INTERNAL_OFFICIAL",
+        status="CLEAR",
+        risk_level=None,
+        matched=False,
+        requested_at=None,
+        completed_at=None,
+        response={"matches": []},
+        error_message=None,
     )
     client = SimpleNamespace(
-        id=screening.client_id, identification_number="123", full_name="JUAN PEREZ",
-        person_type="NATURAL", tenant_id=10, list_type=None,
+        id=screening.client_id,
+        identification_number="123",
+        full_name="JUAN PEREZ",
+        person_type="NATURAL",
+        tenant_id=10,
+        list_type=None,
     )
     query = db.query.return_value
     query = query.join.return_value
