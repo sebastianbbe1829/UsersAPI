@@ -12,7 +12,7 @@ from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
 from ..schemas.screening import ClientScreeningRead
-from ..services.screening_provider import sync_ofac_sdn
+from ..services.screening_provider import sync_all_screening_lists
 from ..services.screening_report_service import list_screenings
 
 
@@ -55,4 +55,4 @@ async def list_screenings_route(
     dependencies=[Depends(_require_sync_key)],
 )
 async def sync_screening_lists_route(db: Session = Depends(get_db)):
-    return sync_ofac_sdn(db)
+    return sync_all_screening_lists(db)
