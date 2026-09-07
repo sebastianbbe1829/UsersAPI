@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from difflib import SequenceMatcher
 import re
 import unicodedata
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 import requests
 from sqlalchemy.orm import Session
@@ -206,9 +206,6 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
         raise
 
 
-# Registry for the multi-source synchronization pipeline.
-# New official sources are added here as independent adapters without changing
-# the HTTP endpoint or the client screening algorithm.
 SCREENING_LIST_PROVIDERS = {
     OFAC_SDN_CODE: sync_ofac_sdn,
 }
