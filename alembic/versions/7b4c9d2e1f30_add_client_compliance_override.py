@@ -1,7 +1,7 @@
 """add client compliance override
 
 Revision ID: 7b4c9d2e1f30
-Revises: 1a2b3c4d5e6f
+Revises: f0a1b2c3d4e5
 Create Date: 2026-09-07
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = "7b4c9d2e1f30"
-down_revision: Union[str, Sequence[str], None] = "1a2b3c4d5e6f"
+down_revision: Union[str, Sequence[str], None] = "f0a1b2c3d4e5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 SCHEMA = "users_api"
@@ -44,24 +44,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         schema=SCHEMA,
     )
-    op.create_index(
-        "ix_users_api_client_compliance_overrides_tenant_id",
-        "client_compliance_overrides",
-        ["tenant_id"],
-        schema=SCHEMA,
-    )
-    op.create_index(
-        "ix_users_api_client_compliance_overrides_client_id",
-        "client_compliance_overrides",
-        ["client_id"],
-        schema=SCHEMA,
-    )
-    op.create_index(
-        "ix_users_api_client_compliance_overrides_screening_id",
-        "client_compliance_overrides",
-        ["screening_id"],
-        schema=SCHEMA,
-    )
+    for index_name, columns in (
+        ("ix_users_api_client_compliance_overrides_tenant_id", ["tenant_id"]),
+        ("ix_users_api_client_compliance_overrides_client_id", ["client_id"]),
+        ("ix_users_api_client_compliance_overrides_screening_id", ["screening_id"]),
+    ):
+        op.create_index(index_name, "client_compliance_overrides", columns, schema=SCHEMA)
 
     op.execute(
         sa.text(
@@ -92,12 +80,8 @@ def downgrade() -> None:
     op.execute(
         "DROP POLICY IF EXISTS client_compliance_overrides_isolation ON users_api.client_compliance_overrides"
     )
-    op.execute(
-        "ALTER TABLE users_api.client_compliance_overrides NO FORCE ROW LEVEL SECURITY"
-    )
-    op.execute(
-        "ALTER TABLE users_api.client_compliance_overrides DISABLE ROW LEVEL SECURITY"
-    )
+    op.execute("ALTER TABLE users_api.client_compliance_overrides NO FORCE ROW LEVEL SECURITY")
+    op.execute("ALTER TABLE users_api.client_compliance_overrides DISABLE ROW LEVEL SECURITY")
     for index_name in (
         "ix_users_api_client_compliance_overrides_screening_id",
         "ix_users_api_client_compliance_overrides_client_id",
