@@ -53,7 +53,13 @@ def test_screening_provider_returns_match_on_document():
 
 def test_screen_client_updates_client_on_clear():
     db = MagicMock()
-    client = SimpleNamespace(id=uuid4(), tenant_id=10, compliance_status="PENDING", is_listed=False, list_type=None)
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
     provider_result = SimpleNamespace(
         status="CLEAR",
         risk_level="LOW",
@@ -76,7 +82,13 @@ def test_screen_client_updates_client_on_clear():
 
 def test_screen_client_records_error_without_raising():
     db = MagicMock()
-    client = SimpleNamespace(id=uuid4(), tenant_id=10, compliance_status="PENDING", is_listed=False, list_type=None)
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
 
     with patch(
         "UsersAPI.domains.clients.services.screening_service.ScreeningProvider.screen",
