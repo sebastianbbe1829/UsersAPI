@@ -11,7 +11,7 @@ from ..models import (
 from .dependencies import get_current_tenant
 
 
-def require_permission(permission_code: str):
+def require_permission(permission_code: str, allow_super: bool = True):
 
     def permission_checker(
         user_tenant: UserTenantDB = Depends(
@@ -33,7 +33,6 @@ def require_permission(permission_code: str):
         )
 
         if permission is None:
-
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
@@ -41,39 +40,24 @@ def require_permission(permission_code: str):
                 ),
             )
 
-        # ====================================================
-        # USUARIO SUPER
-        #
-        # Un SUPER autenticado con MFA tiene autorización
-        # global dentro del tenant indicado por su JWT.
-        # El contexto RLS ya fue establecido por
-        # get_current_tenant().
-        #
-        # No depende de roles/permisos del usuario del tenant.
-        # ====================================================
-
+        # SUPER mantiene el comportamiento global existente salvo en
+        # operaciones que explícitamente exijan el permiso del usuario.
         if isinstance(current_user, GlobalUserDB):
-            return user_tenant
-
-        # ====================================================
-        # USUARIO NORMAL
-        # ====================================================
+            if allow_super:
+                return user_tenant
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos para realizar esta operación",
+            )
 
         has_permission = any(
-            permission.code
-            == role_permission.permission.code
-
-            for user_tenant_role
-            in user_tenant.roles
-
-            for role_permission
-            in user_tenant_role.role.permissions
-
+            permission.code == role_permission.permission.code
+            for user_tenant_role in user_tenant.roles
+            for role_permission in user_tenant_role.role.permissions
             if role_permission.permission.status == 1
         )
 
         if not has_permission:
-
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
