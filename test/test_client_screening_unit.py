@@ -87,17 +87,6 @@ def test_screen_client_updates_clear_status():
         is_listed=False,
         list_type=None,
     )
-
-    screening = SimpleNamespace(
-        client_id=client.id,
-        tenant_id=client.tenant_id,
-        provider="INTERNAL_OFFICIAL",
-        status="PENDING",
-        risk_level=None,
-        matched=False,
-        response=None,
-        error_message=None,
-    )
     db.add.side_effect = lambda value: None
     db.flush.return_value = None
     db.refresh.return_value = None
@@ -135,10 +124,6 @@ def test_build_report_item_maps_fields():
         tenant_id=10,
         list_type=None,
     )
-    query_result = db = MagicMock()
-    query_result.query.return_value.join.return_value.filter.return_value.order_by.return_value.all.return_value = [
-        (screening, client)
-    ]
 
     result = _build_report_item(screening, client)
 
