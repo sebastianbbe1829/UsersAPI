@@ -79,7 +79,10 @@ class ScreeningProvider:
             name_score = _similarity(name, entry.normalized_name)
             alias_score = max(
                 [
-                    _similarity(name, normalize_screening_text(alias))
+                    _similarity(
+                        name,
+                        normalize_screening_text(alias),
+                    )
                     for alias in (entry.aliases or [])
                 ],
                 default=0.0,
