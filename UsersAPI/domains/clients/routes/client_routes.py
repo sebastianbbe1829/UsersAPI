@@ -93,13 +93,13 @@ async def update_client_route(
     "/{client_id}/compliance/override",
     response_model=ClientComplianceOverrideRead,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permission("CLIENT_COMPLIANCE_OVERRIDE"))],
+    dependencies=[Depends(require_permission("CLIENT_COMPLIANCE_OVERRIDE", allow_super=False))],
 )
 async def override_client_compliance_route(
     client_id: UUID,
     data: ClientComplianceOverrideRequest,
     db: Session = Depends(get_db),
-    current_user: GlobalUserDB = Depends(get_current_user),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     return levantar_restriccion_cliente(
