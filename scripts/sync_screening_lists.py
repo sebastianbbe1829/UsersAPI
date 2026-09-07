@@ -1,9 +1,8 @@
-"""Synchronize official sanctions lists used by the internal screening engine."""
+"""Synchronize official screening lists used by the internal screening engine."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-import re
 import xml.etree.ElementTree as ET
 
 import requests
