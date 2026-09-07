@@ -2,7 +2,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.core.models import GlobalUserDB
+from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
 
 from ..schemas.client import ClientCreate, ClientUpdate
 from ..schemas.compliance_override import ClientComplianceOverrideRequest
@@ -47,6 +47,6 @@ def levantar_restriccion_cliente(
     data: ClientComplianceOverrideRequest,
     db: Session,
     tenant_id: int,
-    current_user: GlobalUserDB,
+    current_user: UserTenantDB | GlobalUserDB,
 ):
     return override_client_compliance(client_id, data, db, tenant_id, current_user)
