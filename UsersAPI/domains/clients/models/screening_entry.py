@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, String, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -15,6 +15,9 @@ class ScreeningEntryDB(Base):
             "external_id",
             name="uq_screening_entries_source_external_id",
         ),
+        Index("ix_screening_entries_source_id", "source_id"),
+        Index("ix_screening_entries_name", "name"),
+        Index("ix_screening_entries_normalized_name", "normalized_name"),
         {"schema": "users_api"},
     )
 
@@ -23,12 +26,11 @@ class ScreeningEntryDB(Base):
         UUID(as_uuid=True),
         ForeignKey("users_api.screening_sources.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     external_id = Column(String(150), nullable=False)
     entry_type = Column(String(20), nullable=False)
-    name = Column(String(300), nullable=False, index=True)
-    normalized_name = Column(String(300), nullable=False, index=True)
+    name = Column(String(300), nullable=False)
+    normalized_name = Column(String(300), nullable=False)
     aliases = Column(JSONB, nullable=True)
     identification_numbers = Column(JSONB, nullable=True)
     nationality = Column(String(100), nullable=True)
