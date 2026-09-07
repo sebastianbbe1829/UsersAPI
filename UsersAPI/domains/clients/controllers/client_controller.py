@@ -47,7 +47,13 @@ def obtener_cliente(client_id: UUID, db: Session, tenant_id: int):
     return get_client(client_id, db, tenant_id)
 
 
-def actualizar_cliente(client_id: UUID, data: ClientUpdate, db: Session, tenant_id: int, current_user: object):
+def actualizar_cliente(
+    client_id: UUID,
+    data: ClientUpdate,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+):
     return update_client(client_id, data, db, tenant_id, current_user)
 
 
@@ -55,14 +61,23 @@ def eliminar_cliente(client_id: UUID, db: Session, tenant_id: int):
     return delete_client(client_id, db, tenant_id)
 
 
-def levantar_restriccion_cliente(client_id: UUID, data: ClientComplianceOverrideRequest, db: Session, tenant_id: int, current_user: UserTenantDB | GlobalUserDB):
+def levantar_restriccion_cliente(
+    client_id: UUID,
+    data: ClientComplianceOverrideRequest,
+    db: Session,
+    tenant_id: int,
+    current_user: UserTenantDB | GlobalUserDB,
+):
     return override_client_compliance(client_id, data, db, tenant_id, current_user)
 
 
 def revisar_cliente_listas(client_id: UUID, db: Session, tenant_id: int):
     client = ClientRepository(db).get_by_id(client_id, tenant_id)
     if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
     return screen_client(client, db)
 
 
