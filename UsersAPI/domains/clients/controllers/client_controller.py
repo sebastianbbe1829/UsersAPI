@@ -57,8 +57,13 @@ def actualizar_cliente(
     return update_client(client_id, data, db, tenant_id, current_user)
 
 
-def eliminar_cliente(client_id: UUID, db: Session, tenant_id: int):
-    return delete_client(client_id, db, tenant_id)
+def eliminar_cliente(
+    client_id: UUID,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+):
+    return delete_client(client_id, db, tenant_id, current_user)
 
 
 def levantar_restriccion_cliente(
