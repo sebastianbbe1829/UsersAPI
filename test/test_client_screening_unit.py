@@ -1,14 +1,17 @@
 """Unit tests for client screening helpers."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 from UsersAPI.domains.clients.services.screening_provider import (
     ScreeningProvider,
     normalize_screening_text,
 )
 from UsersAPI.domains.clients.services.screening_service import (
+    _build_list_type,
     _build_report_item,
+    list_screenings,
     screen_client,
 )
 
@@ -85,25 +88,58 @@ def test_provider_returns_pending_without_synced_sources():
     assert result.status == "PENDING"
 
 
-def test_screen_client_updates_clear_status():
-    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
-    db = _query_results([source], [])
-    db.flush.return_value = None
+def test_screen_client_updates_client_on_clear():
+    db = MagicMock()
     client = SimpleNamespace(
-        id="client-1",
+        id=uuid4(),
         tenant_id=10,
-        identification_number="123",
-        full_name="JUAN PEREZ",
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
+    provider_result = SimpleNamespace(
+        status="CLEAR",
+        risk_level="LOW",
+        matched=False,
+        list_type=None,
+        response={"matches": []},
+    )
+
+    with patch(
+        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
+    ) as provider:
+        provider.return_value.screen.return_value = provider_result
+        result = screen_client(client, db)
+
+    assert result.status == "CLEAR"
+    assert client.compliance_status == "CLEAR"
+    assert client.is_listed is False
+
+
+def test_screen_client_records_error_without_raising():
+    db = MagicMock()
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
         compliance_status="PENDING",
         is_listed=False,
         list_type=None,
     )
 
-    result = screen_client(client, db)
+    with patch(
+        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
+    ) as provider:
+        provider.return_value.screen.side_effect = RuntimeError("provider error")
+        result = screen_client(client, db)
 
-    assert result.status == "CLEAR"
-    assert client.compliance_status == "CLEAR"
+    assert result.status == "ERROR"
+    assert client.compliance_status == "ERROR"
     assert client.is_listed is False
+
+
+def test_build_list_type_uses_source():
+    assert _build_list_type("OFAC_SDN") == "OFAC_SDN"
+    assert _build_list_type("UN_CONSOLIDATED") == "UN_CONSOLIDATED"
 
 
 def test_build_report_item_maps_fields():
@@ -135,8 +171,6 @@ def test_build_report_item_maps_fields():
 
 
 def test_list_screenings_maps_query_results():
-    from UsersAPI.domains.clients.services.screening_service import list_screenings
-
     db = MagicMock()
     screening = SimpleNamespace(
         id="screening-1",
