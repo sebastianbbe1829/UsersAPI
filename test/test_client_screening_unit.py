@@ -69,7 +69,6 @@ def test_provider_returns_clear_when_no_match():
     result = ScreeningProvider().screen(client, db)
 
     assert result.status == "CLEAR"
-    assert result.matches if hasattr(result, "matches") else True
     assert result.response["matches"] == []
 
 
