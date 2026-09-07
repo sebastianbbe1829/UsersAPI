@@ -270,6 +270,14 @@ def update_client(
     return client
 
 
-def delete_client(client_id: UUID, db: Session, tenant_id: int) -> None:
+def delete_client(
+    client_id: UUID,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+) -> None:
     client = get_client(client_id, db, tenant_id)
-    ClientRepository(db).delete(client)
+    client.status = "INACTIVE"
+    client.updated_at = datetime.now(UTC)
+    client.updated_by = _actor_name(current_user)
+    ClientRepository(db).update(client)
