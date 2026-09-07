@@ -9,13 +9,25 @@ from UsersAPI.domains.clients.services import compliance_report_service
 from UsersAPI.domains.clients.services import screening_provider
 
 
-def _query_mock(result):
-    query = MagicMock()
-    query.filter.return_value = query
-    query.order_by.return_value = query
-    query.first.return_value = result
-    query.all.return_value = result if isinstance(result, list) else []
-    return query
+class _QueryMock:
+    def __init__(self, all_result=None, first_result=None):
+        self._all_result = all_result or []
+        self._first_result = first_result
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def join(self, *args, **kwargs):
+        return self
+
+    def all(self):
+        return self._all_result
+
+    def first(self):
+        return self._first_result
 
 
 def test_restricted_report_marks_blocked_and_lifted_clients():
@@ -44,11 +56,11 @@ def test_restricted_report_marks_blocked_and_lifted_clients():
     )
     db = MagicMock()
     db.query.side_effect = [
-        _query_mock([blocked, lifted]),
-        _query_mock([screening_blocked]),
-        _query_mock([]),
-        _query_mock([screening_lifted]),
-        _query_mock([override]),
+        _QueryMock(all_result=[blocked, lifted]),
+        _QueryMock(first_result=screening_blocked),
+        _QueryMock(first_result=None),
+        _QueryMock(first_result=screening_lifted),
+        _QueryMock(first_result=override),
     ]
 
     result = compliance_report_service.list_restricted_clients_report(db, 10)
@@ -68,12 +80,13 @@ def test_compliance_override_history_returns_joined_rows():
         requested_by_email="user@test.com", reason="Revisión completada",
         created_at=datetime.now(UTC),
     )
-    query = _query_mock([(override, client)])
+    query = _QueryMock(all_result=[(override, client)])
     db = MagicMock()
     db.query.return_value = query
 
     result = compliance_report_service.list_compliance_override_history(db, 10)
 
+    assert len(result) == 1
     assert result[0]["identification_number"] == "123"
     assert result[0]["requested_by_email"] == "user@test.com"
     assert result[0]["reason"] == "Revisión completada"
