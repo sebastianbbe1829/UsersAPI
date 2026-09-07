@@ -33,9 +33,12 @@ def screen_client(client: ClientDB, db: Session) -> ClientScreeningDB:
 
         if result.matched or result.status == "MATCH":
             client.status = "BLOCKED"
+        elif result.status == "CLEAR":
+            # A fresh screening with no match removes the current compliance
+            # restriction. A persistent MATCH remains BLOCKED and requires
+            # the explicit override flow.
+            client.status = "ACTIVE"
         elif result.status in {"PENDING", "ERROR"} and client.status != "BLOCKED":
-            # A client whose compliance state cannot be established must not
-            # become active until a CLEAR screening is available.
             client.status = "INACTIVE"
     except Exception as exc:
         screening.status = "ERROR"
