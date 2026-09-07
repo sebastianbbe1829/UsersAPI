@@ -34,11 +34,11 @@ class ScreeningEntryDB(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users_api.screening_sources.id"),
+        ForeignKey("users_api.screening_sources.id", ondelete="CASCADE"),
         nullable=False,
     )
-    external_id = Column(String(100), nullable=False)
-    entry_type = Column(String(30), nullable=True)
+    external_id = Column(String(150), nullable=False)
+    entry_type = Column(String(20), nullable=False)
     name = Column(String(300), nullable=False)
     normalized_name = Column(String(300), nullable=False)
     aliases = Column(JSONB, nullable=True)
