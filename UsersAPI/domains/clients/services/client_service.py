@@ -37,14 +37,12 @@ def _validate_identity_data(
 ) -> None:
     _validate_identification_type(db, identification_type_id, person_type)
     if not full_name:
-        if person_type == "NATURAL":
-            detail = "Natural person requires first_name and last_name"
-        else:
-            detail = "Legal person requires business_name"
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=detail,
+        detail = (
+            "Natural person requires first_name and last_name"
+            if person_type == "NATURAL"
+            else "Legal person requires business_name"
         )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 def _validate_identification_type(
@@ -73,19 +71,28 @@ def _validate_identification_type(
     return identification_type
 
 
+def _actor_name(current_user: object) -> str:
+    return (
+        getattr(current_user, "email", None)
+        or getattr(current_user, "username", None)
+        or "system"
+    )
+
+
 def create_client(
     data: ClientCreate,
     db: Session,
     tenant_id: int,
     current_user: object,
 ) -> ClientDB:
+    if data.status == "BLOCKED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="BLOCKED is a system-managed compliance status",
+        )
+
     full_name = _full_name(data)
-    _validate_identity_data(
-        db,
-        data.identification_type_id,
-        data.person_type,
-        full_name,
-    )
+    _validate_identity_data(db, data.identification_type_id, data.person_type, full_name)
 
     repository = ClientRepository(db)
     if repository.get_by_identification(
@@ -99,11 +106,7 @@ def create_client(
         )
 
     now = datetime.now(UTC)
-    created_by = (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
-    )
+    created_by = _actor_name(current_user)
     consent_at = data.consent_at if data.consent_given else None
     if data.consent_given and consent_at is None:
         consent_at = now
@@ -142,10 +145,7 @@ def list_clients(db: Session, tenant_id: int) -> list[ClientDB]:
 def get_client(client_id: UUID, db: Session, tenant_id: int) -> ClientDB:
     client = ClientRepository(db).get_by_id(client_id, tenant_id)
     if client is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Client not found",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
     return client
 
 
@@ -160,6 +160,36 @@ def update_client(
     client = get_client(client_id, db, tenant_id)
     changes = data.model_dump(exclude_unset=True)
 
+    if "status" in changes:
+        requested_status = changes["status"]
+        if requested_status == "BLOCKED":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="BLOCKED is a system-managed compliance status",
+            )
+        if client.status == "BLOCKED":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A blocked client can only be reactivated through the compliance override flow",
+            )
+
+    identity_fields = {
+        "identification_type_id",
+        "identification_number",
+        "person_type",
+        "first_name",
+        "middle_name",
+        "last_name",
+        "second_last_name",
+        "business_name",
+    }
+    identity_changed = bool(identity_fields.intersection(changes))
+
+    original_values = {
+        field: getattr(client, field)
+        for field in identity_fields
+    }
+
     for field, value in changes.items():
         setattr(client, field, value)
 
@@ -173,12 +203,7 @@ def update_client(
     client.consent_source = _normalizar_texto(client.consent_source)
 
     full_name = _full_name(client)
-    _validate_identity_data(
-        db,
-        client.identification_type_id,
-        client.person_type,
-        full_name,
-    )
+    _validate_identity_data(db, client.identification_type_id, client.person_type, full_name)
 
     if "identification_type_id" in changes or "identification_number" in changes:
         duplicate = repository.get_by_identification(
@@ -194,17 +219,18 @@ def update_client(
 
     client.full_name = full_name
     client.updated_at = datetime.now(UTC)
-    client.updated_by = (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
-    )
+    client.updated_by = _actor_name(current_user)
     if client.consent_given and client.consent_at is None:
         client.consent_at = client.updated_at
     elif not client.consent_given:
         client.consent_at = None
 
-    return repository.update(client)
+    client = repository.update(client)
+
+    if identity_changed and any(original_values[field] != getattr(client, field) for field in identity_fields):
+        screen_client(client, db)
+
+    return client
 
 
 def delete_client(client_id: UUID, db: Session, tenant_id: int) -> None:
