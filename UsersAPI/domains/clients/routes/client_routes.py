@@ -188,6 +188,12 @@ async def override_client_compliance_route(
 async def delete_client_route(
     client_id: UUID,
     db: Session = Depends(get_db),
+    current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    eliminar_cliente(client_id, db, cast(int, user_tenant.tenant_id))
+    eliminar_cliente(
+        client_id,
+        db,
+        cast(int, user_tenant.tenant_id),
+        current_user,
+    )
