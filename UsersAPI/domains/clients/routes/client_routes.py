@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.controllers import get_current_user
 from UsersAPI.domains.core.database import get_db
-from UsersAPI.domains.core.models import UserTenantDB
+from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
@@ -14,16 +14,18 @@ from ..controllers.client_controller import (
     actualizar_cliente,
     crear_cliente,
     eliminar_cliente,
+    levantar_restriccion_cliente,
     listar_clientes,
     obtener_cliente,
 )
 from ..schemas.client import ClientCreate, ClientRead, ClientUpdate
-
-
-client_routes = APIRouter(
-    prefix="/clients",
-    tags=["Clientes"],
+from ..schemas.compliance_override import (
+    ClientComplianceOverrideRead,
+    ClientComplianceOverrideRequest,
 )
+
+
+client_routes = APIRouter(prefix="/clients", tags=["Clientes"])
 
 
 @client_routes.post(
@@ -79,6 +81,28 @@ async def update_client_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     return actualizar_cliente(
+        client_id,
+        data,
+        db,
+        cast(int, user_tenant.tenant_id),
+        current_user,
+    )
+
+
+@client_routes.post(
+    "/{client_id}/compliance/override",
+    response_model=ClientComplianceOverrideRead,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_permission("CLIENT_COMPLIANCE_OVERRIDE"))],
+)
+async def override_client_compliance_route(
+    client_id: UUID,
+    data: ClientComplianceOverrideRequest,
+    db: Session = Depends(get_db),
+    current_user: GlobalUserDB = Depends(get_current_user),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return levantar_restriccion_cliente(
         client_id,
         data,
         db,
