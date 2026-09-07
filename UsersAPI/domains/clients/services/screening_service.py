@@ -31,10 +31,12 @@ def screen_client(client: ClientDB, db: Session) -> ClientScreeningDB:
         client.is_listed = result.matched
         client.list_type = result.list_type
 
-        # A compliance MATCH is a hard business restriction. It can only be
-        # lifted through the explicit compliance-override flow.
         if result.matched or result.status == "MATCH":
             client.status = "BLOCKED"
+        elif result.status in {"PENDING", "ERROR"} and client.status != "BLOCKED":
+            # A client whose compliance state cannot be established must not
+            # become active until a CLEAR screening is available.
+            client.status = "INACTIVE"
     except Exception as exc:
         screening.status = "ERROR"
         screening.risk_level = "UNKNOWN"
@@ -44,6 +46,8 @@ def screen_client(client: ClientDB, db: Session) -> ClientScreeningDB:
         client.compliance_status = "ERROR"
         client.is_listed = False
         client.list_type = None
+        if client.status != "BLOCKED":
+            client.status = "INACTIVE"
 
     db.add(screening)
     db.add(client)
