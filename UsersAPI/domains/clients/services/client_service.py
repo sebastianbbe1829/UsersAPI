@@ -74,7 +74,7 @@ def _validate_identification_type(
     return identification_type
 
 
-def _actor_name(current_user: object) -> str:
+def _actor_name(current_user: object | None) -> str:
     return (
         getattr(current_user, "email", None)
         or getattr(current_user, "username", None)
@@ -274,7 +274,7 @@ def delete_client(
     client_id: UUID,
     db: Session,
     tenant_id: int,
-    current_user: object,
+    current_user: object | None = None,
 ) -> None:
     client = get_client(client_id, db, tenant_id)
     client.status = "INACTIVE"
