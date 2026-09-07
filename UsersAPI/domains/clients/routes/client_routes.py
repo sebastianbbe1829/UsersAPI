@@ -1,7 +1,7 @@
 from typing import cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.controllers import get_current_user
@@ -35,8 +35,21 @@ async def create_client_route(data: ClientCreate, db: Session = Depends(get_db),
 
 
 @client_routes.get("", response_model=list[ClientRead], dependencies=[Depends(require_permission("CLIENT_READ"))])
-async def list_clients_route(db: Session = Depends(get_db), user_tenant: UserTenantDB = Depends(get_current_tenant)):
-    return listar_clientes(db, cast(int, user_tenant.tenant_id))
+async def list_clients_route(
+    page: int = Query(1, ge=1, le=100000),
+    page_size: int = Query(10, ge=1, le=100),
+    search: str | None = Query(None, max_length=100),
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    offset = (page - 1) * page_size
+    return listar_clientes(
+        db,
+        cast(int, user_tenant.tenant_id),
+        limit=page_size,
+        offset=offset,
+        search=search,
+    )
 
 
 @client_routes.get("/restricted-report", response_model=list[ClientRestrictedListReportRead], dependencies=[Depends(require_permission("CLIENT_READ"))])
