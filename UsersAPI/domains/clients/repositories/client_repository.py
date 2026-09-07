@@ -74,5 +74,7 @@ class ClientRepository:
         return client
 
     def delete(self, client: ClientDB) -> None:
-        self.db.delete(client)
+        """Logically delete a client without removing its history."""
+        client.status = "INACTIVE"
+        self.db.add(client)
         self.db.flush()
