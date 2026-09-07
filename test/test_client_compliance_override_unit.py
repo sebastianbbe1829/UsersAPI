@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from UsersAPI.domains.clients.services.compliance_override_service import override_client_compliance
 from UsersAPI.domains.clients.schemas.compliance_override import ClientComplianceOverrideRequest
+from UsersAPI.domains.clients.services.compliance_override_service import override_client_compliance
 from UsersAPI.domains.core.models import GlobalUserDB
 
 
@@ -24,6 +24,7 @@ def _super_user():
         is_superuser=True,
         is_active=True,
         mfa_enabled=True,
+        mfa_verified_at=None,
         mfa_secret_encrypted="encrypted-secret",
     )
 
@@ -33,8 +34,8 @@ def test_override_requires_valid_mfa():
     user = _super_user()
 
     with patch(
-        "UsersAPI.domains.clients.services.compliance_override_service._decrypt_mfa_secret",
-        return_value="JBSWY3DPEHPK3PXP",
+        "UsersAPI.domains.clients.services.compliance_override_service.verify_super_mfa_otp",
+        side_effect=HTTPException(status_code=401, detail="Código MFA inválido"),
     ):
         with pytest.raises(HTTPException) as exc:
             override_client_compliance(uuid4(), _payload("000000"), db, 10, user)
@@ -63,14 +64,11 @@ def test_override_releases_blocked_client_and_records_audit():
     user = _super_user()
 
     with patch(
-        "UsersAPI.domains.clients.services.compliance_override_service._decrypt_mfa_secret",
-        return_value="JBSWY3DPEHPK3PXP",
-    ), patch(
-        "UsersAPI.domains.clients.services.compliance_override_service.pyotp.TOTP.verify",
-        return_value=True,
-    ):
+        "UsersAPI.domains.clients.services.compliance_override_service.verify_super_mfa_otp"
+    ) as verify_mfa:
         result = override_client_compliance(uuid4(), _payload(), db, 10, user)
 
+    verify_mfa.assert_called_once_with(user, "123456")
     assert result.client_id == client.id
     assert result.screening_id == client.screenings[0].id
     assert result.requested_by == user.id
