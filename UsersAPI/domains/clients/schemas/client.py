@@ -75,8 +75,3 @@ class ClientRead(ClientBase):
     created_by: str
     updated_at: datetime | None
     updated_by: str | None
-
-
-class ClientComplianceOverrideRequest(BaseModel):
-    reason: str = Field(min_length=10, max_length=2000)
-    otp: str = Field(min_length=6, max_length=8)
