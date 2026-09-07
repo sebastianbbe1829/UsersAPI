@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ..models import ClientDB, IdentificationTypeDB
 from ..repositories.client_repository import ClientRepository
 from ..schemas.client import ClientCreate, ClientUpdate
+from .screening_service import screen_client
 
 
 def _normalizar_texto(valor: str | None) -> str:
@@ -129,7 +130,9 @@ def create_client(
         consent_at=consent_at,
         **datos,
     )
-    return repository.add(client)
+    client = repository.add(client)
+    screen_client(client, db)
+    return client
 
 
 def list_clients(db: Session, tenant_id: int) -> list[ClientDB]:
