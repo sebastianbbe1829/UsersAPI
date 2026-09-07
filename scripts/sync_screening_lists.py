@@ -106,7 +106,7 @@ def _parse_un(root: ET.Element) -> list[dict]:
 
 def _parse(source_code: str, content: bytes) -> list[dict]:
     root = ET.fromstring(content)
-    if source_code == "OFAC_SDN":
+    if source_code in {"OFAC_SDN", "OFAC_CONSOLIDATED"}:
         return _parse_ofac(root)
     if source_code == "UN_CONSOLIDATED":
         return _parse_un(root)
