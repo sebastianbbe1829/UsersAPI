@@ -289,7 +289,7 @@ def test_list_and_delete_clients_delegate_to_repository():
         offset=5,
         search="juan",
     )
-    repository.delete.assert_called_once_with(client)
+    repository.update.assert_called_once_with(client)
 
 
 def test_client_repository_get_all_applies_search_and_pagination():
@@ -321,6 +321,6 @@ def test_client_repository_crud_methods_delegate_to_session():
     repository.get_by_id(client.id, 10)
     repository.get_by_identification(1, "123", 10)
 
-    assert db.add.call_count == 2
+    assert db.add.call_count == 3
     assert db.flush.call_count == 3
-    db.delete.assert_called_once_with(client)
+    db.delete.assert_not_called()
