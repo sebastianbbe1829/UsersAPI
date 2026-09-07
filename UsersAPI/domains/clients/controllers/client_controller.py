@@ -61,7 +61,7 @@ def eliminar_cliente(
     client_id: UUID,
     db: Session,
     tenant_id: int,
-    current_user: object,
+    current_user: object | None = None,
 ):
     return delete_client(client_id, db, tenant_id, current_user)
 
