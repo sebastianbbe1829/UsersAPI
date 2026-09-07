@@ -10,7 +10,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from .domains.clients.routes import catalog_routes, client_routes
+from .domains.clients.routes import catalog_routes, client_routes, screening_routes
 from .domains.core.routes import (
     auth_routers,
     bootstrap_tenant_routes,
@@ -73,7 +73,10 @@ app = FastAPI(
             "name": "Autenticación SUPER",
             "description": "Autenticación global del usuario SUPER con MFA",
         },
-        {"name": "Usuarios SUPER", "description": "Administración global de usuarios SUPER"},
+        {
+            "name": "Usuarios SUPER",
+            "description": "Administración global de usuarios SUPER",
+        },
         {"name": "Tenants", "description": "Operaciones sobre tenants"},
         {
             "name": "Configuración UI",
@@ -101,7 +104,10 @@ app = FastAPI(
             "name": "Email",
             "description": "Pruebas administrativas de correo transaccional",
         },
-        {"name": "OTP", "description": "Generación y validación de códigos OTP temporales"},
+        {
+            "name": "OTP",
+            "description": "Generación y validación de códigos OTP temporales",
+        },
         {
             "name": "Extintores",
             "description": "Inventario y gestión de extintores por tenant",
@@ -118,13 +124,14 @@ app = FastAPI(
             "name": "Ítems de revisión",
             "description": "Catálogo de ítems utilizados en las revisiones de extintores",
         },
-        {
-            "name": "Clientes",
-            "description": "Gestión de clientes por tenant",
-        },
+        {"name": "Clientes", "description": "Gestión de clientes por tenant"},
         {
             "name": "Catálogos de clientes",
             "description": "Catálogos de solo lectura utilizados por el dominio de clientes",
+        },
+        {
+            "name": "Clientes - Listas Restrictivas",
+            "description": "Screening e histórico de listas restrictivas",
         },
     ],
 )
@@ -225,6 +232,8 @@ app.include_router(catalog_routes)
 logger.debug("Rutas de catálogos de clientes registradas")
 app.include_router(client_routes)
 logger.debug("Rutas de clientes registradas")
+app.include_router(screening_routes)
+logger.debug("Rutas de screening de clientes registradas")
 app.include_router(diagnostics_router)
 
 
