@@ -10,6 +10,7 @@ class ClientRestrictedListReportRead(BaseModel):
     full_name: str
     person_type: str
     status: str
+    report_status: str
     compliance_status: str
     list_type: str | None
     is_listed: bool
