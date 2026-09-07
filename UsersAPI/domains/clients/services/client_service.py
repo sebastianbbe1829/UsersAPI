@@ -92,8 +92,19 @@ def create_client(data: ClientCreate, db: Session, tenant_id: int, current_user:
     return client
 
 
-def list_clients(db: Session, tenant_id: int) -> list[ClientDB]:
-    return ClientRepository(db).get_all(tenant_id)
+def list_clients(
+    db: Session,
+    tenant_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+    search: str | None = None,
+) -> list[ClientDB]:
+    return ClientRepository(db).get_all(
+        tenant_id,
+        limit=limit,
+        offset=offset,
+        search=search,
+    )
 
 
 def get_client(client_id: UUID, db: Session, tenant_id: int) -> ClientDB:
