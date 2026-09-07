@@ -73,10 +73,15 @@ class ScreeningProvider:
 
         matches: list[dict] = []
         for entry in candidates:
-            document_match = document and document in (entry.identification_numbers or [])
+            document_match = document and document in (
+                entry.identification_numbers or []
+            )
             name_score = _similarity(name, entry.normalized_name)
             alias_score = max(
-                [_similarity(name, normalize_screening_text(alias)) for alias in (entry.aliases or [])],
+                [
+                    _similarity(name, normalize_screening_text(alias))
+                    for alias in (entry.aliases or [])
+                ],
                 default=0.0,
             )
             score = max(name_score, alias_score)
