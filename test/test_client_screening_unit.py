@@ -32,11 +32,7 @@ def test_normalize_text_removes_accents_and_collapses_spaces():
 
 
 def test_provider_matches_identification_number():
-    source = SimpleNamespace(
-        id="source-1",
-        code="OFAC_SDN",
-        name="OFAC SDN",
-    )
+    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
     entry = SimpleNamespace(
         id="entry-1",
         source_id="source-1",
@@ -66,11 +62,7 @@ def test_provider_matches_identification_number():
 
 
 def test_provider_returns_clear_when_no_match():
-    source = SimpleNamespace(
-        id="source-1",
-        code="OFAC_SDN",
-        name="OFAC SDN",
-    )
+    source = SimpleNamespace(id="source-1", code="OFAC_SDN", name="OFAC SDN")
     db = _query_results([source], [])
     client = SimpleNamespace(
         identification_number="123",
@@ -218,12 +210,12 @@ def test_list_screenings_maps_query_results():
 
 def test_parse_ofac_sdn_reads_entity_alias_and_identification_number():
     xml = b"""
-    <sdnList xmlns=\"urn:test\">
+    <sdnList xmlns="urn:test">
       <sdnEntry>
         <uid>123</uid>
         <sdnType>Individual</sdnType>
-        <firstName>José</firstName>
-        <lastName>Pérez</lastName>
+        <firstName>Jos&#233;</firstName>
+        <lastName>P&#233;rez</lastName>
         <aka><name>Jose Perez Alias</name></aka>
         <aka><name>Jose Perez Alias</name></aka>
         <idList><id><idNumber>CC-123</idNumber></id></idList>
@@ -290,8 +282,14 @@ def test_sync_ofac_sdn_creates_updates_and_deactivates_entries():
     response.raise_for_status.return_value = None
 
     with (
-        patch("UsersAPI.domains.clients.services.screening_provider.requests.get", return_value=response),
-        patch("UsersAPI.domains.clients.services.screening_provider._parse_ofac_sdn", return_value=parsed),
+        patch(
+            "UsersAPI.domains.clients.services.screening_provider.requests.get",
+            return_value=response,
+        ),
+        patch(
+            "UsersAPI.domains.clients.services.screening_provider._parse_ofac_sdn",
+            return_value=parsed,
+        ),
     ):
         result = sync_ofac_sdn(db)
 
