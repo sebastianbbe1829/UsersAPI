@@ -24,12 +24,32 @@ def list_restricted_clients_report(db: Session, tenant_id: int):
             .order_by(desc(ClientScreeningDB.requested_at))
             .first()
         )
+        latest_override = (
+            db.query(ClientComplianceOverrideDB)
+            .filter(
+                ClientComplianceOverrideDB.tenant_id == tenant_id,
+                ClientComplianceOverrideDB.client_id == client.id,
+            )
+            .order_by(desc(ClientComplianceOverrideDB.created_at))
+            .first()
+        )
+
+        lifted = bool(
+            latest_override
+            and screening
+            and latest_override.created_at >= screening.requested_at
+            and screening.status == "MATCH"
+            and client.status == "ACTIVE"
+        )
+        report_status = "LEVANTADA" if lifted else ("BLOQUEADO" if client.status == "BLOCKED" else client.status)
+
         result.append({
             "client_id": client.id,
             "identification_number": client.identification_number,
             "full_name": client.full_name,
             "person_type": client.person_type,
             "status": client.status,
+            "report_status": report_status,
             "compliance_status": client.compliance_status,
             "list_type": client.list_type,
             "is_listed": client.is_listed,
