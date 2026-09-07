@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
 
@@ -19,3 +20,5 @@ class ScreeningSourceDB(Base):
     last_sync_at = Column(DateTime, nullable=True)
     last_sync_status = Column(String(20), nullable=True)
     last_sync_error = Column(Text, nullable=True)
+
+    entries = relationship("ScreeningEntryDB", back_populates="source")
