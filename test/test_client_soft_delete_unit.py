@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from UsersAPI.domains.clients.services import client_service
 
@@ -19,7 +20,11 @@ def test_delete_client_logically_deactivates_and_audits_actor(monkeypatch):
     repository = MagicMock()
     repository.update.return_value = client
 
-    monkeypatch.setattr(client_service, "get_client", MagicMock(return_value=client))
+    monkeypatch.setattr(
+        client_service,
+        "get_client",
+        MagicMock(return_value=client),
+    )
     monkeypatch.setattr(
         client_service,
         "ClientRepository",
@@ -49,7 +54,11 @@ def test_delete_client_uses_username_when_email_is_missing(monkeypatch):
     current_user = SimpleNamespace(username="operator")
     repository = MagicMock()
 
-    monkeypatch.setattr(client_service, "get_client", MagicMock(return_value=client))
+    monkeypatch.setattr(
+        client_service,
+        "get_client",
+        MagicMock(return_value=client),
+    )
     monkeypatch.setattr(
         client_service,
         "ClientRepository",
@@ -62,10 +71,20 @@ def test_delete_client_uses_username_when_email_is_missing(monkeypatch):
     assert client.updated_by == "operator"
 
 
-def test_delete_client_rejects_missing_client(monkeypatch):
-    monkeypatch.setattr(client_service, "get_client", MagicMock(side_effect=client_service.HTTPException(status_code=404, detail="Client not found")))
+def test_delete_client_propagates_not_found(monkeypatch):
+    not_found = HTTPException(status_code=404, detail="Client not found")
+    monkeypatch.setattr(
+        client_service,
+        "get_client",
+        MagicMock(side_effect=not_found),
+    )
 
-    with pytest.raises(client_service.HTTPException) as exc:
-        client_service.delete_client(uuid4(), MagicMock(), 10, SimpleNamespace(email="admin@example.com"))
+    with pytest.raises(HTTPException) as exc:
+        client_service.delete_client(
+            uuid4(),
+            MagicMock(),
+            10,
+            SimpleNamespace(email="admin@example.com"),
+        )
 
     assert exc.value.status_code == 404
