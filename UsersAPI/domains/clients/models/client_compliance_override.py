@@ -18,7 +18,6 @@ class ClientComplianceOverrideDB(Base):
     requested_by = Column(Integer, nullable=False)
     requested_by_email = Column(String(255), nullable=False)
     reason = Column(Text, nullable=False)
-    mfa_verified_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     client = relationship("ClientDB", back_populates="compliance_overrides")
