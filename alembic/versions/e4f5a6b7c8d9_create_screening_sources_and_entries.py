@@ -70,6 +70,7 @@ def upgrade() -> None:
         sa.column("name", sa.String()),
         sa.column("provider", sa.String()),
         sa.column("url", sa.Text()),
+        schema="users_api",
     )
     op.bulk_insert(
         screening_sources,
