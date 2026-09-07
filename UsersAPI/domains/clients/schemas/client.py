@@ -4,6 +4,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
+CLIENT_STATUSES = "^(ACTIVE|INACTIVE|BLOCKED)$"
+
+
 class ClientBase(BaseModel):
     identification_type_id: int
     identification_number: str = Field(min_length=1, max_length=50)
@@ -19,7 +22,7 @@ class ClientBase(BaseModel):
     country_id: int | None = None
     department_id: int | None = None
     city_id: int | None = None
-    status: str = Field(default="ACTIVE", pattern="^(ACTIVE|INACTIVE)$")
+    status: str = Field(default="ACTIVE", pattern=CLIENT_STATUSES)
     consent_given: bool = False
     consent_at: datetime | None = None
     consent_source: str | None = Field(default=None, max_length=100)
@@ -53,7 +56,7 @@ class ClientUpdate(BaseModel):
     country_id: int | None = None
     department_id: int | None = None
     city_id: int | None = None
-    status: str | None = Field(default=None, pattern="^(ACTIVE|INACTIVE)$")
+    status: str | None = Field(default=None, pattern=CLIENT_STATUSES)
     consent_given: bool | None = None
     consent_at: datetime | None = None
     consent_source: str | None = Field(default=None, max_length=100)
@@ -72,3 +75,8 @@ class ClientRead(ClientBase):
     created_by: str
     updated_at: datetime | None
     updated_by: str | None
+
+
+class ClientComplianceOverrideRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=2000)
+    otp: str = Field(min_length=6, max_length=8)
