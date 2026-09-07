@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -34,7 +34,7 @@ class ScreeningEntryDB(Base):
     nationality = Column(String(100), nullable=True)
     date_of_birth = Column(Date, nullable=True)
     raw_data = Column(JSONB, nullable=True)
-    active = Column(String(10), nullable=False, server_default=text("'true'"))
+    active = Column(Boolean, nullable=False, server_default=text("true"))
     updated_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
 
     source = relationship("ScreeningSourceDB")
