@@ -51,30 +51,12 @@ class ClientDB(Base):
     phone = Column(String(50), nullable=True)
     address = Column(String(250), nullable=True)
 
-    country_id = Column(
-        Integer,
-        ForeignKey("users_api.countries.id"),
-        nullable=True,
-        index=True,
-    )
-    department_id = Column(
-        Integer,
-        ForeignKey("users_api.departments.id"),
-        nullable=True,
-        index=True,
-    )
-    city_id = Column(
-        Integer,
-        ForeignKey("users_api.cities.id"),
-        nullable=True,
-        index=True,
-    )
+    country_id = Column(Integer, ForeignKey("users_api.countries.id"), nullable=True, index=True)
+    department_id = Column(Integer, ForeignKey("users_api.departments.id"), nullable=True, index=True)
+    city_id = Column(Integer, ForeignKey("users_api.cities.id"), nullable=True, index=True)
 
     status = Column(String(20), nullable=False, server_default=text("'ACTIVE'"))
-    compliance_status = Column(
-        String(20), nullable=False, server_default=text("'PENDING'")
-    )
-
+    compliance_status = Column(String(20), nullable=False, server_default=text("'PENDING'"))
     is_listed = Column(Boolean, nullable=False, server_default=text("false"))
     list_type = Column(String(50), nullable=True)
 
@@ -82,9 +64,7 @@ class ClientDB(Base):
     consent_at = Column(DateTime, nullable=True)
     consent_source = Column(String(100), nullable=True)
 
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
     updated_at = Column(DateTime, nullable=True)
     updated_by = Column(String(100), nullable=True)
@@ -93,8 +73,9 @@ class ClientDB(Base):
     country = relationship("CountryDB", back_populates="clients")
     department = relationship("DepartmentDB", back_populates="clients")
     city = relationship("CityDB", back_populates="clients")
-    screenings = relationship(
-        "ClientScreeningDB",
+    screenings = relationship("ClientScreeningDB", back_populates="client", cascade="all, delete-orphan")
+    compliance_overrides = relationship(
+        "ClientComplianceOverrideDB",
         back_populates="client",
         cascade="all, delete-orphan",
     )
