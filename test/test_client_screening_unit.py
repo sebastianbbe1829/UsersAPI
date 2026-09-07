@@ -4,9 +4,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
 from UsersAPI.domains.clients.services.screening_provider import (
     ScreeningProvider,
+    _parse_ofac_sdn,
     normalize_screening_text,
+    sync_all_screening_lists,
+    sync_ofac_sdn,
 )
 from UsersAPI.domains.clients.services.screening_report_service import list_screenings
 from UsersAPI.domains.clients.services.screening_service import screen_client
@@ -89,6 +94,7 @@ def test_screen_client_updates_client_on_clear():
     client = SimpleNamespace(
         id=uuid4(),
         tenant_id=10,
+        status="ACTIVE",
         compliance_status="PENDING",
         is_listed=False,
         list_type=None,
@@ -108,8 +114,40 @@ def test_screen_client_updates_client_on_clear():
         result = screen_client(client, db)
 
     assert result.status == "CLEAR"
+    assert client.status == "ACTIVE"
     assert client.compliance_status == "CLEAR"
     assert client.is_listed is False
+
+
+def test_screen_client_blocks_client_on_match():
+    db = MagicMock()
+    client = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=10,
+        status="ACTIVE",
+        compliance_status="PENDING",
+        is_listed=False,
+        list_type=None,
+    )
+    provider_result = SimpleNamespace(
+        status="MATCH",
+        risk_level="HIGH",
+        matched=True,
+        list_type="OFAC_SDN",
+        response={"matches": [{"external_id": "35784"}]},
+    )
+
+    with patch(
+        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
+    ) as provider:
+        provider.return_value.screen.return_value = provider_result
+        result = screen_client(client, db)
+
+    assert result.status == "MATCH"
+    assert client.status == "BLOCKED"
+    assert client.compliance_status == "MATCH"
+    assert client.is_listed is True
+    assert client.list_type == "OFAC_SDN"
 
 
 def test_screen_client_records_error_without_raising():
@@ -117,6 +155,7 @@ def test_screen_client_records_error_without_raising():
     client = SimpleNamespace(
         id=uuid4(),
         tenant_id=10,
+        status="ACTIVE",
         compliance_status="PENDING",
         is_listed=False,
         list_type=None,
@@ -167,3 +206,163 @@ def test_list_screenings_maps_query_results():
     assert len(result) == 1
     assert result[0]["full_name"] == "JUAN PEREZ"
     assert result[0]["provider"] == "INTERNAL_OFFICIAL"
+
+
+def test_parse_ofac_sdn_reads_entity_alias_and_identification_number():
+    xml = b"""
+    <sdnList xmlns="urn:test">
+      <sdnEntry>
+        <uid>123</uid>
+        <sdnType>Individual</sdnType>
+        <firstName>Jos&#233;</firstName>
+        <lastName>P&#233;rez</lastName>
+        <aka><name>Jose Perez Alias</name></aka>
+        <aka><name>Jose Perez Alias</name></aka>
+        <idList><id><idNumber>CC-123</idNumber></id></idList>
+      </sdnEntry>
+      <sdnEntry><uid>missing-name</uid></sdnEntry>
+    </sdnList>
+    """
+
+    entries = _parse_ofac_sdn(xml)
+
+    assert len(entries) == 1
+    assert entries[0]["external_id"] == "123"
+    assert entries[0]["entry_type"] == "INDIVIDUAL"
+    assert entries[0]["name"] == "José Pérez"
+    assert entries[0]["normalized_name"] == "JOSE PEREZ"
+    assert entries[0]["aliases"] == ["Jose Perez Alias"]
+    assert entries[0]["identification_numbers"] == ["CC-123"]
+
+
+def test_parse_ofac_sdn_rejects_empty_document():
+    with pytest.raises(ValueError, match="no contiene registros procesables"):
+        _parse_ofac_sdn(b"<sdnList />")
+
+
+def test_sync_ofac_sdn_creates_updates_and_deactivates_entries():
+    db = MagicMock()
+    source = SimpleNamespace(
+        id="source-1",
+        code="OFAC_SDN",
+        url="old-url",
+        last_sync_status=None,
+        last_sync_error=None,
+    )
+    updated = SimpleNamespace(external_id="1", active=False)
+    stale = SimpleNamespace(external_id="stale", active=True)
+
+    source_query = MagicMock()
+    source_query.filter.return_value.one_or_none.return_value = source
+    entry_query = MagicMock()
+    entry_query.filter.return_value.all.return_value = [updated, stale]
+    db.query.side_effect = [source_query, entry_query]
+
+    parsed = [
+        {
+            "external_id": "1",
+            "entry_type": "INDIVIDUAL",
+            "name": "UPDATED",
+            "normalized_name": "UPDATED",
+            "aliases": [],
+            "identification_numbers": ["1"],
+            "raw_data": {"uid": "1"},
+        },
+        {
+            "external_id": "2",
+            "entry_type": "ENTITY",
+            "name": "NEW",
+            "normalized_name": "NEW",
+            "aliases": [],
+            "identification_numbers": [],
+            "raw_data": {"uid": "2"},
+        },
+    ]
+    response = MagicMock(content=b"xml")
+    response.raise_for_status.return_value = None
+
+    with (
+        patch(
+            "UsersAPI.domains.clients.services.screening_provider.requests.get",
+            return_value=response,
+        ),
+        patch(
+            "UsersAPI.domains.clients.services.screening_provider._parse_ofac_sdn",
+            return_value=parsed,
+        ),
+    ):
+        result = sync_ofac_sdn(db)
+
+    assert result == {
+        "source": "OFAC_SDN",
+        "status": "SUCCESS",
+        "total": 2,
+        "created": 1,
+        "updated": 1,
+        "deactivated": 1,
+    }
+    assert source.url.endswith("SDN.XML")
+    assert source.last_sync_status == "SUCCESS"
+    assert source.last_sync_error is None
+    assert updated.active is True
+    assert stale.active is False
+    db.commit.assert_called_once()
+
+
+def test_sync_ofac_sdn_records_error_and_reraises():
+    db = MagicMock()
+    source = SimpleNamespace(
+        id="source-1",
+        code="OFAC_SDN",
+        url="old-url",
+        last_sync_status=None,
+        last_sync_error=None,
+    )
+    source_query = MagicMock()
+    source_query.filter.return_value.one_or_none.return_value = source
+    db.query.return_value = source_query
+
+    with patch(
+        "UsersAPI.domains.clients.services.screening_provider.requests.get",
+        side_effect=RuntimeError("network failure"),
+    ):
+        with pytest.raises(RuntimeError, match="network failure"):
+            sync_ofac_sdn(db)
+
+    assert source.last_sync_status == "ERROR"
+    assert source.last_sync_error == "network failure"
+    db.rollback.assert_called_once()
+    assert db.commit.call_count == 1
+
+
+def test_sync_all_screening_lists_returns_success_summary():
+    db = MagicMock()
+    provider = MagicMock(return_value={"source": "OFAC_SDN", "status": "SUCCESS"})
+
+    with patch(
+        "UsersAPI.domains.clients.services.screening_provider.SCREENING_LIST_PROVIDERS",
+        {"OFAC_SDN": provider},
+    ):
+        result = sync_all_screening_lists(db)
+
+    assert result["status"] == "SUCCESS"
+    assert result["total_sources"] == 1
+    assert result["successful_sources"] == 1
+    assert result["failed_sources"] == 0
+
+
+def test_sync_all_screening_lists_returns_partial_error_when_provider_fails():
+    db = MagicMock()
+    provider = MagicMock(side_effect=RuntimeError("source unavailable"))
+
+    with patch(
+        "UsersAPI.domains.clients.services.screening_provider.SCREENING_LIST_PROVIDERS",
+        {"OFAC_SDN": provider},
+    ):
+        result = sync_all_screening_lists(db)
+
+    assert result["status"] == "ERROR"
+    assert result["total_sources"] == 1
+    assert result["successful_sources"] == 0
+    assert result["failed_sources"] == 1
+    assert result["sources"][0]["error"] == "source unavailable"

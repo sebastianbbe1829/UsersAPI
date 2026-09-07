@@ -37,10 +37,11 @@ def _validate_identity_data(
 ) -> None:
     _validate_identification_type(db, identification_type_id, person_type)
     if not full_name:
-        if person_type == "NATURAL":
-            detail = "Natural person requires first_name and last_name"
-        else:
-            detail = "Legal person requires business_name"
+        detail = (
+            "Natural person requires first_name and last_name"
+            if person_type == "NATURAL"
+            else "Legal person requires business_name"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=detail,
@@ -73,12 +74,26 @@ def _validate_identification_type(
     return identification_type
 
 
+def _actor_name(current_user: object) -> str:
+    return (
+        getattr(current_user, "email", None)
+        or getattr(current_user, "username", None)
+        or "system"
+    )
+
+
 def create_client(
     data: ClientCreate,
     db: Session,
     tenant_id: int,
     current_user: object,
 ) -> ClientDB:
+    if data.status == "BLOCKED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="BLOCKED is a system-managed compliance status",
+        )
+
     full_name = _full_name(data)
     _validate_identity_data(
         db,
@@ -86,7 +101,6 @@ def create_client(
         data.person_type,
         full_name,
     )
-
     repository = ClientRepository(db)
     if repository.get_by_identification(
         data.identification_type_id,
@@ -99,11 +113,7 @@ def create_client(
         )
 
     now = datetime.now(UTC)
-    created_by = (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
-    )
+    created_by = _actor_name(current_user)
     consent_at = data.consent_at if data.consent_given else None
     if data.consent_given and consent_at is None:
         consent_at = now
@@ -121,7 +131,6 @@ def create_client(
             "consent_source": _normalizar_texto(data.consent_source),
         }
     )
-
     client = ClientDB(
         tenant_id=tenant_id,
         full_name=full_name,
@@ -135,8 +144,19 @@ def create_client(
     return client
 
 
-def list_clients(db: Session, tenant_id: int) -> list[ClientDB]:
-    return ClientRepository(db).get_all(tenant_id)
+def list_clients(
+    db: Session,
+    tenant_id: int,
+    limit: int | None = None,
+    offset: int = 0,
+    search: str | None = None,
+) -> list[ClientDB]:
+    return ClientRepository(db).get_all(
+        tenant_id,
+        limit=limit,
+        offset=offset,
+        search=search,
+    )
 
 
 def get_client(client_id: UUID, db: Session, tenant_id: int) -> ClientDB:
@@ -159,6 +179,47 @@ def update_client(
     repository = ClientRepository(db)
     client = get_client(client_id, db, tenant_id)
     changes = data.model_dump(exclude_unset=True)
+
+    if "status" in changes:
+        requested_status = changes["status"]
+        if requested_status == "BLOCKED":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="BLOCKED is a system-managed compliance status",
+            )
+        if client.status == "BLOCKED":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "A blocked client can only be reactivated through "
+                    "the compliance override flow"
+                ),
+            )
+        if requested_status == "ACTIVE" and (
+            client.compliance_status == "MATCH" or client.is_listed
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "A client with an active compliance restriction can only "
+                    "be reactivated through the compliance override flow"
+                ),
+            )
+
+    identity_fields = {
+        "identification_type_id",
+        "identification_number",
+        "person_type",
+        "first_name",
+        "middle_name",
+        "last_name",
+        "second_last_name",
+        "business_name",
+    }
+    identity_changed = bool(identity_fields.intersection(changes))
+    original_values = {
+        field: getattr(client, field) for field in identity_fields
+    }
 
     for field, value in changes.items():
         setattr(client, field, value)
@@ -194,17 +255,19 @@ def update_client(
 
     client.full_name = full_name
     client.updated_at = datetime.now(UTC)
-    client.updated_by = (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
-    )
+    client.updated_by = _actor_name(current_user)
     if client.consent_given and client.consent_at is None:
         client.consent_at = client.updated_at
     elif not client.consent_given:
         client.consent_at = None
 
-    return repository.update(client)
+    client = repository.update(client)
+    if identity_changed and any(
+        original_values[field] != getattr(client, field)
+        for field in identity_fields
+    ):
+        screen_client(client, db)
+    return client
 
 
 def delete_client(client_id: UUID, db: Session, tenant_id: int) -> None:

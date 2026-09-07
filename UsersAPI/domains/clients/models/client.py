@@ -29,7 +29,12 @@ class ClientDB(Base):
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
+    tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.tenants.id"),
+        nullable=False,
+        index=True,
+    )
 
     identification_type_id = Column(
         Integer,
@@ -71,10 +76,7 @@ class ClientDB(Base):
     )
 
     status = Column(String(20), nullable=False, server_default=text("'ACTIVE'"))
-    compliance_status = Column(
-        String(20), nullable=False, server_default=text("'PENDING'")
-    )
-
+    compliance_status = Column(String(20), nullable=False, server_default=text("'PENDING'"))
     is_listed = Column(Boolean, nullable=False, server_default=text("false"))
     list_type = Column(String(50), nullable=True)
 
@@ -82,9 +84,7 @@ class ClientDB(Base):
     consent_at = Column(DateTime, nullable=True)
     consent_source = Column(String(100), nullable=True)
 
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
     updated_at = Column(DateTime, nullable=True)
     updated_by = Column(String(100), nullable=True)
@@ -95,6 +95,11 @@ class ClientDB(Base):
     city = relationship("CityDB", back_populates="clients")
     screenings = relationship(
         "ClientScreeningDB",
+        back_populates="client",
+        cascade="all, delete-orphan",
+    )
+    compliance_overrides = relationship(
+        "ClientComplianceOverrideDB",
         back_populates="client",
         cascade="all, delete-orphan",
     )
