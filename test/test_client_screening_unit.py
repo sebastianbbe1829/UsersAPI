@@ -8,12 +8,8 @@ from UsersAPI.domains.clients.services.screening_provider import (
     ScreeningProvider,
     normalize_screening_text,
 )
-from UsersAPI.domains.clients.services.screening_service import (
-    _build_list_type,
-    _build_report_item,
-    list_screenings,
-    screen_client,
-)
+from UsersAPI.domains.clients.services.screening_report_service import list_screenings
+from UsersAPI.domains.clients.services.screening_service import screen_client
 
 
 def _query_results(source_results, entry_results):
@@ -135,39 +131,6 @@ def test_screen_client_records_error_without_raising():
     assert result.status == "ERROR"
     assert client.compliance_status == "ERROR"
     assert client.is_listed is False
-
-
-def test_build_list_type_uses_source():
-    assert _build_list_type("OFAC_SDN") == "OFAC_SDN"
-    assert _build_list_type("UN_CONSOLIDATED") == "UN_CONSOLIDATED"
-
-
-def test_build_report_item_maps_fields():
-    screening = SimpleNamespace(
-        id="screening-1",
-        tenant_id=10,
-        client_id="client-1",
-        provider="INTERNAL_OFFICIAL",
-        status="CLEAR",
-        risk_level=None,
-        matched=False,
-        requested_at=None,
-        completed_at=None,
-        response={"matches": []},
-        error_message=None,
-    )
-    client = SimpleNamespace(
-        id=screening.client_id,
-        identification_number="123",
-        full_name="JUAN PEREZ",
-        person_type="NATURAL",
-        tenant_id=10,
-        list_type=None,
-    )
-
-    result = _build_report_item(screening, client)
-
-    assert result["full_name"] == "JUAN PEREZ"
 
 
 def test_list_screenings_maps_query_results():
