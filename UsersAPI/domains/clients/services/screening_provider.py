@@ -102,7 +102,7 @@ def _parse_ofac_sdn(xml_content: bytes) -> list[dict]:
                 "normalized_name": normalize_screening_text(name),
                 "aliases": aliases,
                 "identification_numbers": identification_numbers,
-                "raw_data": {"source": "OFAC_SDN", "uid": external_id},
+                "raw_data": {"source": OFAC_SDN_CODE, "uid": external_id},
             }
         )
 
@@ -188,6 +188,41 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
             source.last_sync_error = str(exc)[:2000]
             db.commit()
         raise
+
+
+# Registry for the multi-source synchronization pipeline.
+# New official sources are added here as independent adapters without changing
+# the HTTP endpoint or the client screening algorithm.
+SCREENING_LIST_PROVIDERS = {
+    OFAC_SDN_CODE: sync_ofac_sdn,
+}
+
+
+def sync_all_screening_lists(db: Session) -> dict:
+    results: list[dict] = []
+
+    for code, provider in SCREENING_LIST_PROVIDERS.items():
+        try:
+            results.append(provider(db))
+        except Exception as exc:
+            results.append(
+                {
+                    "source": code,
+                    "status": "ERROR",
+                    "error": str(exc)[:2000],
+                }
+            )
+
+    successful = sum(1 for result in results if result["status"] == "SUCCESS")
+    failed = len(results) - successful
+
+    return {
+        "status": "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR",
+        "sources": results,
+        "total_sources": len(results),
+        "successful_sources": successful,
+        "failed_sources": failed,
+    }
 
 
 class ScreeningProvider:
