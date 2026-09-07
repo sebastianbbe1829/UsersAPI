@@ -59,24 +59,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("source_id", "external_id", name="uq_screening_entries_source_external_id"),
         schema="users_api",
     )
-    op.create_index(
-        "ix_screening_entries_source_id",
-        "screening_entries",
-        ["source_id"],
-        schema="users_api",
-    )
-    op.create_index(
-        "ix_screening_entries_name",
-        "screening_entries",
-        ["name"],
-        schema="users_api",
-    )
-    op.create_index(
-        "ix_screening_entries_normalized_name",
-        "screening_entries",
-        ["normalized_name"],
-        schema="users_api",
-    )
+    op.create_index("ix_screening_entries_source_id", "screening_entries", ["source_id"], schema="users_api")
+    op.create_index("ix_screening_entries_name", "screening_entries", ["name"], schema="users_api")
+    op.create_index("ix_screening_entries_normalized_name", "screening_entries", ["normalized_name"], schema="users_api")
 
     screening_sources = sa.table(
         "screening_sources",
@@ -94,10 +79,17 @@ def upgrade() -> None:
                 "code": "OFAC_SDN",
                 "name": "OFAC Specially Designated Nationals",
                 "provider": "OFAC",
-                "url": "https://www.treasury.gov/ofac/downloads/sdn.xml",
+                "url": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML",
             },
             {
                 "id": "00000000-0000-0000-0000-000000000002",
+                "code": "OFAC_CONSOLIDATED",
+                "name": "OFAC Consolidated Sanctions List",
+                "provider": "OFAC",
+                "url": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/CONSOLIDATED.XML",
+            },
+            {
+                "id": "00000000-0000-0000-0000-000000000003",
                 "code": "UN_CONSOLIDATED",
                 "name": "United Nations Security Council Consolidated List",
                 "provider": "UN",
