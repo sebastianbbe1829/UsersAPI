@@ -1,78 +1,78 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-from fastapi import HTTPException
+from unittest.mock import MagicMock
 
 from UsersAPI.domains.clients.schemas.compliance_override import ClientComplianceOverrideRequest
 from UsersAPI.domains.clients.services.compliance_override_service import override_client_compliance
-from UsersAPI.domains.core.models import GlobalUserDB
+from UsersAPI.domains.core.models import UserTenantDB
 
 
-def _payload(otp="123456"):
+def _payload():
     return ClientComplianceOverrideRequest(
-        reason="Autorización formal de cumplimiento para liberar la restricción.",
-        otp=otp,
+        reason="Autorización formal de cumplimiento para liberar la restricción."
     )
 
 
-def _super_user():
-    return GlobalUserDB(
+def _tenant_user():
+    return UserTenantDB(
         id=7,
-        email="super@example.com",
-        is_superuser=True,
-        is_active=True,
-        mfa_enabled=True,
-        mfa_verified_at=None,
-        mfa_secret_encrypted="encrypted-secret",
+        email="admin@example.com",
+        tenant_id=10,
+        status=1,
     )
 
 
-def test_override_requires_valid_mfa():
-    db = MagicMock()
-    user = _super_user()
-
-    with patch(
-        "UsersAPI.domains.clients.services.compliance_override_service.verify_super_mfa_otp",
-        side_effect=HTTPException(status_code=401, detail="Código MFA inválido"),
-    ):
-        with pytest.raises(HTTPException) as exc:
-            override_client_compliance(uuid4(), _payload("000000"), db, 10, user)
-
-    assert exc.value.status_code == 401
-
-
-def test_override_requires_super_user():
-    db = MagicMock()
-    user = SimpleNamespace(is_superuser=False)
-
-    with pytest.raises(HTTPException) as exc:
-        override_client_compliance(uuid4(), _payload(), db, 10, user)
-
-    assert exc.value.status_code == 403
-
-
-def test_override_releases_blocked_client_and_records_audit():
+def test_override_does_not_require_mfa():
     db = MagicMock()
     client = SimpleNamespace(
         id=uuid4(), tenant_id=10, status="BLOCKED", is_listed=True,
-        screenings=[SimpleNamespace(id=uuid4(), requested_at=None)],
-        updated_at=None, updated_by=None,
+        screenings=[], updated_at=None, updated_by=None,
     )
     db.query.return_value.filter.return_value.first.return_value = client
-    user = _super_user()
+    user = _tenant_user()
 
-    with patch(
-        "UsersAPI.domains.clients.services.compliance_override_service.verify_super_mfa_otp"
-    ) as verify_mfa:
-        result = override_client_compliance(uuid4(), _payload(), db, 10, user)
+    result = override_client_compliance(uuid4(), _payload(), db, 10, user)
 
-    verify_mfa.assert_called_once_with(user, "123456")
     assert result.client_id == client.id
-    assert result.screening_id == client.screenings[0].id
     assert result.requested_by == user.id
+    assert result.requested_by_email == user.email
+    assert result.reason == _payload().reason
     assert client.status == "ACTIVE"
     assert client.is_listed is True
     db.add.assert_called()
     db.flush.assert_called()
+
+
+def test_override_preserves_original_match_history():
+    db = MagicMock()
+    screening = SimpleNamespace(id=uuid4(), requested_at=None)
+    client = SimpleNamespace(
+        id=uuid4(), tenant_id=10, status="BLOCKED", is_listed=True,
+        screenings=[screening], updated_at=None, updated_by=None,
+    )
+    db.query.return_value.filter.return_value.first.return_value = client
+    user = _tenant_user()
+
+    result = override_client_compliance(uuid4(), _payload(), db, 10, user)
+
+    assert result.screening_id == screening.id
+    assert client.is_listed is True
+    assert client.status == "ACTIVE"
+
+
+def test_override_rejects_client_without_active_compliance_restriction():
+    from fastapi import HTTPException
+
+    db = MagicMock()
+    client = SimpleNamespace(
+        id=uuid4(), tenant_id=10, status="ACTIVE", is_listed=False,
+        screenings=[], updated_at=None, updated_by=None,
+    )
+    db.query.return_value.filter.return_value.first.return_value = client
+
+    try:
+        override_client_compliance(uuid4(), _payload(), db, 10, _tenant_user())
+        raise AssertionError("Expected HTTPException")
+    except HTTPException as exc:
+        assert exc.status_code == 409
