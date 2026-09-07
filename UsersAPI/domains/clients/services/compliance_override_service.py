@@ -4,8 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.core.models import GlobalUserDB
-from UsersAPI.domains.core.services.super_mfa_service import verify_super_mfa_otp
+from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
 
 from ..models import ClientComplianceOverrideDB
 from ..repositories.client_repository import ClientRepository
@@ -17,16 +16,8 @@ def override_client_compliance(
     data: ClientComplianceOverrideRequest,
     db: Session,
     tenant_id: int,
-    current_user: GlobalUserDB,
+    current_user: UserTenantDB | GlobalUserDB,
 ) -> ClientComplianceOverrideDB:
-    if not isinstance(current_user, GlobalUserDB) or not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="La liberación de una restricción requiere una sesión SUPER",
-        )
-
-    verify_super_mfa_otp(current_user, data.otp)
-
     client = ClientRepository(db).get_by_id(client_id, tenant_id)
     if client is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
@@ -45,7 +36,6 @@ def override_client_compliance(
         requested_by=current_user.id,
         requested_by_email=current_user.email,
         reason=data.reason.strip(),
-        mfa_verified_at=now,
         created_at=now,
     )
     db.add(override)
