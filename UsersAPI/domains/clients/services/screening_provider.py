@@ -79,7 +79,11 @@ def _parse_ofac_sdn(xml_content: bytes) -> list[dict]:
         last_name = _child_text(node, "lastName")
         entity_name = _child_text(node, "entityName")
         ship_name = _child_text(node, "shipName")
-        name = entity_name or ship_name or " ".join(part for part in (first_name, last_name) if part)
+        name = (
+            entity_name
+            or ship_name
+            or " ".join(part for part in (first_name, last_name) if part)
+        )
         if not external_id or not name:
             continue
 
@@ -89,7 +93,9 @@ def _parse_ofac_sdn(xml_content: bytes) -> list[dict]:
                 continue
             aka_first = _child_text(aka, "firstName")
             aka_last = _child_text(aka, "lastName")
-            aka_name = _child_text(aka, "name") or " ".join(part for part in (aka_first, aka_last) if part)
+            aka_name = _child_text(aka, "name") or " ".join(
+                part for part in (aka_first, aka_last) if part
+            )
             if aka_name and aka_name not in aliases:
                 aliases.append(aka_name)
 
@@ -113,7 +119,11 @@ def _parse_ofac_sdn(xml_content: bytes) -> list[dict]:
 
 def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
     now = datetime.now(UTC).replace(tzinfo=None)
-    source = db.query(ScreeningSourceDB).filter(ScreeningSourceDB.code == OFAC_SDN_CODE).one_or_none()
+    source = (
+        db.query(ScreeningSourceDB)
+        .filter(ScreeningSourceDB.code == OFAC_SDN_CODE)
+        .one_or_none()
+    )
     if source is None:
         source = ScreeningSourceDB(
             code=OFAC_SDN_CODE,
@@ -138,7 +148,9 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
 
         existing = {
             item.external_id: item
-            for item in db.query(ScreeningEntryDB).filter(ScreeningEntryDB.source_id == source.id).all()
+            for item in db.query(ScreeningEntryDB)
+            .filter(ScreeningEntryDB.source_id == source.id)
+            .all()
         }
         seen_ids: set[str] = set()
         created = updated = 0
@@ -181,7 +193,11 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
         }
     except Exception as exc:
         db.rollback()
-        source = db.query(ScreeningSourceDB).filter(ScreeningSourceDB.code == OFAC_SDN_CODE).one_or_none()
+        source = (
+            db.query(ScreeningSourceDB)
+            .filter(ScreeningSourceDB.code == OFAC_SDN_CODE)
+            .one_or_none()
+        )
         if source is not None:
             source.last_sync_at = now
             source.last_sync_status = "ERROR"
@@ -217,7 +233,13 @@ def sync_all_screening_lists(db: Session) -> dict:
     failed = len(results) - successful
 
     return {
-        "status": "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR",
+        "status": (
+            "SUCCESS"
+            if failed == 0
+            else "PARTIAL_ERROR"
+            if successful
+            else "ERROR"
+        ),
         "sources": results,
         "total_sources": len(results),
         "successful_sources": successful,
@@ -262,10 +284,18 @@ class ScreeningProvider:
 
         matches: list[dict] = []
         for entry in candidates:
-            document_match = document and document in (entry.identification_numbers or [])
+            document_match = document and document in (
+                entry.identification_numbers or []
+            )
             name_score = _similarity(name, entry.normalized_name)
             alias_score = max(
-                [_similarity(name, normalize_screening_text(alias)) for alias in (entry.aliases or [])],
+                [
+                    _similarity(
+                        name,
+                        normalize_screening_text(alias),
+                    )
+                    for alias in (entry.aliases or [])
+                ],
                 default=0.0,
             )
             score = max(name_score, alias_score)
