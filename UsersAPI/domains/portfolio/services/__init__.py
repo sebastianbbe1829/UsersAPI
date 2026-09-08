@@ -1,4 +1,5 @@
 from .portfolio_service import (
+    annul_payment,
     get_client_credit,
     list_client_obligations,
     list_obligations,
@@ -12,6 +13,7 @@ __all__ = [
     "upsert_client_credit_limit",
     "list_obligations",
     "list_client_obligations",
-    "register_payment",
     "list_payments",
+    "register_payment",
+    "annul_payment",
 ]
