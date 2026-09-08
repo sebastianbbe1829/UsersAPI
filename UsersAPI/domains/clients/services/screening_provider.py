@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
+import logging
 import re
 import unicodedata
 from defusedxml import ElementTree as ET
@@ -12,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from ..models import ClientDB, ScreeningEntryDB, ScreeningSourceDB
 
+
+logger = logging.getLogger("UsersAPI.screening")
 
 OFAC_SDN_CODE = "OFAC_SDN"
 OFAC_CONSOLIDATED_CODE = "OFAC_CONSOLIDATED"
@@ -216,22 +219,36 @@ def _get_source(db: Session, source_code: str) -> ScreeningSourceDB:
 def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
     source = _get_source(db, source_code)
     now = datetime.now(UTC).replace(tzinfo=None)
+    logger.info("[SCREENING_SYNC] Iniciando fuente %s (%s) URL=%s", source_code, source.name, source.url)
 
     try:
+        logger.info("[SCREENING_SYNC] %s descargando datos...", source_code)
         response = requests.get(
             source.url,
             headers={"User-Agent": "UsersAPI-Compliance-Screening/1.0"},
             timeout=SCREENING_HTTP_TIMEOUT,
         )
         response.raise_for_status()
-        parsed_entries = _parse_source(source_code, response.content)
+        logger.info(
+            "[SCREENING_SYNC] %s descarga completada: %s bytes, HTTP %s",
+            source_code,
+            len(response.content),
+            response.status_code,
+        )
 
+        logger.info("[SCREENING_SYNC] %s procesando XML...", source_code)
+        parsed_entries = _parse_source(source_code, response.content)
+        logger.info("[SCREENING_SYNC] %s XML procesado: %s registros", source_code, len(parsed_entries))
+
+        logger.info("[SCREENING_SYNC] %s consultando registros existentes...", source_code)
         existing = {
             item.external_id: item
             for item in db.query(ScreeningEntryDB)
             .filter(ScreeningEntryDB.source_id == source.id)
             .all()
         }
+        logger.info("[SCREENING_SYNC] %s registros existentes: %s", source_code, len(existing))
+
         seen_ids: set[str] = set()
         created = updated = deactivated = 0
 
@@ -266,13 +283,20 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
                 item.updated_at = now
                 deactivated += 1
 
+        logger.info(
+            "[SCREENING_SYNC] %s persistiendo: creados=%s actualizados=%s desactivados=%s",
+            source_code,
+            created,
+            updated,
+            deactivated,
+        )
         source.last_sync_at = now
         source.last_sync_status = "SUCCESS"
         source.last_sync_error = None
         db.add(source)
         db.commit()
 
-        return {
+        result = {
             "source": source_code,
             "status": "SUCCESS",
             "total": len(parsed_entries),
@@ -280,6 +304,8 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
             "updated": updated,
             "deactivated": deactivated,
         }
+        logger.info("[SCREENING_SYNC] Fuente %s finalizada correctamente: %s", source_code, result)
+        return result
     except Exception as exc:
         db.rollback()
         source = _get_source(db, source_code)
@@ -287,6 +313,7 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
         source.last_sync_status = "ERROR"
         source.last_sync_error = str(exc)[:2000]
         db.commit()
+        logger.exception("[SCREENING_SYNC] Fuente %s ERROR: %s", source_code, exc)
         raise
 
 
@@ -310,12 +337,14 @@ SCREENING_LIST_PROVIDERS = {
 
 
 def sync_all_screening_lists(db: Session) -> dict:
+    logger.info("[SCREENING_SYNC] Iniciando sincronización de %s fuentes: %s", len(SCREENING_LIST_PROVIDERS), ", ".join(SCREENING_LIST_PROVIDERS))
     results: list[dict] = []
 
     for code, provider in SCREENING_LIST_PROVIDERS.items():
         try:
             results.append(provider(db))
         except Exception as exc:
+            logger.error("[SCREENING_SYNC] Fuente %s terminó con ERROR; continuando con las demás", code)
             results.append(
                 {
                     "source": code,
@@ -326,20 +355,23 @@ def sync_all_screening_lists(db: Session) -> dict:
 
     successful = sum(1 for result in results if result["status"] == "SUCCESS")
     failed = len(results) - successful
+    final_status = "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR"
 
-    return {
-        "status": (
-            "SUCCESS"
-            if failed == 0
-            else "PARTIAL_ERROR"
-            if successful
-            else "ERROR"
-        ),
+    result = {
+        "status": final_status,
         "sources": results,
         "total_sources": len(results),
         "successful_sources": successful,
         "failed_sources": failed,
     }
+    logger.info(
+        "[SCREENING_SYNC] Sincronización finalizada: status=%s total=%s exitosas=%s fallidas=%s",
+        final_status,
+        len(results),
+        successful,
+        failed,
+    )
+    return result
 
 
 class ScreeningProvider:
