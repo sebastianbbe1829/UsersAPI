@@ -43,6 +43,7 @@ from ..schemas import (
     ProductRead,
     ProductUpdate,
 )
+from ..services import search_product_images
 
 inventory_routes = APIRouter(prefix="/inventory", tags=["Inventarios"])
 
@@ -101,6 +102,17 @@ async def list_products_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     return list_product_items(db, cast(int, user_tenant.tenant_id), active_only)
+
+
+@inventory_routes.get(
+    "/products/images/search",
+    dependencies=[Depends(require_permission("INVENTORY_READ"))],
+)
+async def search_product_images_route(
+    query: str = Query(..., min_length=2, max_length=150),
+    per_page: int = Query(12, ge=1, le=20),
+):
+    return search_product_images(query, per_page)
 
 
 @inventory_routes.post(
