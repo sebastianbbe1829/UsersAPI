@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-import logging
 
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from ..models import ScreeningEntryDB, ScreeningSourceDB
+from ..models import ScreeningEntryDB
 from .screening_provider import (
+    SCREENING_HTTP_TIMEOUT,
     SCREENING_LIST_PROVIDERS,
     _get_source,
     _parse_source,
     logger,
+    normalize_screening_text,
     requests,
-    SCREENING_HTTP_TIMEOUT,
 )
 
 
@@ -69,10 +69,7 @@ def _sync_source_bulk(db: Session, source_code: str) -> dict[str, int | str]:
                     "external_id": external_id,
                     "entry_type": str(data["entry_type"])[:20],
                     "name": str(data["name"])[:300],
-                    "normalized_name": __import__(
-                        "UsersAPI.domains.clients.services.screening_provider",
-                        fromlist=["normalize_screening_text"],
-                    ).normalize_screening_text(data["name"])[:300],
+                    "normalized_name": normalize_screening_text(data["name"])[:300],
                     "aliases": [str(value)[:300] for value in data["aliases"]],
                     "identification_numbers": [str(value)[:150] for value in data["identification_numbers"]],
                     "raw_data": data["raw_data"],
