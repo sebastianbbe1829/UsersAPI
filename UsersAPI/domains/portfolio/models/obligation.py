@@ -63,3 +63,7 @@ class ObligationDB(Base):
     updated_by = Column(String(100), nullable=True)
 
     sale = relationship("SaleDB", back_populates="obligation")
+
+    @property
+    def sale_number(self) -> str | None:
+        return self.sale.sale_number if self.sale is not None else None
