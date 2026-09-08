@@ -74,7 +74,7 @@ def upgrade() -> None:
         sa.Column("customer_name", sa.String(length=250), nullable=False),
         sa.Column("allocation_percentage", sa.Numeric(7, 4), nullable=False),
         sa.Column("allocation_amount", sa.Numeric(18, 2), nullable=False),
-        sa.Column("is_generic", sa.Integer(), server_default=sa.text("0"), nullable=False),
+        sa.Column("is_generic", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.CheckConstraint("allocation_percentage > 0 AND allocation_percentage <= 100", name="ck_sale_customers_percentage"),
         sa.CheckConstraint("allocation_amount > 0", name="ck_sale_customers_amount"),
         sa.ForeignKeyConstraint(["sale_id"], [f"{SCHEMA}.sales.id"], ondelete="CASCADE"),
@@ -101,8 +101,22 @@ def upgrade() -> None:
     op.create_index("ix_users_api_sale_payments_sale_id", "sale_payments", ["sale_id"], schema=SCHEMA)
     op.create_index("ix_users_api_sale_payments_tenant_id", "sale_payments", ["tenant_id"], schema=SCHEMA)
 
+    for table in ("sales", "sale_items", "sale_customers", "sale_payments"):
+        op.execute(f"ALTER TABLE {SCHEMA}.{table} ENABLE ROW LEVEL SECURITY")
+        op.execute(f"ALTER TABLE {SCHEMA}.{table} FORCE ROW LEVEL SECURITY")
+        op.execute(
+            f"""CREATE POLICY {table}_tenant_isolation ON {SCHEMA}.{table}
+            USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)"""
+        )
+
 
 def downgrade() -> None:
+    for table in ("sale_payments", "sale_customers", "sale_items", "sales"):
+        op.execute(f"DROP POLICY IF EXISTS {table}_tenant_isolation ON {SCHEMA}.{table}")
+        op.execute(f"ALTER TABLE {SCHEMA}.{table} NO FORCE ROW LEVEL SECURITY")
+        op.execute(f"ALTER TABLE {SCHEMA}.{table} DISABLE ROW LEVEL SECURITY")
+
     op.drop_index("ix_users_api_sale_payments_tenant_id", table_name="sale_payments", schema=SCHEMA)
     op.drop_index("ix_users_api_sale_payments_sale_id", table_name="sale_payments", schema=SCHEMA)
     op.drop_table("sale_payments", schema=SCHEMA)
