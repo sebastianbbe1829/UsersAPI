@@ -32,6 +32,8 @@ class ProductDB(Base):
     inventory_type_id = Column(Integer, nullable=False, index=True)
     code = Column(String(30), nullable=False)
     name = Column(String(150), nullable=False)
+    brand = Column(String(100), nullable=True)
+    presentation = Column(String(100), nullable=True)
     image_url = Column(String(1000), nullable=True)
     image_source = Column(String(30), nullable=True)
     image_source_url = Column(String(1000), nullable=True)
