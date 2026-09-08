@@ -9,7 +9,11 @@ from ..schemas import InventoryTypeCreate, InventoryTypeUpdate
 
 
 def _actor_name(current_user: object | None) -> str:
-    return getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
+    return (
+        getattr(current_user, "email", None)
+        or getattr(current_user, "username", None)
+        or "system"
+    )
 
 
 def create_inventory_type(
@@ -54,7 +58,10 @@ def update_inventory_type(
     repository = InventoryTypeRepository(db)
     inventory_type = repository.get_by_id(tenant_id, inventory_type_id)
     if inventory_type is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory type not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory type not found",
+        )
 
     changes = data.model_dump(exclude_unset=True)
     if "code" in changes:
