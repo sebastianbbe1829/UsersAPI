@@ -20,8 +20,12 @@ OFAC_SDN_CODE = "OFAC_SDN"
 OFAC_CONSOLIDATED_CODE = "OFAC_CONSOLIDATED"
 UN_CONSOLIDATED_CODE = "UN_CONSOLIDATED"
 
-OFAC_SDN_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
-OFAC_CONSOLIDATED_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/CONSOLIDATED.XML"
+OFAC_SDN_URL = (
+    "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
+)
+OFAC_CONSOLIDATED_URL = (
+    "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/CONSOLIDATED.XML"
+)
 UN_CONSOLIDATED_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
 
 SCREENING_HTTP_TIMEOUT = (15, 120)
@@ -182,11 +186,16 @@ def _parse_un(xml_content: bytes) -> list[dict]:
         entries.append(
             {
                 "external_id": external_id,
-                "entry_type": "INDIVIDUAL" if section_name == "INDIVIDUAL" else "ENTITY",
+                "entry_type": (
+                    "INDIVIDUAL" if section_name == "INDIVIDUAL" else "ENTITY"
+                ),
                 "name": name,
                 "aliases": aliases,
                 "identification_numbers": identification_numbers,
-                "raw_data": {"source": UN_CONSOLIDATED_CODE, "reference_number": external_id},
+                "raw_data": {
+                    "source": UN_CONSOLIDATED_CODE,
+                    "reference_number": external_id,
+                },
             }
         )
 
@@ -211,7 +220,8 @@ def _get_source(db: Session, source_code: str) -> ScreeningSourceDB:
     )
     if source is None:
         raise RuntimeError(
-            f"La fuente {source_code} no está configurada. Ejecute las migraciones de catálogos de listas restrictivas."
+            f"La fuente {source_code} no está configurada. "
+            "Ejecute las migraciones de catálogos de listas restrictivas."
         )
     return source
 
@@ -219,7 +229,12 @@ def _get_source(db: Session, source_code: str) -> ScreeningSourceDB:
 def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
     source = _get_source(db, source_code)
     now = datetime.now(UTC).replace(tzinfo=None)
-    logger.info("[SCREENING_SYNC] Iniciando fuente %s (%s) URL=%s", source_code, source.name, source.url)
+    logger.info(
+        "[SCREENING_SYNC] Iniciando fuente %s (%s) URL=%s",
+        source_code,
+        source.name,
+        source.url,
+    )
 
     try:
         logger.info("[SCREENING_SYNC] %s descargando datos...", source_code)
@@ -238,16 +253,27 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
 
         logger.info("[SCREENING_SYNC] %s procesando XML...", source_code)
         parsed_entries = _parse_source(source_code, response.content)
-        logger.info("[SCREENING_SYNC] %s XML procesado: %s registros", source_code, len(parsed_entries))
+        logger.info(
+            "[SCREENING_SYNC] %s XML procesado: %s registros",
+            source_code,
+            len(parsed_entries),
+        )
 
-        logger.info("[SCREENING_SYNC] %s consultando registros existentes...", source_code)
+        logger.info(
+            "[SCREENING_SYNC] %s consultando registros existentes...",
+            source_code,
+        )
         existing = {
             item.external_id: item
             for item in db.query(ScreeningEntryDB)
             .filter(ScreeningEntryDB.source_id == source.id)
             .all()
         }
-        logger.info("[SCREENING_SYNC] %s registros existentes: %s", source_code, len(existing))
+        logger.info(
+            "[SCREENING_SYNC] %s registros existentes: %s",
+            source_code,
+            len(existing),
+        )
 
         seen_ids: set[str] = set()
         created = updated = deactivated = 0
@@ -284,7 +310,8 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
                 deactivated += 1
 
         logger.info(
-            "[SCREENING_SYNC] %s persistiendo: creados=%s actualizados=%s desactivados=%s",
+            "[SCREENING_SYNC] %s persistiendo: creados=%s actualizados=%s "
+            "desactivados=%s",
             source_code,
             created,
             updated,
@@ -304,7 +331,11 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
             "updated": updated,
             "deactivated": deactivated,
         }
-        logger.info("[SCREENING_SYNC] Fuente %s finalizada correctamente: %s", source_code, result)
+        logger.info(
+            "[SCREENING_SYNC] Fuente %s finalizada correctamente: %s",
+            source_code,
+            result,
+        )
         return result
     except Exception as exc:
         db.rollback()
@@ -313,7 +344,11 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
         source.last_sync_status = "ERROR"
         source.last_sync_error = str(exc)[:2000]
         db.commit()
-        logger.exception("[SCREENING_SYNC] Fuente %s ERROR: %s", source_code, exc)
+        logger.exception(
+            "[SCREENING_SYNC] Fuente %s ERROR: %s",
+            source_code,
+            exc,
+        )
         raise
 
 
@@ -337,14 +372,22 @@ SCREENING_LIST_PROVIDERS = {
 
 
 def sync_all_screening_lists(db: Session) -> dict:
-    logger.info("[SCREENING_SYNC] Iniciando sincronización de %s fuentes: %s", len(SCREENING_LIST_PROVIDERS), ", ".join(SCREENING_LIST_PROVIDERS))
+    logger.info(
+        "[SCREENING_SYNC] Iniciando sincronización de %s fuentes: %s",
+        len(SCREENING_LIST_PROVIDERS),
+        ", ".join(SCREENING_LIST_PROVIDERS),
+    )
     results: list[dict] = []
 
     for code, provider in SCREENING_LIST_PROVIDERS.items():
         try:
             results.append(provider(db))
         except Exception as exc:
-            logger.error("[SCREENING_SYNC] Fuente %s terminó con ERROR; continuando con las demás", code)
+            logger.error(
+                "[SCREENING_SYNC] Fuente %s terminó con ERROR; "
+                "continuando con las demás",
+                code,
+            )
             results.append(
                 {
                     "source": code,
@@ -355,7 +398,9 @@ def sync_all_screening_lists(db: Session) -> dict:
 
     successful = sum(1 for result in results if result["status"] == "SUCCESS")
     failed = len(results) - successful
-    final_status = "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR"
+    final_status = (
+        "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR"
+    )
 
     result = {
         "status": final_status,
@@ -365,7 +410,8 @@ def sync_all_screening_lists(db: Session) -> dict:
         "failed_sources": failed,
     }
     logger.info(
-        "[SCREENING_SYNC] Sincronización finalizada: status=%s total=%s exitosas=%s fallidas=%s",
+        "[SCREENING_SYNC] Sincronización finalizada: status=%s total=%s "
+        "exitosas=%s fallidas=%s",
         final_status,
         len(results),
         successful,
