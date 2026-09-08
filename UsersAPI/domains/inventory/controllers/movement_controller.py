@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..models import InventoryMovementDB
@@ -39,8 +40,6 @@ def get_movement(
 ) -> InventoryMovementDB:
     movement = InventoryMovementRepository(db).get_by_id(tenant_id, movement_id)
     if movement is None:
-        from fastapi import HTTPException, status
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Inventory movement not found",
