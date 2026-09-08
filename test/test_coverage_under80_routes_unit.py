@@ -11,6 +11,7 @@ def test_client_routes_delegate_all_endpoints():
     user = SimpleNamespace(tenant_id=9)
     client_id = uuid4()
     data = MagicMock()
+    listar_clientes = MagicMock(return_value="listed")
 
     def route(path, method):
         return next(
@@ -20,7 +21,7 @@ def test_client_routes_delegate_all_endpoints():
     with patch.multiple(
         "UsersAPI.domains.clients.routes.client_routes",
         crear_cliente=MagicMock(return_value="created"),
-        listar_clientes=MagicMock(return_value="listed"),
+        listar_clientes=listar_clientes,
         informe_listas_restrictivas=MagicMock(return_value="report"),
         historial_levantamientos_restriccion=MagicMock(return_value="history"),
         obtener_cliente=MagicMock(return_value="got"),
@@ -28,7 +29,7 @@ def test_client_routes_delegate_all_endpoints():
         revisar_cliente_listas=MagicMock(return_value="screened"),
         levantar_restriccion_cliente=MagicMock(return_value="override"),
         eliminar_cliente=MagicMock(),
-    ) as mocks:
+    ):
         assert asyncio.run(
             route("/clients", "POST").endpoint(data, db, user, user)
         ) == "created"
@@ -65,11 +66,11 @@ def test_client_routes_delegate_all_endpoints():
             )
         ) is None
 
-        assert mocks["listar_clientes"].call_args.kwargs == {
-            "limit": 5,
-            "offset": 5,
-            "search": "abc",
-        }
+    assert listar_clientes.call_args.kwargs == {
+        "limit": 5,
+        "offset": 5,
+        "search": "abc",
+    }
 
 
 def test_sales_permissions_module_is_importable():
