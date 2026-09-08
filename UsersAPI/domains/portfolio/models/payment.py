@@ -1,6 +1,16 @@
 import uuid
 
-from sqlalchemy import CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, Numeric, String, text
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -15,14 +25,26 @@ class PaymentDB(Base):
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("users_api.clients.id"), nullable=False, index=True)
+    tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.tenants.id"),
+        nullable=False,
+        index=True,
+    )
+    client_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users_api.clients.id"),
+        nullable=False,
+        index=True,
+    )
     payment_date = Column(Date, nullable=False, server_default=text("CURRENT_DATE"))
     payment_method = Column(String(30), nullable=False)
     amount = Column(Numeric(18, 2), nullable=False)
     reference = Column(String(100), nullable=True)
     notes = Column(String(500), nullable=True)
-    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    created_at = Column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
     created_by = Column(String(100), nullable=False)
 
     allocations = relationship(
@@ -40,7 +62,12 @@ class PaymentAllocationDB(Base):
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
+    tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.tenants.id"),
+        nullable=False,
+        index=True,
+    )
     payment_id = Column(
         UUID(as_uuid=True),
         ForeignKey("users_api.portfolio_payments.id", ondelete="CASCADE"),
