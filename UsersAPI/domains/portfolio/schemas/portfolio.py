@@ -1,8 +1,12 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
+
+
+PaymentStatus = Literal["APLICADO", "ANULADO"]
 
 
 class CreditLimitUpdate(BaseModel):
@@ -81,6 +85,7 @@ class PaymentRead(BaseModel):
     payment_date: date
     payment_method: str
     amount: Decimal
+    status: PaymentStatus
     reference: str | None
     notes: str | None
     created_at: datetime
