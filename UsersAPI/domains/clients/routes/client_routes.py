@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from UsersAPI.domains.core.controllers import get_current_user
 from UsersAPI.domains.core.database import get_db
 from UsersAPI.domains.core.models import UserTenantDB
+from UsersAPI.domains.portfolio.models import CreditLimitDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
@@ -52,7 +53,7 @@ async def create_client_route(
 
 @client_routes.get(
     "",
-    response_model=list[ClientRead],
+    response_model=list[dict],
     dependencies=[Depends(require_permission("CLIENT_READ"))],
 )
 async def list_clients_route(
@@ -62,14 +63,34 @@ async def list_clients_route(
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
+    tenant_id = cast(int, user_tenant.tenant_id)
     offset = (page - 1) * page_size
-    return listar_clientes(
+    clients = listar_clientes(
         db,
-        cast(int, user_tenant.tenant_id),
+        tenant_id,
         limit=page_size,
         offset=offset,
         search=search,
     )
+    client_ids = [client.id for client in clients]
+    credit_limits = {
+        credit.client_id: credit.approved_limit
+        for credit in db.query(CreditLimitDB)
+        .filter(
+            CreditLimitDB.tenant_id == tenant_id,
+            CreditLimitDB.client_id.in_(client_ids),
+            CreditLimitDB.active.is_(True),
+        )
+        .all()
+    } if client_ids else {}
+
+    return [
+        {
+            **ClientRead.model_validate(client).model_dump(mode="json"),
+            "credit_limit": float(credit_limits.get(client.id, 0) or 0),
+        }
+        for client in clients
+    ]
 
 
 @client_routes.get(
@@ -93,10 +114,7 @@ async def compliance_override_history_route(
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    return historial_levantamientos_restriccion(
-        db,
-        cast(int, user_tenant.tenant_id),
-    )
+    return historial_levantamientos_restriccion(db, cast(int, user_tenant.tenant_id))
 
 
 @client_routes.get(
@@ -144,25 +162,14 @@ async def screen_client_route(
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    return revisar_cliente_listas(
-        client_id,
-        db,
-        cast(int, user_tenant.tenant_id),
-    )
+    return revisar_cliente_listas(client_id, db, cast(int, user_tenant.tenant_id))
 
 
 @client_routes.post(
     "/{client_id}/compliance/override",
     response_model=ClientComplianceOverrideRead,
     status_code=status.HTTP_200_OK,
-    dependencies=[
-        Depends(
-            require_permission(
-                "CLIENT_COMPLIANCE_OVERRIDE",
-                allow_super=False,
-            )
-        )
-    ],
+    dependencies=[Depends(require_permission("CLIENT_COMPLIANCE_OVERRIDE", allow_super=False))],
 )
 async def override_client_compliance_route(
     client_id: UUID,
@@ -191,9 +198,4 @@ async def delete_client_route(
     current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    eliminar_cliente(
-        client_id,
-        db,
-        cast(int, user_tenant.tenant_id),
-        current_user,
-    )
+    eliminar_cliente(client_id, db, cast(int, user_tenant.tenant_id), current_user)
