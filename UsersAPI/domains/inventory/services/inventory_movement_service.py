@@ -5,7 +5,11 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..models import InventoryMovementDB
-from ..repositories import InventoryMovementRepository, InventoryRepository, ProductRepository
+from ..repositories import (
+    InventoryMovementRepository,
+    InventoryRepository,
+    ProductRepository,
+)
 from ..schemas import InventoryMovementCreate
 
 
@@ -26,6 +30,26 @@ def _actor_name(current_user: object | None) -> str:
     )
 
 
+def _validate_origin(data: InventoryMovementCreate, origin_type: str) -> None:
+    expected_types = {
+        "PURCHASE": "ENTRY",
+        "SALE": "EXIT",
+        "SALES_RETURN": "ENTRY",
+        "PURCHASE_RETURN": "EXIT",
+    }
+    expected_movement_type = expected_types.get(origin_type)
+    if expected_movement_type and data.movement_type != expected_movement_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{origin_type} movements must be {expected_movement_type} movements",
+        )
+    if origin_type == "SALE" and data.origin_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SALE movements require origin_id",
+        )
+
+
 def create_inventory_movement(
     data: InventoryMovementCreate,
     db: Session,
@@ -38,20 +62,14 @@ def create_inventory_movement(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unsupported inventory movement origin",
         )
-    if origin_type == "SALE" and data.movement_type != "EXIT":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="SALE movements must be EXIT movements",
-        )
-    if origin_type == "PURCHASE" and data.movement_type != "ENTRY":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="PURCHASE movements must be ENTRY movements",
-        )
+    _validate_origin(data, origin_type)
 
     product = ProductRepository(db).get_by_id(tenant_id, data.product_id)
     if product is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
     if not product.active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -59,9 +77,16 @@ def create_inventory_movement(
         )
 
     inventory_repository = InventoryRepository(db)
-    inventory = inventory_repository.get_by_product(tenant_id, data.product_id, lock=True)
+    inventory = inventory_repository.get_by_product(
+        tenant_id,
+        data.product_id,
+        lock=True,
+    )
     if inventory is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory not found",
+        )
 
     quantity = Decimal(data.quantity)
     before = Decimal(inventory.quantity or 0)
