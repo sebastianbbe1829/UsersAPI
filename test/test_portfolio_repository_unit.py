@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
@@ -45,6 +46,14 @@ def test_obligation_queries_and_insert():
 
     assert repository.list_obligations(1) == [first, second]
     assert repository.list_obligations(1, client_id=uuid4()) == [first, second]
+    assert repository.list_obligations(1, date_from=date(2026, 1, 1)) == [first, second]
+    assert repository.list_obligations(1, date_to=date(2026, 1, 31)) == [first, second]
+    assert repository.list_obligations(
+        1,
+        client_id=uuid4(),
+        date_from=date(2026, 1, 1),
+        date_to=date(2026, 1, 31),
+    ) == [first, second]
     assert repository.get_obligation(1, uuid4()) is first
     assert repository.get_obligation(1, uuid4(), lock=True) is first
     assert repository.get_obligation_by_sale(1, uuid4()) is first
