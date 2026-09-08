@@ -1,3 +1,5 @@
+from sqlalchemy import func
+
 from UsersAPI.database import SessionLocal
 from UsersAPI.models import PermissionDB, RoleDB, RolePermissionDB
 from UsersAPI.security.inventory_permissions import INVENTORY_PERMISSIONS
@@ -50,16 +52,22 @@ def seed_permissions():
         # ====================================================
         # SINCRONIZAR PERMISOS DEL ADMIN EXISTENTE
         # ====================================================
-        # Los tenants existentes deben recibir los permisos nuevos
-        # en su rol ADMIN. No dependemos de que el rol tenga status=1,
-        # ya que el código de estado puede variar según el ciclo de
-        # vida histórico del rol. Solo excluimos roles eliminados.
-
+        # El servicio de roles permite que un rol creado originalmente
+        # como ADMIN termine almacenado como "admin" al actualizarlo.
+        # La sincronización debe reconocer ambos casos sin depender
+        # de mayúsculas/minúsculas. También reconocemos el nombre
+        # histórico "Administrador" para no dejar tenants existentes
+        # sin sincronización por una diferencia de código.
         roles_admin = (
             db.query(RoleDB)
             .filter(
-                RoleDB.code == "ADMIN",
                 RoleDB.status != 3,
+                (
+                    func.upper(RoleDB.code) == "ADMIN"
+                )
+                | (
+                    func.lower(RoleDB.name) == "administrador"
+                ),
             )
             .all()
         )
