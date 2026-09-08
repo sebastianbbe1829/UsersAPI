@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.util.email_utils import send_email
+from UsersAPI.domains.core.repositories.tenant_repository import TenantRepository
 
 from ..models import SaleDB
 from .sale_service import get_sale
@@ -136,6 +137,11 @@ def send_invoice_email(sale_id, db: Session, tenant_id: int) -> list[str]:
         "name": f"factura-{sale.sale_number}.pdf",
         "content": base64.b64encode(_invoice_pdf(sale)).decode("ascii"),
     }
+
+    tenant_repository = TenantRepository(db)
+    tenant = tenant_repository.get_by_id(tenant_id=tenant_id)
+    tenant_slug = tenant.slug
+    tenant_name = tenant.name
     try:
         for recipient in recipients:
             send_email(
@@ -143,6 +149,8 @@ def send_invoice_email(sale_id, db: Session, tenant_id: int) -> list[str]:
                 subject=f"Factura {sale.sale_number}",
                 message=f"Adjuntamos la factura {sale.sale_number} por un total de {_money(sale.total)}.",
                 template="default",
+                tenant_slug=tenant_slug,
+                tenant_name=tenant_name,
                 attachments=[attachment],
             )
     except Exception as exc:
