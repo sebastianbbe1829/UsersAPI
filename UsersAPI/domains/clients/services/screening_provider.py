@@ -128,7 +128,7 @@ def _parse_ofac(xml_content: bytes, source_code: str) -> list[dict]:
             if _local_name(identifier) != "ID":
                 continue
             for child in identifier.iter():
-                if _local_name(child) == "NUMBER" and child.text:
+                if _local_name(child) in {"NUMBER", "IDNUMBER"} and child.text:
                     value = child.text.strip()
                     if value and value not in identification_numbers:
                         identification_numbers.append(value)
@@ -138,6 +138,7 @@ def _parse_ofac(xml_content: bytes, source_code: str) -> list[dict]:
                 "external_id": external_id,
                 "entry_type": entry_type,
                 "name": name,
+                "normalized_name": normalize_screening_text(name),
                 "aliases": aliases,
                 "identification_numbers": identification_numbers,
                 "raw_data": {"source": source_code, "uid": external_id},
@@ -147,6 +148,10 @@ def _parse_ofac(xml_content: bytes, source_code: str) -> list[dict]:
     if not entries:
         raise ValueError(f"{source_code} no contiene registros procesables")
     return entries
+
+
+def _parse_ofac_sdn(xml_content: bytes) -> list[dict]:
+    return _parse_ofac(xml_content, OFAC_SDN_CODE)
 
 
 def _parse_un(xml_content: bytes) -> list[dict]:
@@ -190,6 +195,7 @@ def _parse_un(xml_content: bytes) -> list[dict]:
                     "INDIVIDUAL" if section_name == "INDIVIDUAL" else "ENTITY"
                 ),
                 "name": name,
+                "normalized_name": normalize_screening_text(name),
                 "aliases": aliases,
                 "identification_numbers": identification_numbers,
                 "raw_data": {
@@ -229,10 +235,11 @@ def _get_source(db: Session, source_code: str) -> ScreeningSourceDB:
 def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
     source = _get_source(db, source_code)
     now = datetime.now(UTC).replace(tzinfo=None)
+    source_name = getattr(source, "name", source_code)
     logger.info(
         "[SCREENING_SYNC] Iniciando fuente %s (%s) URL=%s",
         source_code,
-        source.name,
+        source_name,
         source.url,
     )
 
