@@ -119,9 +119,16 @@ def run_restrictive_lists_sync_job(trigger_type: str = "MANUAL") -> dict:
 
         run_sync_execution(execution_id)
 
-        execution = db.get(ScreeningSyncExecutionDB, execution_id)
-        if execution is None:
-            raise RuntimeError(f"No se pudo recuperar la ejecución {execution_id}")
+        # run_sync_execution usa una sesión SQLAlchemy independiente. La instancia
+        # `execution` de esta sesión puede conservar en caché el estado PENDING que
+        # tenía antes de iniciar la sincronización. Refrescamos explícitamente desde
+        # la base de datos para devolver el estado realmente finalizado.
+        db.refresh(execution)
+        logger.info(
+            "[SCREENING_SYNC_JOB] Estado final refrescado id=%s status=%s",
+            execution_id,
+            execution.status,
+        )
 
         result = {
             "status": execution.status,
