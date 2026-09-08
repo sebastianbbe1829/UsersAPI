@@ -1,4 +1,5 @@
 from .portfolio_controller import (
+    annul_payment_route,
     client_credit,
     client_obligations,
     create_payment,
@@ -14,4 +15,5 @@ __all__ = [
     "client_obligations",
     "create_payment",
     "payments",
+    "annul_payment_route",
 ]
