@@ -30,6 +30,7 @@ class ObligationRead(BaseModel):
     tenant_id: int
     client_id: UUID
     sale_id: UUID
+    sale_number: str | None
     initial_amount: Decimal
     balance: Decimal
     status: str
