@@ -16,7 +16,6 @@ branch_labels = None
 depends_on = None
 
 SCHEMA = "users_api"
-TENANT_SETTING = "app.current_tenant_id"
 
 
 POLICY_SQL = {
@@ -33,7 +32,6 @@ POLICY_SQL = {
         tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer
     """,
 }
-
 
 TABLES = (
     "credit_limits",
