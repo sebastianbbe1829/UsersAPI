@@ -21,21 +21,38 @@ def _money(value: Decimal) -> Decimal:
 
 
 def _actor_name(current_user: object | None) -> str:
-    return getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
+    return (
+        getattr(current_user, "email", None)
+        or getattr(current_user, "username", None)
+        or "system"
+    )
 
 
-def _client(db: Session, tenant_id: int, client_id: UUID, lock: bool = False) -> ClientDB:
-    query = select(ClientDB).where(ClientDB.tenant_id == tenant_id, ClientDB.id == client_id)
+def _client(
+    db: Session,
+    tenant_id: int,
+    client_id: UUID,
+    lock: bool = False,
+) -> ClientDB:
+    query = select(ClientDB).where(
+        ClientDB.tenant_id == tenant_id,
+        ClientDB.id == client_id,
+    )
     if lock:
         query = query.with_for_update()
     client = db.scalar(query)
     if client is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Client not found",
+        )
     return client
 
 
 def _credit_read(credit_limit: CreditLimitDB, db: Session, tenant_id: int):
-    used = _money(Decimal(PortfolioRepository(db).credit_used(tenant_id, credit_limit.client_id)))
+    used = _money(
+        Decimal(PortfolioRepository(db).credit_used(tenant_id, credit_limit.client_id))
+    )
     approved = _money(Decimal(credit_limit.approved_limit))
     credit_limit.credit_used = used
     credit_limit.credit_available = max(Decimal("0.00"), approved - used)
@@ -46,11 +63,20 @@ def get_client_credit(client_id: UUID, db: Session, tenant_id: int):
     _client(db, tenant_id, client_id)
     credit_limit = PortfolioRepository(db).get_credit_limit(tenant_id, client_id)
     if credit_limit is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credit limit not configured for client")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Credit limit not configured for client",
+        )
     return _credit_read(credit_limit, db, tenant_id)
 
 
-def upsert_client_credit_limit(client_id: UUID, data: CreditLimitUpdate, db: Session, tenant_id: int, current_user: object):
+def upsert_client_credit_limit(
+    client_id: UUID,
+    data: CreditLimitUpdate,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+):
     _client(db, tenant_id, client_id)
     repository = PortfolioRepository(db)
     credit_limit = repository.get_credit_limit(tenant_id, client_id, lock=True)
@@ -90,26 +116,57 @@ def list_client_obligations(client_id: UUID, db: Session, tenant_id: int):
     return PortfolioRepository(db).list_obligations(tenant_id, client_id=client_id)
 
 
-def register_payment(data: PaymentCreate, db: Session, tenant_id: int, current_user: object):
+def register_payment(
+    data: PaymentCreate,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+):
     client = _client(db, tenant_id, data.client_id, lock=True)
-    allocations_total = _money(sum((Decimal(item.amount) for item in data.allocations), Decimal("0")))
+    allocations_total = _money(
+        sum(
+            (Decimal(item.amount) for item in data.allocations),
+            Decimal("0"),
+        )
+    )
     payment_amount = _money(data.amount)
     if allocations_total != payment_amount:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payment allocations must equal payment amount")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment allocations must equal payment amount",
+        )
 
     repository = PortfolioRepository(db)
     locked_obligations: list[ObligationDB] = []
     for allocation in data.allocations:
-        obligation = repository.get_obligation(tenant_id, allocation.obligation_id, lock=True)
+        obligation = repository.get_obligation(
+            tenant_id,
+            allocation.obligation_id,
+            lock=True,
+        )
         if obligation is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Obligation not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Obligation not found",
+            )
         if obligation.client_id != client.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Obligation does not belong to payment client")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Obligation does not belong to payment client",
+            )
         if obligation.status != "ACTIVE":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only active obligations can receive payments")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only active obligations can receive payments",
+            )
         amount = _money(allocation.amount)
         if amount > _money(obligation.balance):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Payment exceeds obligation balance: {obligation.balance}")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Payment exceeds obligation balance: {obligation.balance}"
+                ),
+            )
         locked_obligations.append(obligation)
 
     actor = _actor_name(current_user)
@@ -133,13 +190,22 @@ def register_payment(data: PaymentCreate, db: Session, tenant_id: int, current_u
         obligation.updated_by = actor
         if obligation.balance == Decimal("0.00"):
             obligation.status = "SETTLED"
-            sale = db.scalar(select(SaleDB).where(SaleDB.tenant_id == tenant_id, SaleDB.id == obligation.sale_id))
+            sale = db.scalar(
+                select(SaleDB).where(
+                    SaleDB.tenant_id == tenant_id,
+                    SaleDB.id == obligation.sale_id,
+                )
+            )
             if sale is not None:
                 sale.status = "COMPLETED"
                 sale.updated_at = datetime.now(UTC)
                 sale.updated_by = actor
         payment.allocations.append(
-            PaymentAllocationDB(tenant_id=tenant_id, obligation_id=obligation.id, amount=amount)
+            PaymentAllocationDB(
+                tenant_id=tenant_id,
+                obligation_id=obligation.id,
+                amount=amount,
+            )
         )
 
     db.flush()
@@ -147,7 +213,18 @@ def register_payment(data: PaymentCreate, db: Session, tenant_id: int, current_u
 
 
 def list_payments(db: Session, tenant_id: int, client_id: UUID | None = None):
-    query = select(PaymentDB).options(joinedload(PaymentDB.allocations)).where(PaymentDB.tenant_id == tenant_id)
+    query = (
+        select(PaymentDB)
+        .options(joinedload(PaymentDB.allocations))
+        .where(PaymentDB.tenant_id == tenant_id)
+    )
     if client_id is not None:
         query = query.where(PaymentDB.client_id == client_id)
-    return list(db.scalars(query.order_by(PaymentDB.payment_date.desc(), PaymentDB.created_at.desc())).unique())
+    return list(
+        db.scalars(
+            query.order_by(
+                PaymentDB.payment_date.desc(),
+                PaymentDB.created_at.desc(),
+            )
+        ).unique()
+    )
