@@ -76,10 +76,13 @@ async def list_obligations_route(
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    tenant_id = cast(int, user_tenant.tenant_id)
-    if client_id:
-        return client_obligations(client_id, db, tenant_id)
-    return obligations(db, tenant_id, date_from=date_from, date_to=date_to)
+    return obligations(
+        db,
+        cast(int, user_tenant.tenant_id),
+        client_id=client_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 @portfolio_routes.get(
