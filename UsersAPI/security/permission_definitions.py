@@ -68,4 +68,14 @@ PERMISSIONS = [
         "Levantar restricción de cliente",
         "Permite levantar una restricción de compliance mediante autorización",
     ),
+    (
+        "SALES_READ",
+        "Consultar ventas",
+        "Permite consultar ventas y sus detalles",
+    ),
+    (
+        "SALES_CREATE",
+        "Crear ventas",
+        "Permite registrar ventas y afectar el inventario",
+    ),
 ]

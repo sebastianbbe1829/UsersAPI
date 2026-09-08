@@ -36,6 +36,7 @@ from .domains.core.routes import (
 )
 from .domains.core.routes.diagnostics_routes import router as diagnostics_router
 from .domains.inventory.routes import inventory_routes
+from .domains.sales.routes import sales_routes
 from .logging_config import logger
 
 CURRENT_FILE = os.path.abspath(__file__)
@@ -74,10 +75,7 @@ app = FastAPI(
             "name": "Autenticación SUPER",
             "description": "Autenticación global del usuario SUPER con MFA",
         },
-        {
-            "name": "Usuarios SUPER",
-            "description": "Administración global de usuarios SUPER",
-        },
+        {"name": "Usuarios SUPER", "description": "Administración global de usuarios SUPER"},
         {"name": "Tenants", "description": "Operaciones sobre tenants"},
         {
             "name": "Configuración UI",
@@ -105,10 +103,7 @@ app = FastAPI(
             "name": "Email",
             "description": "Pruebas administrativas de correo transaccional",
         },
-        {
-            "name": "OTP",
-            "description": "Generación y validación de códigos OTP temporales",
-        },
+        {"name": "OTP", "description": "Generación y validación de códigos OTP temporales"},
         {
             "name": "Extintores",
             "description": "Inventario y gestión de extintores por tenant",
@@ -137,6 +132,10 @@ app = FastAPI(
         {
             "name": "Inventarios",
             "description": "Tipos, productos, inventario y movimientos por tenant",
+        },
+        {
+            "name": "Ventas",
+            "description": "Ventas, clientes participantes, pagos y descuentos por tenant",
         },
     ],
 )
@@ -241,6 +240,8 @@ app.include_router(screening_routes)
 logger.debug("Rutas de screening de clientes registradas")
 app.include_router(inventory_routes)
 logger.debug("Rutas de inventarios registradas")
+app.include_router(sales_routes)
+logger.debug("Rutas de ventas registradas")
 app.include_router(diagnostics_router)
 
 
@@ -254,7 +255,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         if "ctx" in error:
             error["ctx"] = {key: str(value) for key, value in error["ctx"].items()}
         errores.append(error)
-    return JSONResponse(status_code=HTTP_422_UNPROCESSABLE_CONTENT, content={"detail": errores})
+    return JSONResponse(
+        status_code=HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": errores},
+    )
 
 
 @app.exception_handler(Exception)
