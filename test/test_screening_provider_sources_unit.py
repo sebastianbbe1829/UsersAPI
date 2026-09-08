@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from UsersAPI.domains.clients.services.screening_provider import (
@@ -63,29 +62,20 @@ def test_parse_un_consolidated_source():
 
 def test_sync_all_screening_lists_reports_three_sources():
     db = MagicMock()
-    providers = list(SCREENING_LIST_PROVIDERS.values())
     results = [
         {"source": OFAC_SDN_CODE, "status": "SUCCESS", "total": 10},
         {"source": OFAC_CONSOLIDATED_CODE, "status": "SUCCESS", "total": 20},
         {"source": UN_CONSOLIDATED_CODE, "status": "SUCCESS", "total": 30},
     ]
 
-    with patch.multiple(
-        "UsersAPI.domains.clients.services.screening_provider",
-        **{name: patcher for name, patcher in {}}
-    ):
-        with patch.object(providers[0], "__call__", return_value=results[0]):
-            pass
-
-    with patch(
-        "UsersAPI.domains.clients.services.screening_provider.sync_ofac_sdn",
-        return_value=results[0],
-    ), patch(
-        "UsersAPI.domains.clients.services.screening_provider.sync_ofac_consolidated",
-        return_value=results[1],
-    ), patch(
-        "UsersAPI.domains.clients.services.screening_provider.sync_un_consolidated",
-        return_value=results[2],
+    with patch.dict(
+        SCREENING_LIST_PROVIDERS,
+        {
+            OFAC_SDN_CODE: lambda _db: results[0],
+            OFAC_CONSOLIDATED_CODE: lambda _db: results[1],
+            UN_CONSOLIDATED_CODE: lambda _db: results[2],
+        },
+        clear=True,
     ):
         result = sync_all_screening_lists(db)
 
@@ -103,15 +93,24 @@ def test_sync_all_screening_lists_reports_three_sources():
 def test_sync_all_screening_lists_keeps_partial_error():
     db = MagicMock()
 
-    with patch(
-        "UsersAPI.domains.clients.services.screening_provider.sync_ofac_sdn",
-        return_value={"source": OFAC_SDN_CODE, "status": "SUCCESS", "total": 10},
-    ), patch(
-        "UsersAPI.domains.clients.services.screening_provider.sync_ofac_consolidated",
-        side_effect=RuntimeError("OFAC unavailable"),
-    ), patch(
-        "UsersAPI.domains.clients.services.screening_provider.sync_un_consolidated",
-        return_value={"source": UN_CONSOLIDATED_CODE, "status": "SUCCESS", "total": 30},
+    with patch.dict(
+        SCREENING_LIST_PROVIDERS,
+        {
+            OFAC_SDN_CODE: lambda _db: {
+                "source": OFAC_SDN_CODE,
+                "status": "SUCCESS",
+                "total": 10,
+            },
+            OFAC_CONSOLIDATED_CODE: lambda _db: (_ for _ in ()).throw(
+                RuntimeError("OFAC unavailable")
+            ),
+            UN_CONSOLIDATED_CODE: lambda _db: {
+                "source": UN_CONSOLIDATED_CODE,
+                "status": "SUCCESS",
+                "total": 30,
+            },
+        },
+        clear=True,
     ):
         result = sync_all_screening_lists(db)
 
