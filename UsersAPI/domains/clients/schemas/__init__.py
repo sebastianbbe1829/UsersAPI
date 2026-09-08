@@ -1,5 +1,6 @@
 from .catalog import CityRead, CountryRead, DepartmentRead, IdentificationTypeRead
 from .client import ClientCreate, ClientRead, ClientUpdate
+from .screening_sync import ScreeningSyncExecutionAccepted, ScreeningSyncExecutionRead
 
 __all__ = [
     "CityRead",
@@ -9,4 +10,6 @@ __all__ = [
     "ClientCreate",
     "ClientRead",
     "ClientUpdate",
+    "ScreeningSyncExecutionAccepted",
+    "ScreeningSyncExecutionRead",
 ]
