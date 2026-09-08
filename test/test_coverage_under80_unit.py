@@ -51,25 +51,32 @@ def test_catalog_service_crud_and_validation_branches():
         CityDB(id=4, department_id=3, code="05001", name="Medellin", active=True),
     ]
 
-    assert create_identification_type(
-        db,
-        IdentificationTypeCreate(
-            code="CE", name="Cedula extranjera", person_type="NATURAL"
-        ),
-    ).code == "CE"
+    assert (
+        create_identification_type(
+            db,
+            IdentificationTypeCreate(code="CE", name="Cedula extranjera", person_type="NATURAL"),
+        ).code
+        == "CE"
+    )
     assert create_country(db, CountryCreate(code="CO", name="Colombia")).name == "Colombia"
 
     db.get.side_effect = [CountryDB(id=2, code="CO", name="Colombia", active=True)]
-    assert create_department(
-        db, DepartmentCreate(country_id=2, code="05", name="Antioquia")
-    ).country_id == 2
+    assert (
+        create_department(
+            db, DepartmentCreate(country_id=2, code="05", name="Antioquia")
+        ).country_id
+        == 2
+    )
 
     department = DepartmentDB(id=3, country_id=2, code="05", name="Antioquia", active=True)
     department.country = CountryDB(id=2, code="CO", name="Colombia", active=True)
     db.get.side_effect = [department]
-    assert create_city(
-        db, CityCreate(department_id=3, code="05001", name="Medellin", type="Municipio")
-    ).department_id == 3
+    assert (
+        create_city(
+            db, CityCreate(department_id=3, code="05001", name="Medellin", type="Municipio")
+        ).department_id
+        == 3
+    )
 
     db.get.side_effect = [CountryDB(id=2, code="CO", name="Colombia", active=True)]
     assert get_country(db, 2).code == "CO"
@@ -82,7 +89,9 @@ def test_catalog_service_crud_and_validation_branches():
 
     db.get.side_effect = [CountryDB(id=2, code="CO", name="Colombia", active=True)]
     assert update_country(db, 2, CountryUpdate(name="Nueva")).name == "Nueva"
-    db.get.side_effect = [DepartmentDB(id=3, country_id=2, code="05", name="Antioquia", active=True)]
+    db.get.side_effect = [
+        DepartmentDB(id=3, country_id=2, code="05", name="Antioquia", active=True)
+    ]
     assert update_department(db, 3, DepartmentUpdate(name="Nueva")).name == "Nueva"
     city = CityDB(id=4, department_id=3, code="05001", name="Medellin", active=True)
     db.get.side_effect = [city]
@@ -91,13 +100,13 @@ def test_catalog_service_crud_and_validation_branches():
     db.get.side_effect = [IdentificationTypeDB(id=1, code="CC", name="CC", person_type="NATURAL")]
     db.query.return_value.filter.return_value.first.return_value = (1,)
     with pytest.raises(HTTPException):
-        update_identification_type(
-            db, 1, IdentificationTypeUpdate(person_type="JURIDICA")
-        )
+        update_identification_type(db, 1, IdentificationTypeUpdate(person_type="JURIDICA"))
 
     db.get.side_effect = [CountryDB(id=2, code="CO", name="Colombia", active=True)]
     delete_country(db, 2)
-    db.get.side_effect = [DepartmentDB(id=3, country_id=2, code="05", name="Antioquia", active=True)]
+    db.get.side_effect = [
+        DepartmentDB(id=3, country_id=2, code="05", name="Antioquia", active=True)
+    ]
     from UsersAPI.domains.clients.services.catalog_service import delete_department
 
     delete_department(db, 3)
@@ -109,17 +118,13 @@ def test_catalog_service_crud_and_validation_branches():
     with pytest.raises(HTTPException):
         create_department(db, DepartmentCreate(country_id=2, code="05", name="Antioquia"))
 
-    inactive = DepartmentDB(
-        id=3, country_id=2, code="05", name="Antioquia", active=False
-    )
+    inactive = DepartmentDB(id=3, country_id=2, code="05", name="Antioquia", active=False)
     inactive.country = CountryDB(id=2, code="CO", name="Colombia", active=True)
     db.get.side_effect = [inactive]
     with pytest.raises(HTTPException):
         create_city(
             db,
-            CityCreate(
-                department_id=3, code="05001", name="Medellin", type="Municipio"
-            ),
+            CityCreate(department_id=3, code="05001", name="Medellin", type="Municipio"),
         )
 
 
@@ -254,18 +259,22 @@ def test_screening_bulk_sync_success_duplicate_missing_and_error():
     assert result["deactivated"] == 1
     assert source.last_sync_status == "SUCCESS"
 
-    with patch.object(service, "_get_source", return_value=source), patch.object(
-        service.requests, "get", side_effect=RuntimeError("network")
+    with (
+        patch.object(service, "_get_source", return_value=source),
+        patch.object(service.requests, "get", side_effect=RuntimeError("network")),
     ):
         with pytest.raises(RuntimeError):
             service._sync_source_bulk(db, "OFAC_SDN")
     assert source.last_sync_status == "ERROR"
 
-    with patch.object(
-        service,
-        "_sync_source_bulk",
-        side_effect=[{"source": "A", "status": "SUCCESS"}, RuntimeError("x")],
-    ), patch.object(service, "SCREENING_LIST_PROVIDERS", ["A", "B"]):
+    with (
+        patch.object(
+            service,
+            "_sync_source_bulk",
+            side_effect=[{"source": "A", "status": "SUCCESS"}, RuntimeError("x")],
+        ),
+        patch.object(service, "SCREENING_LIST_PROVIDERS", ["A", "B"]),
+    ):
         result = service.sync_all_screening_lists_bulk(db)
     assert result["status"] == "PARTIAL_ERROR"
     assert result["successful_sources"] == 1
@@ -290,17 +299,21 @@ def test_screening_sync_job_skip_and_lock_paths():
         def combine(cls, d, t, tzinfo=None):
             return datetime.combine(d, t, tzinfo=tzinfo)
 
-    with patch.object(job, "ENABLED", True), patch.object(
-        job, "RUN_TIME", "07:00"
-    ), patch.object(job, "datetime", FakeDateTime):
+    with (
+        patch.object(job, "ENABLED", True),
+        patch.object(job, "RUN_TIME", "07:00"),
+        patch.object(job, "datetime", FakeDateTime),
+    ):
         result = job.run_restrictive_lists_sync_job("TEST")
     assert result["reason"] == "before_configured_time"
 
     db = MagicMock()
     db.execute.return_value.scalar.return_value = False
-    with patch.object(job, "ENABLED", True), patch.object(
-        job, "RUN_TIME", "00:00"
-    ), patch.object(job, "SessionLocal", return_value=db):
+    with (
+        patch.object(job, "ENABLED", True),
+        patch.object(job, "RUN_TIME", "00:00"),
+        patch.object(job, "SessionLocal", return_value=db),
+    ):
         result = job.run_restrictive_lists_sync_job()
     assert result["reason"] == "another_instance_is_running"
     db.close.assert_called_once()
@@ -319,9 +332,12 @@ def test_inventory_movement_helpers_and_list_paths():
     assert service._calculate_weighted_average_cost(
         Decimal("2"), Decimal("10"), Decimal("2"), Decimal("20")
     ) == Decimal("15")
-    assert service._calculate_reversed_average_cost(
-        Decimal("2"), Decimal("10"), Decimal("2"), Decimal("10"), Decimal("0")
-    ) is None
+    assert (
+        service._calculate_reversed_average_cost(
+            Decimal("2"), Decimal("10"), Decimal("2"), Decimal("10"), Decimal("0")
+        )
+        is None
+    )
 
     base = {
         "product_id": 1,
@@ -341,18 +357,22 @@ def test_inventory_movement_helpers_and_list_paths():
     with pytest.raises(HTTPException):
         service._validate_origin(InventoryMovementCreate(**base), "REVERSAL", None)
 
-    with patch.object(
-        service.InventoryMovementRepository, "list_all", return_value=[]
-    ), patch.object(
-        service.InventoryMovementRepository, "list_by_product", return_value=[MagicMock()]
+    with (
+        patch.object(service.InventoryMovementRepository, "list_all", return_value=[]),
+        patch.object(
+            service.InventoryMovementRepository, "list_by_product", return_value=[MagicMock()]
+        ),
     ):
         db = MagicMock()
         assert service.list_inventory_movements(db, 1) == []
-        assert len(
-            service.list_inventory_movements(
-                db, 1, 2, from_date=date(2026, 1, 1), to_date=date(2026, 1, 2)
+        assert (
+            len(
+                service.list_inventory_movements(
+                    db, 1, 2, from_date=date(2026, 1, 1), to_date=date(2026, 1, 2)
+                )
             )
-        ) == 1
+            == 1
+        )
 
     with pytest.raises(HTTPException):
         service.list_inventory_movements(
@@ -388,9 +408,7 @@ def test_inventory_movement_create_and_reverse_paths():
             profit_percentage=Decimal("0.3"),
             notes=" test ",
         )
-        result = service.create_inventory_movement(
-            data, db, 1, SimpleNamespace(email="u")
-        )
+        result = service.create_inventory_movement(data, db, 1, SimpleNamespace(email="u"))
     assert result is movement
     assert inventory.quantity == Decimal("7")
 
@@ -405,9 +423,10 @@ def test_inventory_movement_create_and_reverse_paths():
         profit_percentage=Decimal("0.3"),
     )
     db.query.return_value.filter.return_value.scalar.return_value = Decimal("0")
-    with patch.object(
-        service.InventoryMovementRepository, "get_by_id", return_value=original
-    ), patch.object(service, "create_inventory_movement", return_value=movement) as create:
+    with (
+        patch.object(service.InventoryMovementRepository, "get_by_id", return_value=original),
+        patch.object(service, "create_inventory_movement", return_value=movement) as create,
+    ):
         result = service.reverse_inventory_movement(
             original.id, db, 1, SimpleNamespace(email="u"), Decimal("1")
         )
@@ -446,12 +465,13 @@ def test_portfolio_controller_paths():
     db = MagicMock()
     user = SimpleNamespace(tenant_id=7)
     data = MagicMock()
-    with patch.object(controller, "get_client_credit", return_value="credit"), patch.object(
-        controller, "upsert_client_credit_limit", return_value="updated"
-    ), patch.object(controller, "list_obligations", return_value="obs"), patch.object(
-        controller, "list_client_obligations", return_value="clientobs"
-    ), patch.object(controller, "register_payment", return_value="payment"), patch.object(
-        controller, "list_payments", return_value="payments"
+    with (
+        patch.object(controller, "get_client_credit", return_value="credit"),
+        patch.object(controller, "upsert_client_credit_limit", return_value="updated"),
+        patch.object(controller, "list_obligations", return_value="obs"),
+        patch.object(controller, "list_client_obligations", return_value="clientobs"),
+        patch.object(controller, "register_payment", return_value="payment"),
+        patch.object(controller, "list_payments", return_value="payments"),
     ):
         assert controller.client_credit(client_id, db, 7) == "credit"
         assert controller.update_client_credit(client_id, data, db, 7, user) == "updated"
@@ -473,9 +493,7 @@ def test_sales_controller_and_service_helpers():
     assert service._sale_price(inventory) == Decimal("11")
     with pytest.raises(HTTPException):
         service._sale_price(
-            SimpleNamespace(
-                quantity=0, purchase_price=Decimal("10"), profit_percentage=0
-            )
+            SimpleNamespace(quantity=0, purchase_price=Decimal("10"), profit_percentage=0)
         )
 
     client = SimpleNamespace(
@@ -527,17 +545,19 @@ def test_invoice_service_pdf_and_email_paths():
     assert service._invoice_pdf(sale).startswith(b"%PDF")
 
     db = MagicMock()
-    with patch.object(service, "get_sale", return_value=sale), patch.object(
-        service.TenantRepository,
-        "get_by_id",
-        return_value=SimpleNamespace(slug="tenant", name="Tenant"),
-    ), patch.object(service, "send_email"):
+    with (
+        patch.object(service, "get_sale", return_value=sale),
+        patch.object(
+            service.TenantRepository,
+            "get_by_id",
+            return_value=SimpleNamespace(slug="tenant", name="Tenant"),
+        ),
+        patch.object(service, "send_email"),
+    ):
         db.scalars.return_value.all.return_value = [SimpleNamespace(email="a@example.com")]
         assert service.send_invoice_email(uuid4(), db, 1) == ["a@example.com"]
 
-    with patch.object(
-        service, "get_sale", return_value=SimpleNamespace(customers=[])
-    ):
+    with patch.object(service, "get_sale", return_value=SimpleNamespace(customers=[])):
         with pytest.raises(HTTPException) as exc:
             service.send_invoice_email(uuid4(), db, 1)
     assert exc.value.status_code == 409
