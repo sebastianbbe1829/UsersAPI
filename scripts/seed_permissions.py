@@ -48,17 +48,22 @@ def seed_permissions():
             creados += 1
 
         # ====================================================
-        # SINCRONIZAR PERMISOS DEL ADMIN EXISTENTE
+        # SINCRONIZAR PERMISOS DE ROLES ADMIN EXISTENTES
         # ====================================================
         # El bootstrap de un tenant nuevo asigna todos los permisos
         # al rol ADMIN. Este seed debe mantener el mismo contrato
         # para tenants ya existentes cuando se agregan permisos nuevos.
+        #
+        # Importante: no usamos la relación ORM admin_role.permissions
+        # para determinar los existentes. Consultamos directamente
+        # role_permissions para que la sincronización dependa de la
+        # relación persistida en BD y sea completamente idempotente.
 
         roles_admin = (
             db.query(RoleDB)
             .filter(
                 RoleDB.code == "ADMIN",
-                RoleDB.status == 1,
+                RoleDB.status != 3,
             )
             .all()
         )
@@ -66,8 +71,12 @@ def seed_permissions():
         asignados = 0
         for admin_role in roles_admin:
             permisos_actuales = {
-                role_permission.permission_id
-                for role_permission in admin_role.permissions
+                permission_id
+                for (permission_id,) in (
+                    db.query(RolePermissionDB.permission_id)
+                    .filter(RolePermissionDB.role_id == admin_role.id)
+                    .all()
+                )
             }
 
             for permission in permissions_by_code.values():
@@ -80,6 +89,7 @@ def seed_permissions():
                         permission_id=permission.id,
                     )
                 )
+                permisos_actuales.add(permission.id)
                 asignados += 1
 
         # ====================================================
