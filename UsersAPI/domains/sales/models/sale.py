@@ -1,12 +1,12 @@
 import uuid
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
-    Integer,
     Numeric,
     String,
     UniqueConstraint,
@@ -82,7 +82,7 @@ class SaleCustomerDB(Base):
     customer_name = Column(String(250), nullable=False)
     allocation_percentage = Column(Numeric(7, 4), nullable=False)
     allocation_amount = Column(Numeric(18, 2), nullable=False)
-    is_generic = Column(Integer, nullable=False, server_default=text("0"))
+    is_generic = Column(Boolean, nullable=False, server_default=text("false"))
 
     sale = relationship("SaleDB", back_populates="customers")
 
