@@ -53,6 +53,8 @@ def list_movements(
         from_date=from_date,
         to_date=to_date,
     )
+    if not isinstance(movements, list):
+        return movements
     movement_ids = [movement.id for movement in movements if movement.origin_type != "REVERSAL"]
     reversed_quantities = {}
     if movement_ids:
