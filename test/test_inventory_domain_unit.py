@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 import asyncio
+import importlib
 
 import pytest
 from fastapi import HTTPException
@@ -22,7 +23,8 @@ from UsersAPI.domains.inventory.services import product_service
 from UsersAPI.domains.inventory.controllers import catalog_controller
 from UsersAPI.domains.inventory.controllers import inventory_controller
 from UsersAPI.domains.inventory.controllers import movement_controller
-from UsersAPI.domains.inventory.routes import inventory_routes
+
+inventory_routes = importlib.import_module("UsersAPI.domains.inventory.routes.inventory_routes")
 
 
 class FakeRepository:
