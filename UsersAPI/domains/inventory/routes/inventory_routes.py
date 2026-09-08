@@ -248,12 +248,12 @@ async def reverse_inventory_movement_route(
 )
 async def list_inventory_movements_route(
     product_id: int | None = Query(None, gt=0),
-    from_date: date | None = None,
-    to_date: date | None = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
+    from_date: date | None = None,
+    to_date: date | None = None,
 ):
     return list_movements(
         product_id,
