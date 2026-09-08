@@ -12,5 +12,10 @@ def get_inventory_item(product_id: int, db: Session, tenant_id: int):
     return get_inventory(product_id, db, tenant_id)
 
 
-def export_inventory(db: Session, tenant_id: int, search: str | None = None, inventory_type_id: int | None = None):
+def export_inventory(
+    db: Session,
+    tenant_id: int,
+    search: str | None = None,
+    inventory_type_id: int | None = None,
+):
     return export_inventory_excel(db, tenant_id, search, inventory_type_id)
