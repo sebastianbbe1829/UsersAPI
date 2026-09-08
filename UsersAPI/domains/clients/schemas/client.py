@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
@@ -24,7 +23,6 @@ class ClientBase(BaseModel):
     department_id: int | None = None
     city_id: int | None = None
     status: str = Field(default="ACTIVE", pattern=CLIENT_STATUSES)
-    credit_limit: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
     consent_given: bool = False
     consent_at: datetime | None = None
     consent_source: str | None = Field(default=None, max_length=100)
@@ -59,7 +57,6 @@ class ClientUpdate(BaseModel):
     department_id: int | None = None
     city_id: int | None = None
     status: str | None = Field(default=None, pattern=CLIENT_STATUSES)
-    credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
     consent_given: bool | None = None
     consent_at: datetime | None = None
     consent_source: str | None = Field(default=None, max_length=100)
@@ -74,8 +71,6 @@ class ClientRead(ClientBase):
     compliance_status: str
     is_listed: bool
     list_type: str | None
-    credit_used: Decimal = Decimal("0")
-    credit_available: Decimal = Decimal("0")
     created_at: datetime
     created_by: str
     updated_at: datetime | None
