@@ -1,8 +1,14 @@
 import base64
-import html
 from decimal import Decimal
+from io import BytesIO
 
 from fastapi import HTTPException, status
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,31 +23,102 @@ def _money(value: Decimal) -> str:
     return f"${Decimal(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _invoice_html(sale: SaleDB) -> str:
-    rows = "".join(
-        f"<tr><td>{html.escape(item.product_code)}</td><td>{html.escape(item.product_name)}</td>"
-        f"<td>{item.quantity}</td><td>{_money(item.unit_price)}</td><td>{_money(item.line_total)}</td></tr>"
-        for item in sale.items
+def _invoice_pdf(sale: SaleDB) -> bytes:
+    """Generate the printable invoice as a PDF in memory."""
+    buffer = BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=15 * mm,
+        leftMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+        title=f"Factura {sale.sale_number}",
+        author="Sistema de Ventas",
     )
-    customers = "".join(
-        f"<li>{html.escape(customer.customer_name)} - {customer.allocation_percentage}% "
-        f"({_money(customer.allocation_amount)})</li>"
+    styles = getSampleStyleSheet()
+    title_style = styles["Title"]
+    small_style = styles["Normal"]
+    right_style = styles["Normal"].clone("invoice-right")
+    right_style.alignment = TA_RIGHT
+
+    story = [
+        Paragraph(f"Factura {sale.sale_number}", title_style),
+        Paragraph(f"Estado: {sale.status}", small_style),
+        Paragraph(
+            f"Fecha: {sale.created_at.strftime('%d/%m/%Y %H:%M') if sale.created_at else '—'}",
+            small_style,
+        ),
+        Spacer(1, 8 * mm),
+    ]
+
+    rows = [["Código", "Producto", "Cantidad", "Precio", "Total"]]
+    for item in sale.items:
+        rows.append([
+            str(item.product_code),
+            str(item.product_name),
+            str(item.quantity),
+            _money(item.unit_price),
+            _money(item.line_total),
+        ])
+    items_table = Table(rows, colWidths=[25 * mm, 75 * mm, 25 * mm, 30 * mm, 30 * mm], repeatRows=1)
+    items_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eeeeee")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(items_table)
+    story.append(Spacer(1, 6 * mm))
+
+    summary = [
+        ["Subtotal", _money(sale.subtotal)],
+        [f"Descuento ({sale.discount_percentage}%)", _money(sale.discount_amount)],
+        ["TOTAL", _money(sale.total)],
+    ]
+    summary_table = Table(summary, colWidths=[45 * mm, 40 * mm], hAlign="RIGHT")
+    summary_table.setStyle(TableStyle([
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, -1), (-1, -1), 12),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 7 * mm))
+
+    customers = "<br/>".join(
+        f"{customer.customer_name} — {customer.allocation_percentage}% — {_money(customer.allocation_amount)}"
         for customer in sale.customers
-    )
-    payments = "".join(
-        f"<li>{html.escape(payment.payment_method)} - {_money(payment.amount)}</li>"
+    ) or "Consumidor final"
+    payments = "<br/>".join(
+        f"{payment.payment_method} — {_money(payment.amount)}"
         for payment in sale.payments
     )
-    return f"""<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>Factura {html.escape(sale.sale_number)}</title>
-<style>body{{font-family:Arial,sans-serif;margin:32px;color:#222}}h1{{margin-bottom:4px}}table{{width:100%;border-collapse:collapse;margin-top:24px}}th,td{{border:1px solid #ddd;padding:8px;text-align:left}}th{{background:#f5f5f5}}.total{{font-size:20px;font-weight:bold;text-align:right;margin-top:20px}}.columns{{display:flex;gap:48px}}.columns>div{{flex:1}}</style>
-</head><body><h1>Factura {html.escape(sale.sale_number)}</h1>
-<p>Estado: {html.escape(sale.status)}</p>
-<table><thead><tr><th>Código</th><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Total</th></tr></thead><tbody>{rows}</tbody></table>
-<p>Subtotal: {_money(sale.subtotal)}<br>Descuento ({sale.discount_percentage}%): {_money(sale.discount_amount)}</p>
-<div class="total">Total: {_money(sale.total)}</div>
-<div class="columns"><div><h3>Cliente(s)</h3><ul>{customers}</ul></div><div><h3>Pagos</h3><ul>{payments}</ul></div></div>
-</body></html>"""
+    details = Table([
+        [Paragraph("<b>Cliente(s)</b>", small_style), Paragraph("<b>Pagos</b>", small_style)],
+        [Paragraph(customers, small_style), Paragraph(payments, small_style)],
+    ], colWidths=[90 * mm, 90 * mm])
+    details.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f5f5f5")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(details)
+
+    document.build(story)
+    return buffer.getvalue()
 
 
 def send_invoice_email(sale_id, db: Session, tenant_id: int) -> list[str]:
@@ -55,10 +132,9 @@ def send_invoice_email(sale_id, db: Session, tenant_id: int) -> list[str]:
     if not recipients:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The sale customers do not have an email configured")
 
-    invoice_html = _invoice_html(sale)
     attachment = {
-        "name": f"factura-{sale.sale_number}.html",
-        "content": base64.b64encode(invoice_html.encode("utf-8")).decode("ascii"),
+        "name": f"factura-{sale.sale_number}.pdf",
+        "content": base64.b64encode(_invoice_pdf(sale)).decode("ascii"),
     }
     try:
         for recipient in recipients:
