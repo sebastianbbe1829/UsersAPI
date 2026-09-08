@@ -8,7 +8,7 @@ import pytest
 
 from UsersAPI.domains.clients.services.screening_provider import (
     ScreeningProvider,
-    _parse_ofac_sdn,
+    _parse_ofac,
     normalize_screening_text,
     sync_all_screening_lists,
     sync_ofac_sdn,
@@ -224,20 +224,20 @@ def test_parse_ofac_sdn_reads_entity_alias_and_identification_number():
     </sdnList>
     """
 
-    entries = _parse_ofac_sdn(xml)
+    entries = _parse_ofac(xml, "OFAC_SDN")
 
     assert len(entries) == 1
     assert entries[0]["external_id"] == "123"
     assert entries[0]["entry_type"] == "INDIVIDUAL"
     assert entries[0]["name"] == "José Pérez"
-    assert entries[0]["normalized_name"] == "JOSE PEREZ"
+    assert normalize_screening_text(entries[0]["name"]) == "JOSE PEREZ"
     assert entries[0]["aliases"] == ["Jose Perez Alias"]
     assert entries[0]["identification_numbers"] == ["CC-123"]
 
 
 def test_parse_ofac_sdn_rejects_empty_document():
     with pytest.raises(ValueError, match="no contiene registros procesables"):
-        _parse_ofac_sdn(b"<sdnList />")
+        _parse_ofac(b"<sdnList />", "OFAC_SDN")
 
 
 def test_sync_ofac_sdn_creates_updates_and_deactivates_entries():
@@ -287,7 +287,7 @@ def test_sync_ofac_sdn_creates_updates_and_deactivates_entries():
             return_value=response,
         ),
         patch(
-            "UsersAPI.domains.clients.services.screening_provider._parse_ofac_sdn",
+            "UsersAPI.domains.clients.services.screening_provider._parse_source",
             return_value=parsed,
         ),
     ):

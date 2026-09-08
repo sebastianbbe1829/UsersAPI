@@ -4,6 +4,7 @@ from .client_compliance_override import ClientComplianceOverrideDB
 from .client_screening import ClientScreeningDB
 from .screening_entry import ScreeningEntryDB
 from .screening_source import ScreeningSourceDB
+from .screening_sync_execution import ScreeningSyncExecutionDB
 
 __all__ = [
     "CityDB",
@@ -15,4 +16,5 @@ __all__ = [
     "ClientScreeningDB",
     "ScreeningEntryDB",
     "ScreeningSourceDB",
+    "ScreeningSyncExecutionDB",
 ]

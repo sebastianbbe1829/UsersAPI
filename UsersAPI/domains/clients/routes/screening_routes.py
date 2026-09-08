@@ -1,19 +1,28 @@
-import os
 import secrets
 from typing import cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from UsersAPI.controllers.auth_controller import get_current_user
 from UsersAPI.domains.core.database import get_db
-from UsersAPI.domains.core.models import UserTenantDB
+from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
+from UsersAPI.settings import settings
 
 from ..schemas.screening import ClientScreeningRead
-from ..services.screening_provider import sync_all_screening_lists
+from ..schemas.screening_sync import (
+    ScreeningSyncExecutionAccepted,
+    ScreeningSyncExecutionRead,
+)
 from ..services.screening_report_service import list_screenings
+from ..services.screening_sync_service import (
+    create_sync_execution,
+    list_sync_executions,
+    run_sync_execution,
+)
 
 
 screening_routes = APIRouter(
@@ -23,7 +32,7 @@ screening_routes = APIRouter(
 
 
 def _require_sync_key(x_job_key: str | None = Header(default=None, alias="X-Job-Key")) -> None:
-    expected = os.getenv("CLIENT_SCREENING_SYNC_KEY")
+    expected = settings.client_screening_sync_key
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -49,10 +58,56 @@ async def list_screenings_route(
     return list_screenings(db, cast(int, user_tenant.tenant_id), client_id)
 
 
+@screening_routes.get(
+    "/sync/executions",
+    response_model=list[ScreeningSyncExecutionRead],
+    dependencies=[Depends(require_permission("CLIENT_SCREENING"))],
+)
+async def list_sync_executions_route(db: Session = Depends(get_db)):
+    return list_sync_executions(db)
+
+
+def _accepted(execution, message: str) -> ScreeningSyncExecutionAccepted:
+    return ScreeningSyncExecutionAccepted(
+        id=execution.id,
+        status=execution.status,
+        message=message,
+    )
+
+
 @screening_routes.post(
     "/sync",
-    status_code=status.HTTP_200_OK,
+    response_model=ScreeningSyncExecutionAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(_require_sync_key)],
 )
-async def sync_screening_lists_route(db: Session = Depends(get_db)):
-    return sync_all_screening_lists(db)
+async def sync_screening_lists_route(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    execution = create_sync_execution(db, trigger_type="CRONJOB")
+    if execution.status == "PENDING":
+        background_tasks.add_task(run_sync_execution, execution.id)
+    return _accepted(execution, "Sincronización de listas programada correctamente.")
+
+
+@screening_routes.post(
+    "/sync/manual",
+    response_model=ScreeningSyncExecutionAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission("CLIENT_SCREENING"))],
+)
+async def manual_sync_screening_lists_route(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: UserTenantDB | GlobalUserDB = Depends(get_current_user),
+):
+    execution = create_sync_execution(
+        db,
+        trigger_type="MANUAL",
+        triggered_by=current_user.id,
+        triggered_by_email=getattr(current_user, "email", None),
+    )
+    if execution.status == "PENDING":
+        background_tasks.add_task(run_sync_execution, execution.id)
+    return _accepted(execution, "Sincronización manual de listas programada correctamente.")
