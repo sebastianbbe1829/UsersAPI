@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..models import ProductDB
@@ -31,6 +32,28 @@ class ProductRepository:
             )
             .first()
         )
+
+    def next_code(self, tenant_id: int) -> str:
+        # Serialize code generation for this tenant inside the current transaction.
+        self.db.execute(
+            text("SELECT pg_advisory_xact_lock(:tenant_id)"),
+            {"tenant_id": tenant_id},
+        )
+        last_number = self.db.execute(
+            text(
+                """
+                SELECT COALESCE(
+                    MAX(CAST(SUBSTRING(code FROM '^PROD-([0-9]+)$') AS BIGINT)),
+                    0
+                )
+                FROM users_api.products
+                WHERE tenant_id = :tenant_id
+                  AND code ~ '^PROD-[0-9]+$'
+                """
+            ),
+            {"tenant_id": tenant_id},
+        ).scalar_one()
+        return f"PROD-{int(last_number) + 1:06d}"
 
     def list(self, tenant_id: int, active_only: bool = False) -> list[ProductDB]:
         query = self.db.query(ProductDB).filter(ProductDB.tenant_id == tenant_id)
