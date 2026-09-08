@@ -6,14 +6,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.clients.models import ClientDB
-from UsersAPI.domains.clients.services.compliance_override_service import (
-    has_compliance_override,
-)
+from UsersAPI.domains.clients.services.compliance_override_service import has_compliance_override
 from UsersAPI.domains.inventory.models import InventoryDB, ProductDB
 from UsersAPI.domains.inventory.schemas import InventoryMovementCreate
-from UsersAPI.domains.inventory.services.inventory_movement_service import (
-    create_inventory_movement,
-)
+from UsersAPI.domains.inventory.services.inventory_movement_service import create_inventory_movement
+from UsersAPI.domains.portfolio.models import CreditLimitDB, ObligationDB
 
 from ..models import SaleCustomerDB, SaleDB, SaleItemDB, SalePaymentDB
 from ..repositories import SaleRepository
@@ -28,31 +25,16 @@ def _money(value: Decimal) -> Decimal:
 
 
 def _actor_name(current_user: object | None) -> str:
-    return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
-    )
+    return getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
 
 
 def _sale_price(inventory: InventoryDB) -> Decimal:
     if inventory.quantity <= 0 or inventory.purchase_price is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Product has no available inventory price",
-        )
-    return _money(
-        Decimal(inventory.purchase_price)
-        * (Decimal("1") + Decimal(inventory.profit_percentage or 0))
-    )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product has no available inventory price")
+    return _money(Decimal(inventory.purchase_price) * (Decimal("1") + Decimal(inventory.profit_percentage or 0)))
 
 
-def _client_is_eligible_for_sale(
-    client: ClientDB,
-    db: Session,
-    tenant_id: int,
-) -> bool:
-    """Evaluate the client's effective sales eligibility."""
+def _client_is_eligible_for_sale(client: ClientDB, db: Session, tenant_id: int) -> bool:
     if client.status != "ACTIVE":
         return False
     if client.is_listed or client.compliance_status == "MATCH":
@@ -60,79 +42,66 @@ def _client_is_eligible_for_sale(
     return True
 
 
-def _client_credit_used(
-    client_id: UUID,
-    db: Session,
-    tenant_id: int,
-) -> Decimal:
-    value = db.scalar(
-        select(func.coalesce(func.sum(SalePaymentDB.amount), 0))
-        .select_from(SalePaymentDB)
-        .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
-        .join(SaleCustomerDB, SaleCustomerDB.sale_id == SaleDB.id)
+def _credit_available(client_id: UUID, db: Session, tenant_id: int) -> Decimal:
+    credit_limit = db.scalar(
+        select(CreditLimitDB)
         .where(
-            SalePaymentDB.tenant_id == tenant_id,
-            SalePaymentDB.payment_method == CREDIT_METHOD,
-            SaleDB.tenant_id == tenant_id,
-            SaleDB.status == "COMPLETED",
-            SaleCustomerDB.tenant_id == tenant_id,
-            SaleCustomerDB.client_id == client_id,
+            CreditLimitDB.tenant_id == tenant_id,
+            CreditLimitDB.client_id == client_id,
+            CreditLimitDB.active.is_(True),
+        )
+        .with_for_update()
+    )
+    if credit_limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Client does not have an active credit limit",
+        )
+    used = db.scalar(
+        select(func.coalesce(func.sum(ObligationDB.balance), 0)).where(
+            ObligationDB.tenant_id == tenant_id,
+            ObligationDB.client_id == client_id,
+            ObligationDB.status == "ACTIVE",
         )
     )
-    return _money(Decimal(value or 0))
+    return _money(max(Decimal("0"), Decimal(credit_limit.approved_limit) - Decimal(used or 0)))
 
 
-def create_sale(
-    data: SaleCreate,
-    db: Session,
-    tenant_id: int,
-    current_user: object,
-) -> SaleDB:
+def create_sale(data: SaleCreate, db: Session, tenant_id: int, current_user: object) -> SaleDB:
     product_ids = [item.product_id for item in data.items]
     if len(product_ids) != len(set(product_ids)):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A product cannot appear more than once in a sale",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A product cannot appear more than once in a sale")
 
-    payment_total = _money(
-        sum(
-            (Decimal(payment.amount) for payment in data.payments),
-            Decimal("0"),
-        )
-    )
-    normalized_methods = [
-        payment.payment_method.strip().upper() for payment in data.payments
-    ]
+    payment_total = _money(sum((Decimal(payment.amount) for payment in data.payments), Decimal("0")))
+    normalized_methods = [payment.payment_method.strip().upper() for payment in data.payments]
     credit_amount = _money(
         sum(
-            (
-                Decimal(payment.amount)
-                for payment, method in zip(data.payments, normalized_methods)
-                if method == CREDIT_METHOD
-            ),
+            (Decimal(payment.amount) for payment, method in zip(data.payments, normalized_methods) if method == CREDIT_METHOD),
             Decimal("0"),
         )
     )
     has_credit = credit_amount > 0
-
-    if has_credit:
-        if (
-            len(data.customers) != 1
-            or data.customers[0].client_id is None
-            or data.customers[0].is_generic
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Credit sales cannot be split and require exactly one registered client",
-            )
+    if has_credit and (len(data.payments) != 1 or normalized_methods[0] != CREDIT_METHOD):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit sales must be fully financed by a single CREDITO payment",
+        )
+    if has_credit and (
+        len(data.customers) != 1
+        or data.customers[0].client_id is None
+        or data.customers[0].is_generic
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit sales cannot be split and require exactly one registered client",
+        )
 
     actor = _actor_name(current_user)
     repository = SaleRepository(db)
     sale = SaleDB(
         tenant_id=tenant_id,
         sale_number=repository.next_sale_number(tenant_id),
-        status="COMPLETED",
+        status="PENDING" if has_credit else "COMPLETED",
         subtotal=Decimal("0"),
         discount_percentage=data.discount_percentage,
         discount_amount=Decimal("0"),
@@ -148,33 +117,16 @@ def create_sale(
     for item in data.items:
         inventory = db.scalar(
             select(InventoryDB)
-            .where(
-                InventoryDB.tenant_id == tenant_id,
-                InventoryDB.product_id == item.product_id,
-            )
+            .where(InventoryDB.tenant_id == tenant_id, InventoryDB.product_id == item.product_id)
             .with_for_update()
         )
-        product = db.scalar(
-            select(ProductDB).where(
-                ProductDB.tenant_id == tenant_id,
-                ProductDB.id == item.product_id,
-            )
-        )
+        product = db.scalar(select(ProductDB).where(ProductDB.tenant_id == tenant_id, ProductDB.id == item.product_id))
         if product is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Product not found",
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
         if not product.active:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Inactive products cannot be sold",
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inactive products cannot be sold")
         if inventory is None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Insufficient inventory for this sale",
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Insufficient inventory for this sale")
 
         inventory_costs[item.product_id] = Decimal(inventory.purchase_price or 0)
         inventory_profits[item.product_id] = Decimal(inventory.profit_percentage or 0)
@@ -194,15 +146,10 @@ def create_sale(
         )
 
     subtotal = _money(subtotal)
-    discount_amount = _money(
-        subtotal * Decimal(data.discount_percentage) / Decimal("100")
-    )
+    discount_amount = _money(subtotal * Decimal(data.discount_percentage) / Decimal("100"))
     total = _money(subtotal - discount_amount)
     if payment_total != total:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Payment total must equal sale total: {total}",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Payment total must equal sale total: {total}")
 
     sale.subtotal = subtotal
     sale.discount_amount = discount_amount
@@ -210,10 +157,7 @@ def create_sale(
 
     if not data.customers:
         if has_credit:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Credit sales require exactly one registered client",
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credit sales require exactly one registered client")
         sale.customers.append(
             SaleCustomerDB(
                 tenant_id=tenant_id,
@@ -224,79 +168,42 @@ def create_sale(
             )
         )
     else:
-        percentage_total = sum(
-            (
-                Decimal(customer.allocation_percentage)
-                for customer in data.customers
-            ),
-            Decimal("0"),
-        )
+        percentage_total = sum((Decimal(customer.allocation_percentage) for customer in data.customers), Decimal("0"))
         if percentage_total != Decimal("100"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Customer allocation must total 100%",
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer allocation must total 100%")
 
         allocation_total = Decimal("0")
         for index, customer in enumerate(data.customers):
             if customer.is_generic and customer.client_id is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Generic customer cannot have client_id",
-                )
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Generic customer cannot have client_id")
             if customer.client_id is None and not customer.is_generic:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Each customer must have client_id or be generic",
-                )
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Each customer must have client_id or be generic")
             if has_credit and (customer.is_generic or customer.client_id is None):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Credit sales require a registered client",
-                )
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credit sales require a registered client")
 
             customer_name = "Consumidor final"
             if customer.client_id is not None:
-                query = select(ClientDB).where(
-                    ClientDB.tenant_id == tenant_id,
-                    ClientDB.id == customer.client_id,
-                )
+                query = select(ClientDB).where(ClientDB.tenant_id == tenant_id, ClientDB.id == customer.client_id)
                 if has_credit:
                     query = query.with_for_update()
                 client = db.scalar(query)
                 if client is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Client not found",
-                    )
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
                 if not _client_is_eligible_for_sale(client, db, tenant_id):
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="Client is not eligible for sales",
-                    )
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Client is not eligible for sales")
                 if has_credit:
-                    credit_used = _client_credit_used(client.id, db, tenant_id)
-                    credit_available = _money(
-                        Decimal(client.credit_limit or 0) - credit_used
-                    )
-                    if credit_amount > credit_available:
+                    available = _credit_available(client.id, db, tenant_id)
+                    if total > available:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
-                            detail=(
-                                "Client credit limit exceeded. "
-                                f"Available credit: {credit_available}"
-                            ),
+                            detail=f"Insufficient available credit. Available credit: {available}",
                         )
                 customer_name = client.full_name
 
             if index == len(data.customers) - 1:
                 allocation_amount = _money(total - allocation_total)
             else:
-                allocation_amount = _money(
-                    total
-                    * Decimal(customer.allocation_percentage)
-                    / Decimal("100")
-                )
+                allocation_amount = _money(total * Decimal(customer.allocation_percentage) / Decimal("100"))
             allocation_total += allocation_amount
             sale.customers.append(
                 SaleCustomerDB(
@@ -317,6 +224,18 @@ def create_sale(
                 amount=_money(Decimal(payment.amount)),
             )
         )
+
+    if has_credit:
+        obligation = ObligationDB(
+            tenant_id=tenant_id,
+            client_id=data.customers[0].client_id,
+            sale_id=sale.id,
+            initial_amount=total,
+            balance=total,
+            status="ACTIVE",
+            created_by=actor,
+        )
+        db.add(obligation)
 
     db.flush()
     for item in sale.items:
@@ -343,17 +262,9 @@ def create_sale(
 def get_sale(sale_id: UUID, db: Session, tenant_id: int) -> SaleDB:
     sale = SaleRepository(db).get_by_id(tenant_id, sale_id)
     if sale is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Sale not found",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found")
     return sale
 
 
-def list_sales(
-    db: Session,
-    tenant_id: int,
-    limit: int = 100,
-    offset: int = 0,
-) -> list[SaleDB]:
+def list_sales(db: Session, tenant_id: int, limit: int = 100, offset: int = 0) -> list[SaleDB]:
     return SaleRepository(db).list(tenant_id, limit=limit, offset=offset)
