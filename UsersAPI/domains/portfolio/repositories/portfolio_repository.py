@@ -1,3 +1,4 @@
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -23,10 +24,30 @@ class PortfolioRepository:
         self.db.add(credit_limit)
         return credit_limit
 
-    def list_obligations(self, tenant_id: int, client_id: UUID | None = None):
-        query = select(ObligationDB).where(ObligationDB.tenant_id == tenant_id)
+    def list_obligations(
+        self,
+        tenant_id: int,
+        client_id: UUID | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ):
+        query = (
+            select(ObligationDB)
+            .options(joinedload(ObligationDB.sale))
+            .where(ObligationDB.tenant_id == tenant_id)
+        )
         if client_id is not None:
             query = query.where(ObligationDB.client_id == client_id)
+        if date_from is not None:
+            query = query.where(
+                ObligationDB.created_at >= datetime.combine(date_from, time.min)
+            )
+        if date_to is not None:
+            query = query.where(
+                ObligationDB.created_at < datetime.combine(
+                    date_to + timedelta(days=1), time.min
+                )
+            )
         return list(
             self.db.scalars(
                 query.order_by(ObligationDB.created_at.desc())
