@@ -17,20 +17,6 @@ depends_on = None
 SCHEMA = "users_api"
 
 
-def _enable_rls(table: str) -> None:
-    op.execute(f"ALTER TABLE {SCHEMA}.{table} ENABLE ROW LEVEL SECURITY")
-    op.execute(f"ALTER TABLE {SCHEMA}.{table} FORCE ROW LEVEL SECURITY")
-    op.execute(f"""CREATE POLICY {table}_isolation ON {SCHEMA}.{table}
-        USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)
-        WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)""")
-
-
-def _disable_rls(table: str) -> None:
-    op.execute(f"DROP POLICY IF EXISTS {table}_isolation ON {SCHEMA}.{table}")
-    op.execute(f"ALTER TABLE {SCHEMA}.{table} NO FORCE ROW LEVEL SECURITY")
-    op.execute(f"ALTER TABLE {SCHEMA}.{table} DISABLE ROW LEVEL SECURITY")
-
-
 def upgrade() -> None:
     op.create_table(
         "credit_limits",
@@ -120,7 +106,9 @@ def upgrade() -> None:
     op.create_index("ix_users_api_payment_allocations_obligation_id", "payment_allocations", ["obligation_id"], schema=SCHEMA)
 
     bind = op.get_bind()
-    clients = bind.execute(sa.text(f"SELECT id, tenant_id, credit_limit, created_by FROM {SCHEMA}.clients")).mappings().all()
+    clients = bind.execute(
+        sa.text(f"SELECT id, tenant_id, credit_limit, created_by FROM {SCHEMA}.clients")
+    ).mappings().all()
     for client in clients:
         bind.execute(
             sa.text(f"""INSERT INTO {SCHEMA}.credit_limits
@@ -137,15 +125,13 @@ def upgrade() -> None:
     op.drop_constraint("ck_clients_credit_limit", "clients", schema=SCHEMA, type_="check")
     op.drop_column("clients", "credit_limit", schema=SCHEMA)
 
-    for table in ("credit_limits", "obligations", "portfolio_payments", "payment_allocations"):
-        _enable_rls(table)
-
 
 def downgrade() -> None:
-    for table in ("credit_limits", "obligations", "portfolio_payments", "payment_allocations"):
-        _disable_rls(table)
-
-    op.add_column("clients", sa.Column("credit_limit", sa.Numeric(18, 2), nullable=False, server_default=sa.text("0")), schema=SCHEMA)
+    op.add_column(
+        "clients",
+        sa.Column("credit_limit", sa.Numeric(18, 2), nullable=False, server_default=sa.text("0")),
+        schema=SCHEMA,
+    )
     op.execute(
         f"""UPDATE {SCHEMA}.clients c
         SET credit_limit = COALESCE((
