@@ -9,6 +9,7 @@ from alembic import context
 from UsersAPI.database import Base
 import UsersAPI.models  # noqa: F401
 import UsersAPI.domains.clients.models  # noqa: F401
+import UsersAPI.domains.inventory.models  # noqa: F401
 from UsersAPI.settings import settings
 
 
