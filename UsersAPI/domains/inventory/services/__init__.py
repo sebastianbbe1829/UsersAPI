@@ -10,6 +10,7 @@ from .inventory_type_service import (
     list_inventory_types,
     update_inventory_type,
 )
+from .product_image_service import search_product_images
 from .product_service import create_product, list_products, update_product
 
 __all__ = [
@@ -18,11 +19,13 @@ __all__ = [
     "create_product",
     "get_inventory",
     "get_inventory_movement",
+    "get_inventory",
     "list_inventory",
     "list_inventory_movements",
     "list_inventory_types",
     "list_products",
     "reverse_inventory_movement",
+    "search_product_images",
     "update_inventory_type",
     "update_product",
 ]
