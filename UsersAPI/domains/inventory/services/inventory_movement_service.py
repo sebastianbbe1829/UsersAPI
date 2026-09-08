@@ -49,6 +49,26 @@ def _validate_origin(data: InventoryMovementCreate, origin_type: str) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="SALE movements require origin_id",
         )
+    if origin_type == "PURCHASE" and data.unit_purchase_price is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PURCHASE movements require unit_purchase_price",
+        )
+
+
+def _calculate_weighted_average_cost(
+    current_quantity: Decimal,
+    current_average_cost: Decimal | None,
+    entry_quantity: Decimal,
+    entry_unit_cost: Decimal,
+) -> Decimal:
+    if current_quantity <= 0 or current_average_cost is None:
+        return entry_unit_cost
+
+    total_current_cost = current_quantity * current_average_cost
+    total_entry_cost = entry_quantity * entry_unit_cost
+    total_quantity = current_quantity + entry_quantity
+    return (total_current_cost + total_entry_cost) / total_quantity
 
 
 def create_inventory_movement(
@@ -116,7 +136,12 @@ def create_inventory_movement(
     actor = _actor_name(current_user)
 
     if data.movement_type == "ENTRY" and data.unit_purchase_price is not None:
-        inventory.purchase_price = data.unit_purchase_price
+        inventory.purchase_price = _calculate_weighted_average_cost(
+            current_quantity=before,
+            current_average_cost=inventory.purchase_price,
+            entry_quantity=quantity,
+            entry_unit_cost=data.unit_purchase_price,
+        )
     if data.profit_percentage is not None:
         inventory.profit_percentage = data.profit_percentage
     inventory.updated_at = now
