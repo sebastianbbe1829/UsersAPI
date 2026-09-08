@@ -21,6 +21,10 @@ class PaymentDB(Base):
     __tablename__ = "portfolio_payments"
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_portfolio_payments_amount"),
+        CheckConstraint(
+            "status IN ('APLICADO', 'ANULADO')",
+            name="ck_portfolio_payments_status",
+        ),
         {"schema": "users_api"},
     )
 
@@ -40,6 +44,9 @@ class PaymentDB(Base):
     payment_date = Column(Date, nullable=False, server_default=text("CURRENT_DATE"))
     payment_method = Column(String(30), nullable=False)
     amount = Column(Numeric(18, 2), nullable=False)
+    status = Column(
+        String(20), nullable=False, server_default=text("'APLICADO'"), default="APLICADO"
+    )
     reference = Column(String(100), nullable=True)
     notes = Column(String(500), nullable=True)
     created_at = Column(
