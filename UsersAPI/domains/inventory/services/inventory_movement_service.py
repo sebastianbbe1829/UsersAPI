@@ -127,12 +127,12 @@ def create_inventory_movement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found",
         )
-    _validate_origin(data, origin_type, reversal_of_id)
     if not product.active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Inactive products cannot receive inventory movements",
         )
+    _validate_origin(data, origin_type, reversal_of_id)
 
     inventory_repository = InventoryRepository(db)
     inventory = inventory_repository.get_by_product(
