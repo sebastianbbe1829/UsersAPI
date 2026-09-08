@@ -90,11 +90,20 @@ def create_sale(
             )
         )
         if product is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found",
+            )
         if not product.active:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inactive products cannot be sold")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Inactive products cannot be sold",
+            )
         if inventory is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Insufficient inventory for this sale")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Insufficient inventory for this sale",
+            )
 
         inventory_costs[item.product_id] = Decimal(inventory.purchase_price or 0)
         unit_price = _sale_price(inventory)
@@ -143,27 +152,53 @@ def create_sale(
             Decimal("0"),
         )
         if percentage_total != Decimal("100"):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer allocation must total 100%")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Customer allocation must total 100%",
+            )
         allocation_total = Decimal("0")
         for index, customer in enumerate(data.customers):
             if customer.is_generic and customer.client_id is not None:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Generic customer cannot have client_id")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Generic customer cannot have client_id",
+                )
             if customer.client_id is None and not customer.is_generic:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Each customer must have client_id or be generic")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Each customer must have client_id or be generic",
+                )
             customer_name = "Consumidor final"
             if customer.client_id is not None:
                 client = db.scalar(
-                    select(ClientDB).where(ClientDB.tenant_id == tenant_id, ClientDB.id == customer.client_id)
+                    select(ClientDB).where(
+                        ClientDB.tenant_id == tenant_id,
+                        ClientDB.id == customer.client_id,
+                    )
                 )
                 if client is None:
-                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-                if client.status != "ACTIVE" or client.is_listed or client.compliance_status == "MATCH":
-                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Client is not eligible for sales")
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Client not found",
+                    )
+                if (
+                    client.status != "ACTIVE"
+                    or client.is_listed
+                    or client.compliance_status == "MATCH"
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Client is not eligible for sales",
+                    )
                 customer_name = client.full_name
             if index == len(data.customers) - 1:
                 allocation_amount = _money(total - allocation_total)
             else:
-                allocation_amount = _money(total * Decimal(customer.allocation_percentage) / Decimal("100"))
+                allocation_amount = _money(
+                    total
+                    * Decimal(customer.allocation_percentage)
+                    / Decimal("100")
+                )
             allocation_total += allocation_amount
             sale.customers.append(
                 SaleCustomerDB(
@@ -209,9 +244,17 @@ def create_sale(
 def get_sale(sale_id: UUID, db: Session, tenant_id: int) -> SaleDB:
     sale = SaleRepository(db).get_by_id(tenant_id, sale_id)
     if sale is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sale not found",
+        )
     return sale
 
 
-def list_sales(db: Session, tenant_id: int, limit: int = 100, offset: int = 0) -> list[SaleDB]:
+def list_sales(
+    db: Session,
+    tenant_id: int,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[SaleDB]:
     return SaleRepository(db).list(tenant_id, limit=limit, offset=offset)
