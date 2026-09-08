@@ -15,12 +15,12 @@ from ..models import SaleCustomerDB, SaleDB, SaleItemDB, SalePaymentDB
 from ..repositories import SaleRepository
 from ..schemas import SaleCreate
 
-CENT = Decimal("0.01")
+MONEY_UNIT = Decimal("1")
 CREDIT_METHOD = "CREDITO"
 
 
 def _money(value: Decimal) -> Decimal:
-    return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+    return Decimal(value).quantize(MONEY_UNIT, rounding=ROUND_HALF_UP)
 
 
 def _actor_name(current_user: object | None) -> str:
