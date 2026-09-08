@@ -52,6 +52,7 @@ class Settings:
     whatsapp_mode: str = os.getenv("WHATSAPP_MODE", "template")
     whatsapp_api_url: str = os.getenv("WHATSAPP_API_URL", "")
     client_screening_sync_key: str = os.getenv("CLIENT_SCREENING_SYNC_KEY", "")
+    port: int = int(os.getenv("PORT", "8000"))
 
 
 settings = Settings()
