@@ -45,6 +45,10 @@ def create_product(
         name=data.name.strip(),
         inventory_type_id=data.inventory_type_id,
         active=data.active,
+        image_url=str(data.image_url) if data.image_url else None,
+        image_source=data.image_source,
+        image_source_url=str(data.image_source_url) if data.image_source_url else None,
+        image_credit=data.image_credit,
         created_at=now,
         created_by=_actor_name(current_user),
     )
@@ -79,6 +83,14 @@ def update_product(
         product.inventory_type_id = changes["inventory_type_id"]
     if "active" in changes:
         product.active = changes["active"]
+    if "image_url" in changes:
+        product.image_url = str(changes["image_url"]) if changes["image_url"] else None
+    if "image_source" in changes:
+        product.image_source = changes["image_source"]
+    if "image_source_url" in changes:
+        product.image_source_url = str(changes["image_source_url"]) if changes["image_source_url"] else None
+    if "image_credit" in changes:
+        product.image_credit = changes["image_credit"]
 
     product.updated_at = datetime.now(UTC)
     product.updated_by = _actor_name(current_user)
