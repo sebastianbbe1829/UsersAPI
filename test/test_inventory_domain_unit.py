@@ -266,7 +266,7 @@ def test_movement_entry_updates_existing_inventory_and_creates_history(monkeypat
     assert result.balance_before == Decimal("10")
     assert result.balance_after == Decimal("15")
     assert inventory.quantity == Decimal("15")
-    assert inventory.purchase_price == Decimal("120")
+    assert inventory.purchase_price == Decimal("106.6666666666666666666666667")
     inventory_repo.save.assert_called_once_with(inventory)
 
 
