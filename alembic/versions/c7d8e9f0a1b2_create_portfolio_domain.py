@@ -4,6 +4,8 @@ Revision ID: c7d8e9f0a1b2
 Revises: b5c6d7e8f9a0
 """
 
+import uuid
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -119,13 +121,25 @@ def upgrade() -> None:
     op.create_index("ix_users_api_payment_allocations_payment_id", "payment_allocations", ["payment_id"], schema=SCHEMA)
     op.create_index("ix_users_api_payment_allocations_obligation_id", "payment_allocations", ["obligation_id"], schema=SCHEMA)
 
-    # Migrate the credit limit currently stored in clients into the cartera table.
-    op.execute(
-        f"""INSERT INTO {SCHEMA}.credit_limits
-            (id, tenant_id, client_id, approved_limit, active, created_by)
-        SELECT gen_random_uuid(), tenant_id, id, credit_limit, true, created_by
-        FROM {SCHEMA}.clients"""
-    )
+    bind = op.get_bind()
+    clients = bind.execute(
+        sa.text(f"SELECT id, tenant_id, credit_limit, created_by FROM {SCHEMA}.clients")
+    ).mappings().all()
+    for client in clients:
+        bind.execute(
+            sa.text(
+                f"""INSERT INTO {SCHEMA}.credit_limits
+                (id, tenant_id, client_id, approved_limit, active, created_by)
+                VALUES (:id, :tenant_id, :client_id, :approved_limit, true, :created_by)"""
+            ),
+            {
+                "id": uuid.uuid4(),
+                "tenant_id": client["tenant_id"],
+                "client_id": client["id"],
+                "approved_limit": client["credit_limit"],
+                "created_by": client["created_by"],
+            },
+        )
     op.drop_constraint("ck_clients_credit_limit", "clients", schema=SCHEMA, type_="check")
     op.drop_column("clients", "credit_limit", schema=SCHEMA)
 
@@ -150,12 +164,7 @@ def downgrade() -> None:
             WHERE cl.tenant_id = c.tenant_id AND cl.client_id = c.id
         ), 0)"""
     )
-    op.create_check_constraint(
-        "ck_clients_credit_limit",
-        "clients",
-        "credit_limit >= 0",
-        schema=SCHEMA,
-    )
+    op.create_check_constraint("ck_clients_credit_limit", "clients", "credit_limit >= 0", schema=SCHEMA)
 
     for index_name, table_name in (
         ("ix_users_api_payment_allocations_obligation_id", "payment_allocations"),
