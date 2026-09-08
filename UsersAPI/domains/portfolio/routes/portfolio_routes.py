@@ -18,7 +18,13 @@ from ..controllers import (
     payments,
     update_client_credit,
 )
-from ..schemas import CreditLimitRead, CreditLimitUpdate, ObligationRead, PaymentCreate, PaymentRead
+from ..schemas import (
+    CreditLimitRead,
+    CreditLimitUpdate,
+    ObligationRead,
+    PaymentCreate,
+    PaymentRead,
+)
 
 portfolio_routes = APIRouter(prefix="/portfolio", tags=["Cartera"])
 
@@ -68,7 +74,9 @@ async def list_obligations_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     tenant_id = cast(int, user_tenant.tenant_id)
-    return client_obligations(client_id, db, tenant_id) if client_id else obligations(db, tenant_id)
+    if client_id:
+        return client_obligations(client_id, db, tenant_id)
+    return obligations(db, tenant_id)
 
 
 @portfolio_routes.get(
