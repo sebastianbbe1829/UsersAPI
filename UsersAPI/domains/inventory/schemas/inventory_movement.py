@@ -31,6 +31,7 @@ class InventoryMovementRead(BaseModel):
     origin_id: UUID | None
     reversal_of_id: UUID | None
     quantity: Decimal
+    reversed_quantity: Decimal = Decimal("0")
     unit_purchase_price: Decimal | None
     profit_percentage: Decimal | None
     balance_before: Decimal
