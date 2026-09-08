@@ -1,6 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -11,6 +12,7 @@ from ..repositories import InventoryMovementRepository, InventoryRepository, Pro
 from ..schemas import InventoryMovementCreate
 
 ALLOWED_ORIGIN_TYPES = {"PURCHASE", "SALE", "MANUAL_ADJUSTMENT", "SALES_RETURN", "PURCHASE_RETURN", "REVERSAL"}
+COLOMBIA_TZ = ZoneInfo("America/Bogota")
 
 
 def _actor_name(current_user: object | None) -> str:
@@ -36,6 +38,17 @@ def _calculate_weighted_average_cost(current_quantity: Decimal, current_average_
     if current_quantity <= 0 or current_average_cost is None:
         return entry_unit_cost
     return (current_quantity * current_average_cost + entry_quantity * entry_unit_cost) / (current_quantity + entry_quantity)
+
+
+def _calculate_reversed_average_cost(current_quantity: Decimal, current_average_cost: Decimal | None, reversed_quantity: Decimal, reversed_unit_cost: Decimal | None, remaining_quantity: Decimal) -> Decimal | None:
+    if remaining_quantity <= 0:
+        return None
+    if current_average_cost is None or reversed_unit_cost is None:
+        return current_average_cost
+    remaining_value = current_quantity * current_average_cost - reversed_quantity * reversed_unit_cost
+    if remaining_value < 0:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The reversal would make the inventory cost inconsistent")
+    return remaining_value / remaining_quantity
 
 
 def create_inventory_movement(data: InventoryMovementCreate, db: Session, tenant_id: int, current_user: object, reversal_of_id: UUID | None = None) -> InventoryMovementDB:
@@ -64,9 +77,15 @@ def create_inventory_movement(data: InventoryMovementCreate, db: Session, tenant
     after = before + quantity if data.movement_type == "ENTRY" else before - quantity
     now = datetime.now(UTC)
     actor = _actor_name(current_user)
+
     if data.movement_type == "ENTRY" and data.unit_purchase_price is not None:
         inventory.purchase_price = _calculate_weighted_average_cost(before, inventory.purchase_price, quantity, data.unit_purchase_price)
-    if data.profit_percentage is not None:
+    elif data.movement_type == "EXIT" and reversal_of_id is not None:
+        original = InventoryMovementRepository(db).get_by_id(tenant_id, reversal_of_id)
+        if original is not None and original.movement_type == "ENTRY":
+            inventory.purchase_price = _calculate_reversed_average_cost(before, inventory.purchase_price, quantity, original.unit_purchase_price, after)
+
+    if data.profit_percentage is not None and reversal_of_id is None:
         inventory.profit_percentage = data.profit_percentage
     inventory.updated_at = now
     inventory.updated_by = actor
@@ -100,8 +119,15 @@ def reverse_inventory_movement(movement_id: UUID, db: Session, tenant_id: int, c
     return create_inventory_movement(data, db, tenant_id, current_user, reversal_of_id=original.id)
 
 
-def list_inventory_movements(db: Session, tenant_id: int, product_id: int, limit: int = 100, offset: int = 0) -> list[InventoryMovementDB]:
-    return InventoryMovementRepository(db).list_by_product(tenant_id, product_id, limit=limit, offset=offset)
+def list_inventory_movements(db: Session, tenant_id: int, product_id: int | None = None, limit: int = 100, offset: int = 0, from_date: date | None = None, to_date: date | None = None) -> list[InventoryMovementDB]:
+    if from_date is not None and to_date is not None and from_date > to_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="from_date cannot be greater than to_date")
+    from_datetime = datetime.combine(from_date, time.min, tzinfo=COLOMBIA_TZ).astimezone(UTC).replace(tzinfo=None) if from_date else None
+    to_datetime = datetime.combine(to_date, time.max, tzinfo=COLOMBIA_TZ).astimezone(UTC).replace(tzinfo=None) if to_date else None
+    repository = InventoryMovementRepository(db)
+    if product_id is not None:
+        return repository.list_by_product(tenant_id, product_id, limit=limit, offset=offset, from_datetime=from_datetime, to_datetime=to_datetime)
+    return repository.list_all(tenant_id, limit=limit, offset=offset, from_datetime=from_datetime, to_datetime=to_datetime)
 
 
 def get_inventory_movement(db: Session, tenant_id: int, movement_id: UUID) -> InventoryMovementDB:
