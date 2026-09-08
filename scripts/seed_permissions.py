@@ -48,16 +48,12 @@ def seed_permissions():
             creados += 1
 
         # ====================================================
-        # SINCRONIZAR PERMISOS DE ROLES ADMIN EXISTENTES
+        # SINCRONIZAR PERMISOS DEL ADMIN EXISTENTE
         # ====================================================
-        # El bootstrap de un tenant nuevo asigna todos los permisos
-        # al rol ADMIN. Este seed debe mantener el mismo contrato
-        # para tenants ya existentes cuando se agregan permisos nuevos.
-        #
-        # Importante: no usamos la relación ORM admin_role.permissions
-        # para determinar los existentes. Consultamos directamente
-        # role_permissions para que la sincronización dependa de la
-        # relación persistida en BD y sea completamente idempotente.
+        # Los tenants existentes deben recibir los permisos nuevos
+        # en su rol ADMIN. No dependemos de que el rol tenga status=1,
+        # ya que el código de estado puede variar según el ciclo de
+        # vida histórico del rol. Solo excluimos roles eliminados.
 
         roles_admin = (
             db.query(RoleDB)
@@ -71,12 +67,10 @@ def seed_permissions():
         asignados = 0
         for admin_role in roles_admin:
             permisos_actuales = {
-                permission_id
-                for (permission_id,) in (
-                    db.query(RolePermissionDB.permission_id)
-                    .filter(RolePermissionDB.role_id == admin_role.id)
-                    .all()
-                )
+                role_permission.permission_id
+                for role_permission in db.query(RolePermissionDB).filter(
+                    RolePermissionDB.role_id == admin_role.id
+                ).all()
             }
 
             for permission in permissions_by_code.values():
@@ -89,7 +83,6 @@ def seed_permissions():
                         permission_id=permission.id,
                     )
                 )
-                permisos_actuales.add(permission.id)
                 asignados += 1
 
         # ====================================================
@@ -100,6 +93,7 @@ def seed_permissions():
 
         print(f"Permisos creados: {creados}")
         print(f"Permisos existentes: {existentes}")
+        print(f"Roles ADMIN encontrados: {len(roles_admin)}")
         print(f"Permisos asignados a ADMIN: {asignados}")
 
     except Exception:
