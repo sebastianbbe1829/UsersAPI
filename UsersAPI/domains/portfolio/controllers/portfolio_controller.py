@@ -7,6 +7,7 @@ from UsersAPI.domains.core.models import UserTenantDB
 
 from ..schemas import CreditLimitUpdate, PaymentCreate
 from ..services import (
+    annul_payment,
     get_client_credit,
     list_client_obligations,
     list_obligations,
@@ -59,5 +60,28 @@ def create_payment(
     return register_payment(data, db, tenant_id, current_user)
 
 
-def payments(db: Session, tenant_id: int, client_id: UUID | None = None):
-    return list_payments(db, tenant_id, client_id)
+def annul_payment_route(
+    payment_id: UUID,
+    db: Session,
+    tenant_id: int,
+    current_user: UserTenantDB,
+):
+    return annul_payment(payment_id, db, tenant_id, current_user)
+
+
+def payments(
+    db: Session,
+    tenant_id: int,
+    client_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_status: str | None = None,
+):
+    return list_payments(
+        db,
+        tenant_id,
+        client_id=client_id,
+        date_from=date_from,
+        date_to=date_to,
+        payment_status=payment_status,
+    )
