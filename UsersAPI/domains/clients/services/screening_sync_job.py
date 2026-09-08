@@ -9,10 +9,8 @@ from sqlalchemy import text
 from UsersAPI.database import SessionLocal
 from UsersAPI.logging_config import logger
 
-from .screening_sync_service import (
-    create_sync_execution,
-    run_sync_execution,
-)
+from ..models import ScreeningSyncExecutionDB
+from .screening_sync_service import create_sync_execution, run_sync_execution
 
 
 TIMEZONE = os.getenv("JOB_TIMEZONE", "America/Bogota")
@@ -39,11 +37,11 @@ def _utc_day_bounds(now: datetime) -> tuple[datetime, datetime]:
 def _already_succeeded_today(db, now: datetime) -> bool:
     start_utc, end_utc = _utc_day_bounds(now)
     execution = (
-        db.query(__import__("UsersAPI.domains.clients.models", fromlist=["ScreeningSyncExecutionDB"]).ScreeningSyncExecutionDB)
+        db.query(ScreeningSyncExecutionDB)
         .filter(
-            __import__("UsersAPI.domains.clients.models", fromlist=["ScreeningSyncExecutionDB"]).ScreeningSyncExecutionDB.status == "SUCCESS",
-            __import__("UsersAPI.domains.clients.models", fromlist=["ScreeningSyncExecutionDB"]).ScreeningSyncExecutionDB.created_at >= start_utc,
-            __import__("UsersAPI.domains.clients.models", fromlist=["ScreeningSyncExecutionDB"]).ScreeningSyncExecutionDB.created_at < end_utc,
+            ScreeningSyncExecutionDB.status == "SUCCESS",
+            ScreeningSyncExecutionDB.created_at >= start_utc,
+            ScreeningSyncExecutionDB.created_at < end_utc,
         )
         .first()
     )
@@ -118,7 +116,7 @@ def run_restrictive_lists_sync_job(trigger_type: str = "MANUAL") -> dict:
 
         run_sync_execution(execution_id)
 
-        execution = db.get(type(execution), execution_id)
+        execution = db.get(ScreeningSyncExecutionDB, execution_id)
         if execution is None:
             raise RuntimeError(f"No se pudo recuperar la ejecución {execution_id}")
 
