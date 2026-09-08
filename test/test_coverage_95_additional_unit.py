@@ -70,6 +70,10 @@ def test_sale_service_customer_and_payment_validation():
     db = MagicMock()
     user = SimpleNamespace(email="user@example.com")
     client_id = uuid4()
+    inventory = SimpleNamespace(
+        quantity=1, purchase_price=Decimal("10"), profit_percentage=Decimal("0")
+    )
+    product = SimpleNamespace(id=1, code="P1", name="Product", active=True)
 
     generic_with_client = SaleCreate(
         items=[{"product_id": 1, "quantity": 1}],
@@ -83,7 +87,7 @@ def test_sale_service_customer_and_payment_validation():
         payments=[{"payment_method": "EFECTIVO", "amount": 10}],
     )
     with patch.object(service.SaleRepository, "next_sale_number", return_value="V-1"):
-        db.scalar.side_effect = [SimpleNamespace(active=True)]
+        db.scalar.side_effect = [inventory, product]
         with pytest.raises(HTTPException, match="Generic customer"):
             service.create_sale(generic_with_client, db, 1, user)
 
@@ -93,7 +97,7 @@ def test_sale_service_customer_and_payment_validation():
         payments=[{"payment_method": "EFECTIVO", "amount": 10}],
     )
     with patch.object(service.SaleRepository, "next_sale_number", return_value="V-2"):
-        db.scalar.side_effect = [SimpleNamespace(active=True), SimpleNamespace(active=True)]
+        db.scalar.side_effect = [inventory, product]
         with pytest.raises(HTTPException, match="client_id or be generic"):
             service.create_sale(invalid_customer, db, 1, user)
 
@@ -134,6 +138,7 @@ def test_screening_sync_job_success_and_already_done():
         patch.object(job, "ENABLED", True),
         patch.object(job, "datetime") as dt,
         patch.object(job, "SessionLocal", return_value=db),
+        patch.object(job, "_already_succeeded_today", return_value=False),
         patch.object(job, "create_sync_execution", return_value=execution),
         patch.object(job, "run_sync_execution"),
     ):
@@ -144,12 +149,11 @@ def test_screening_sync_job_success_and_already_done():
     assert db.close.called
 
     db2 = MagicMock()
-    db2.execute.return_value.scalar.return_value = True
-    db2.query.return_value.filter.return_value.first.return_value = execution
     with (
         patch.object(job, "ENABLED", True),
         patch.object(job, "datetime") as dt,
         patch.object(job, "SessionLocal", return_value=db2),
+        patch.object(job, "_already_succeeded_today", return_value=True),
     ):
         dt.now.return_value = now.replace(tzinfo=job.ZoneInfo(job.TIMEZONE))
         result = job.run_restrictive_lists_sync_job("SCHEDULED")
@@ -164,18 +168,26 @@ def test_screening_sync_job_unlock_error_and_helpers():
     start, end = job._utc_day_bounds(now)
     assert end > start
 
+    execution = SimpleNamespace(
+        id=uuid4(),
+        status="SUCCESS",
+        trigger_type="MANUAL",
+        duration_ms=1,
+        total_sources=1,
+        successful_sources=1,
+        failed_sources=0,
+    )
     db = MagicMock()
-    db.execute.return_value.scalar.return_value = True
     db.execute.side_effect = [SimpleNamespace(scalar=lambda: True), Exception("unlock")]
     with (
         patch.object(job, "ENABLED", True),
         patch.object(job, "datetime") as dt,
         patch.object(job, "SessionLocal", return_value=db),
         patch.object(job, "_already_succeeded_today", return_value=False),
-        patch.object(job, "create_sync_execution", return_value=SimpleNamespace(id=uuid4())),
+        patch.object(job, "create_sync_execution", return_value=execution),
         patch.object(job, "run_sync_execution"),
     ):
         dt.now.return_value = now
-        with pytest.raises(Exception, match="unlock"):
-            job.run_restrictive_lists_sync_job("MANUAL")
+        result = job.run_restrictive_lists_sync_job("MANUAL")
+    assert result["status"] == "SUCCESS"
     assert db.close.called
