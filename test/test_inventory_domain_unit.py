@@ -2,6 +2,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
+import asyncio
 
 import pytest
 from fastapi import HTTPException
@@ -18,6 +19,10 @@ from UsersAPI.domains.inventory.services import inventory_movement_service as mo
 from UsersAPI.domains.inventory.services import inventory_service
 from UsersAPI.domains.inventory.services import inventory_type_service as type_service
 from UsersAPI.domains.inventory.services import product_service
+from UsersAPI.domains.inventory.controllers import catalog_controller
+from UsersAPI.domains.inventory.controllers import inventory_controller
+from UsersAPI.domains.inventory.controllers import movement_controller
+from UsersAPI.domains.inventory.routes import inventory_routes
 
 
 class FakeRepository:
@@ -381,3 +386,124 @@ def test_movement_rejects_wrong_origin_direction(monkeypatch):
                 user(),
             )
         assert error.value.status_code == 400
+
+
+def test_inventory_catalog_controllers_delegate(monkeypatch):
+    sentinel = object()
+    service_calls = []
+
+    def capture(name):
+        def _service(*args):
+            service_calls.append((name, args))
+            return sentinel
+
+        return _service
+
+    monkeypatch.setattr(catalog_controller, "create_inventory_type", capture("create_type"))
+    monkeypatch.setattr(catalog_controller, "list_inventory_types", capture("list_types"))
+    monkeypatch.setattr(catalog_controller, "update_inventory_type", capture("update_type"))
+    monkeypatch.setattr(catalog_controller, "create_product", capture("create_product"))
+    monkeypatch.setattr(catalog_controller, "list_products", capture("list_products"))
+    monkeypatch.setattr(catalog_controller, "update_product", capture("update_product"))
+
+    db = MagicMock()
+    current_user = MagicMock()
+    data = MagicMock()
+
+    assert catalog_controller.create_type(data, db, 7, current_user) is sentinel
+    assert catalog_controller.list_types(db, 7, True) is sentinel
+    assert catalog_controller.update_type(1, data, db, 7, current_user) is sentinel
+    assert catalog_controller.create_product_item(data, db, 7, current_user) is sentinel
+    assert catalog_controller.list_product_items(db, 7, False) is sentinel
+    assert catalog_controller.update_product_item(2, data, db, 7, current_user) is sentinel
+    assert [call[0] for call in service_calls] == [
+        "create_type",
+        "list_types",
+        "update_type",
+        "create_product",
+        "list_products",
+        "update_product",
+    ]
+
+
+def test_inventory_and_movement_controllers_delegate(monkeypatch):
+    sentinel = object()
+    db = MagicMock()
+    current_user = MagicMock()
+    data = MagicMock()
+    movement_id = uuid4()
+
+    monkeypatch.setattr(inventory_controller, "list_inventory", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_controller, "get_inventory", lambda *args: sentinel)
+    assert inventory_controller.list_inventory_items(db, 7) is sentinel
+    assert inventory_controller.get_inventory_item(1, db, 7) is sentinel
+
+    monkeypatch.setattr(
+        movement_controller,
+        "create_inventory_movement",
+        lambda *args: sentinel,
+    )
+    monkeypatch.setattr(
+        movement_controller,
+        "list_inventory_movements",
+        lambda *args, **kwargs: sentinel,
+    )
+    monkeypatch.setattr(
+        movement_controller,
+        "get_inventory_movement",
+        lambda *args: sentinel,
+    )
+
+    assert movement_controller.create_movement(data, db, 7, current_user) is sentinel
+    assert movement_controller.list_movements(1, db, 7, limit=20, offset=5) is sentinel
+    assert movement_controller.get_movement(movement_id, db, 7) is sentinel
+
+
+def test_inventory_routes_delegate(monkeypatch):
+    sentinel = object()
+    db = MagicMock()
+    current_user = MagicMock()
+    user_tenant = SimpleNamespace(tenant_id=7)
+    data = MagicMock()
+    movement_id = uuid4()
+
+    monkeypatch.setattr(inventory_routes, "list_types", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "create_type", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "update_type", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "list_product_items", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "create_product_item", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "update_product_item", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "list_inventory_items", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "get_inventory_item", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "create_movement", lambda *args: sentinel)
+    monkeypatch.setattr(inventory_routes, "list_movements", lambda *args, **kwargs: sentinel)
+    monkeypatch.setattr(inventory_routes, "get_movement", lambda *args: sentinel)
+
+    async def run():
+        return [
+            await inventory_routes.list_inventory_types_route(True, db, user_tenant),
+            await inventory_routes.create_inventory_type_route(
+                data, db, current_user, user_tenant
+            ),
+            await inventory_routes.update_inventory_type_route(
+                1, data, db, current_user, user_tenant
+            ),
+            await inventory_routes.list_products_route(False, db, user_tenant),
+            await inventory_routes.create_product_route(data, db, current_user, user_tenant),
+            await inventory_routes.update_product_route(
+                2, data, db, current_user, user_tenant
+            ),
+            await inventory_routes.list_inventory_route(db, user_tenant),
+            await inventory_routes.get_inventory_route(3, db, user_tenant),
+            await inventory_routes.create_inventory_movement_route(
+                data, db, current_user, user_tenant
+            ),
+            await inventory_routes.list_inventory_movements_route(
+                4, 25, 5, db, user_tenant
+            ),
+            await inventory_routes.get_inventory_movement_route(
+                movement_id, db, user_tenant
+            ),
+        ]
+
+    assert asyncio.run(run()) == [sentinel] * 11
