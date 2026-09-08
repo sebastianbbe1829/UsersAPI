@@ -26,6 +26,7 @@ from ..repositories.role_permission_repository import RolePermissionRepository
 from ..repositories.permission_repository import PermissionRepository
 from ..util.email_utils import send_email
 from ..util.whatsapp_utils import send_whatsapp
+from ..security.inventory_permissions import INVENTORY_PERMISSIONS
 from ..security.permission_definitions import PERMISSIONS
 
 
@@ -74,6 +75,8 @@ def bootstrapTenant(
         created_by=admin_dni,
     )
 
+    permission_definitions = [*PERMISSIONS, *INVENTORY_PERMISSIONS]
+
     try:
         tenant = tenant_repository.add(tenant)
         tenant.config = TenantConfigDB(
@@ -90,7 +93,7 @@ def bootstrapTenant(
             user = user_repository.add(user)
 
         permissions_by_code = {}
-        for permission_code, permission_name, description in PERMISSIONS:
+        for permission_code, permission_name, description in permission_definitions:
             permission = permission_repository.get_by_code_any_status(permission_code)
             if permission is None:
                 permission = permission_repository.create(
@@ -158,7 +161,7 @@ def bootstrapTenant(
             )
         )
 
-        for permission_code, _, _ in PERMISSIONS:
+        for permission_code, _, _ in permission_definitions:
             role_permission_repository.add(
                 RolePermissionDB(
                     role_id=admin_role.id,
