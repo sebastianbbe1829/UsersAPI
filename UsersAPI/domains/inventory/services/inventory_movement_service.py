@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -125,3 +126,32 @@ def create_inventory_movement(
         created_by=actor,
     )
     return InventoryMovementRepository(db).add(movement)
+
+
+def list_inventory_movements(
+    db: Session,
+    tenant_id: int,
+    product_id: int,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[InventoryMovementDB]:
+    return InventoryMovementRepository(db).list_by_product(
+        tenant_id,
+        product_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+def get_inventory_movement(
+    db: Session,
+    tenant_id: int,
+    movement_id: UUID,
+) -> InventoryMovementDB:
+    movement = InventoryMovementRepository(db).get_by_id(tenant_id, movement_id)
+    if movement is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory movement not found",
+        )
+    return movement
