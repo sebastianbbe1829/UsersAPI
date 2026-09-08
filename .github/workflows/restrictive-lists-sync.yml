@@ -1,0 +1,42 @@
+name: Restrictive Lists Synchronization
+
+on:
+  schedule:
+    # Igual que Extintores: ejecutar fuera de los minutos 00/30.
+    # El runner valida la hora configurada y solo procesa cuando corresponde.
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      trigger_type:
+        description: 'Origen de la ejecución'
+        required: false
+        type: string
+        default: 'MANUAL'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run restrictive lists synchronization
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESTRICTIVE_LISTS_SYNC_ENABLED: ${{ vars.RESTRICTIVE_LISTS_SYNC_ENABLED }}
+          RESTRICTIVE_LISTS_SYNC_TIME: ${{ vars.RESTRICTIVE_LISTS_SYNC_TIME }}
+          JOB_TIMEZONE: ${{ vars.JOB_TIMEZONE }}
+          SCREENING_SYNC_TRIGGER_TYPE: ${{ inputs.trigger_type }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PYTHONPATH: .
+        run: python scripts/jobs/run_restrictive_lists_sync.py
