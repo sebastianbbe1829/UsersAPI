@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from UsersAPI.domains.portfolio.models.obligation import ObligationDB
 from UsersAPI.domains.portfolio.schemas.portfolio import CreditLimitUpdate
 from UsersAPI.domains.portfolio.services.portfolio_service import (
+    annul_payment,
     get_client_credit,
     list_client_obligations,
     list_obligations,
@@ -363,6 +364,7 @@ def test_register_payment_applies_partial_payment(monkeypatch):
 
     assert result.amount == Decimal("100.00")
     assert result.payment_method == "CASH"
+    assert result.status == "APLICADO"
     assert obligation.balance == Decimal("100.00")
     assert obligation.status == "ACTIVE"
     assert len(result.allocations) == 1
@@ -406,14 +408,109 @@ def test_register_payment_settles_obligation_and_sale(monkeypatch):
     assert sale.updated_by == "cashier"
 
 
-def test_list_payments_supports_client_filter():
-    payment = SimpleNamespace(id=uuid4())
-    scalar_result = SimpleNamespace(unique=lambda: [payment])
+def test_annul_payment_reverses_allocations_and_reopens_settled_obligation(monkeypatch):
+    payment_id = uuid4()
+    obligation_id = uuid4()
+    allocation = SimpleNamespace(obligation_id=obligation_id, amount=Decimal("100.00"))
+    payment = SimpleNamespace(
+        id=payment_id,
+        status="APLICADO",
+        allocations=[allocation],
+    )
+    obligation = SimpleNamespace(
+        id=obligation_id,
+        status="SETTLED",
+        balance=Decimal("0.00"),
+        initial_amount=Decimal("100.00"),
+        updated_at=None,
+        updated_by=None,
+    )
+    repository = SimpleNamespace(
+        get_obligation=lambda *_args, **_kwargs: obligation,
+        get_payment=lambda *_args, **_kwargs: payment,
+    )
+    payment_query = SimpleNamespace(with_for_update=lambda: payment)
+    db = SimpleNamespace(
+        scalar=lambda query: payment if query is not None and hasattr(query, "where") else payment,
+        flush=lambda: None,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.select",
+        lambda *_args, **_kwargs: payment_query,
+    )
+
+    result = annul_payment(payment_id, db, 1, SimpleNamespace(email="supervisor"))
+
+    assert result.status == "ANULADO"
+    assert obligation.balance == Decimal("100.00")
+    assert obligation.status == "ACTIVE"
+    assert obligation.updated_by == "supervisor"
+
+
+def test_annul_payment_rejects_already_annulled(monkeypatch):
+    payment = SimpleNamespace(id=uuid4(), status="ANULADO", allocations=[])
+    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: None)
+    query = SimpleNamespace(with_for_update=lambda: query)
+    db = SimpleNamespace(scalar=lambda _query: payment)
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.select",
+        lambda *_args, **_kwargs: query,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        annul_payment(payment.id, db, 1, SimpleNamespace())
+
+    assert exc_info.value.status_code == 409
+    assert "already annulled" in exc_info.value.detail.lower()
+
+
+def test_annul_payment_rejects_missing_payment(monkeypatch):
+    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: None)
+    query = SimpleNamespace(with_for_update=lambda: query)
+    db = SimpleNamespace(scalar=lambda _query: None)
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.select",
+        lambda *_args, **_kwargs: query,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        annul_payment(uuid4(), db, 1, SimpleNamespace())
+
+    assert exc_info.value.status_code == 404
+
+
+def test_list_payments_supports_filters():
+    payment_applied = SimpleNamespace(
+        id=uuid4(),
+        client_id=uuid4(),
+        payment_date="2026-09-08",
+        status="APLICADO",
+    )
+    scalar_result = SimpleNamespace(unique=lambda: [payment_applied])
     db = SimpleNamespace(scalars=lambda _query: scalar_result)
 
-    result = list_payments(db, 1, uuid4())
+    result = list_payments(
+        db,
+        1,
+        payment_applied.client_id,
+        date_from="2026-09-01",
+        date_to="2026-09-08",
+        payment_status="APLICADO",
+    )
 
-    assert result == [payment]
+    assert result == [payment_applied]
 
 
 def test_obligation_sale_number_property():
