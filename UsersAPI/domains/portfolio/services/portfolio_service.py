@@ -176,9 +176,7 @@ def register_payment(
         if amount > _money(obligation.balance):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    f"Payment exceeds obligation balance: {obligation.balance}"
-                ),
+                detail=f"Payment exceeds obligation balance: {obligation.balance}",
             )
         locked_obligations.append(obligation)
 
@@ -268,14 +266,20 @@ def annul_payment(
         if obligation is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Cannot annul payment because an allocated obligation was not found",
+                detail=(
+                    "Cannot annul payment because an allocated obligation "
+                    "was not found"
+                ),
             )
 
         new_balance = _money(Decimal(obligation.balance) + Decimal(allocation.amount))
         if new_balance > _money(obligation.initial_amount):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Cannot annul payment because the obligation balance would exceed its initial amount",
+                detail=(
+                    "Cannot annul payment because the obligation balance "
+                    "would exceed its initial amount"
+                ),
             )
         obligation.balance = new_balance
         if obligation.status == "SETTLED":
