@@ -72,6 +72,26 @@ def seed_divipola(db: Session, csv_path: Path = DEFAULT_CSV_PATH) -> dict[str, i
         "ciudades_actualizadas": 0,
     }
 
+    # Cargar los catálogos existentes una sola vez. El seed anterior hacía
+    # consultas individuales de departamento y ciudad para cada fila del CSV.
+    departments = (
+        db.query(DepartmentDB)
+        .filter(DepartmentDB.country_id == country.id)
+        .all()
+    )
+    departments_by_code = {department.code: department for department in departments}
+
+    cities = (
+        db.query(CityDB)
+        .join(DepartmentDB, CityDB.department_id == DepartmentDB.id)
+        .filter(DepartmentDB.country_id == country.id)
+        .all()
+    )
+    cities_by_key = {
+        (city.department_id, city.code): city
+        for city in cities
+    }
+
     with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file)
         expected_columns = {
@@ -100,14 +120,7 @@ def seed_divipola(db: Session, csv_path: Path = DEFAULT_CSV_PATH) -> dict[str, i
                 unit_type,
             ) = validar_fila(row)
 
-            department = (
-                db.query(DepartmentDB)
-                .filter(
-                    DepartmentDB.country_id == country.id,
-                    DepartmentDB.code == department_code,
-                )
-                .first()
-            )
+            department = departments_by_code.get(department_code)
             if department is None:
                 department = DepartmentDB(
                     country_id=country.id,
@@ -117,6 +130,7 @@ def seed_divipola(db: Session, csv_path: Path = DEFAULT_CSV_PATH) -> dict[str, i
                 )
                 db.add(department)
                 db.flush()
+                departments_by_code[department_code] = department
                 result["departamentos_creados"] += 1
             else:
                 changed = department.name != department_name or not department.active
@@ -124,29 +138,23 @@ def seed_divipola(db: Session, csv_path: Path = DEFAULT_CSV_PATH) -> dict[str, i
                 department.active = True
                 result["departamentos_actualizados"] += int(changed)
 
-            city = (
-                db.query(CityDB)
-                .filter(
-                    CityDB.department_id == department.id,
-                    CityDB.code == municipality_code,
-                )
-                .first()
-            )
             latitude = parsear_coordenada(row.get(COLUMN_LATITUDE, ""))
             longitude = parsear_coordenada(row.get(COLUMN_LONGITUDE, ""))
+            city_key = (department.id, municipality_code)
+            city = cities_by_key.get(city_key)
 
             if city is None:
-                db.add(
-                    CityDB(
-                        department_id=department.id,
-                        code=municipality_code,
-                        name=municipality_name,
-                        type=unit_type,
-                        latitude=latitude,
-                        longitude=longitude,
-                        active=True,
-                    )
+                city = CityDB(
+                    department_id=department.id,
+                    code=municipality_code,
+                    name=municipality_name,
+                    type=unit_type,
+                    latitude=latitude,
+                    longitude=longitude,
+                    active=True,
                 )
+                db.add(city)
+                cities_by_key[city_key] = city
                 result["ciudades_creadas"] += 1
             else:
                 city.name = municipality_name
