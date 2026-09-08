@@ -56,9 +56,12 @@ def override_client_compliance(
     )
     db.add(override)
 
-    # Keep the original MATCH/listing history intact. The override is an
-    # auditable exception and the only supported way to release BLOCKED.
+    # The original MATCH/listing history remains in screenings/audit. The
+    # client table stores only the current operational compliance state.
     client.status = "ACTIVE"
+    client.compliance_status = "CLEAR"
+    client.is_listed = False
+    client.list_type = None
     client.updated_at = now
     client.updated_by = current_user.email
     db.add(client)
