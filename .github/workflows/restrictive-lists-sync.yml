@@ -33,6 +33,7 @@ jobs:
       - name: Run restrictive lists synchronization
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BOOTSTRAP_DATABASE_URL: ${{ secrets.BOOTSTRAP_DATABASE_URL }}
           RESTRICTIVE_LISTS_SYNC_ENABLED: ${{ vars.RESTRICTIVE_LISTS_SYNC_ENABLED }}
           RESTRICTIVE_LISTS_SYNC_TIME: ${{ vars.RESTRICTIVE_LISTS_SYNC_TIME }}
           JOB_TIMEZONE: ${{ vars.JOB_TIMEZONE }}
