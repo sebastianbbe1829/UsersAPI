@@ -72,11 +72,22 @@ def test_run_sync_execution_marks_success():
     db = MagicMock()
     execution = _execution()
     db.get.return_value = execution
-    result = {"status": "SUCCESS", "total_sources": 1, "successful_sources": 1, "failed_sources": 0}
+    result = {
+        "status": "SUCCESS",
+        "total_sources": 1,
+        "successful_sources": 1,
+        "failed_sources": 0,
+    }
 
-    with patch("UsersAPI.domains.clients.services.screening_sync_service.SessionLocal", return_value=db), patch(
-        "UsersAPI.domains.clients.services.screening_sync_service.sync_all_screening_lists",
-        return_value=result,
+    with (
+        patch(
+            "UsersAPI.domains.clients.services.screening_sync_service.SessionLocal",
+            return_value=db,
+        ),
+        patch(
+            "UsersAPI.domains.clients.services.screening_sync_service.sync_all_screening_lists_bulk",
+            return_value=result,
+        ),
     ):
         run_sync_execution(execution.id)
 
@@ -95,9 +106,15 @@ def test_run_sync_execution_marks_error():
     execution = _execution()
     db.get.return_value = execution
 
-    with patch("UsersAPI.domains.clients.services.screening_sync_service.SessionLocal", return_value=db), patch(
-        "UsersAPI.domains.clients.services.screening_sync_service.sync_all_screening_lists",
-        side_effect=RuntimeError("falló proveedor"),
+    with (
+        patch(
+            "UsersAPI.domains.clients.services.screening_sync_service.SessionLocal",
+            return_value=db,
+        ),
+        patch(
+            "UsersAPI.domains.clients.services.screening_sync_service.sync_all_screening_lists_bulk",
+            side_effect=RuntimeError("falló proveedor"),
+        ),
     ):
         run_sync_execution(execution.id)
 
@@ -113,7 +130,10 @@ def test_run_sync_execution_ignores_unknown_execution():
     db = MagicMock()
     db.get.return_value = None
 
-    with patch("UsersAPI.domains.clients.services.screening_sync_service.SessionLocal", return_value=db):
+    with patch(
+        "UsersAPI.domains.clients.services.screening_sync_service.SessionLocal",
+        return_value=db,
+    ):
         run_sync_execution(uuid4())
 
     db.close.assert_called_once()
