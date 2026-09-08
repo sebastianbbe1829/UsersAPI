@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.clients.models import ClientDB
+from UsersAPI.domains.clients.services.compliance_override_service import has_compliance_override
 from UsersAPI.domains.inventory.models import InventoryDB, ProductDB
 from UsersAPI.domains.inventory.schemas import InventoryMovementCreate
 from UsersAPI.domains.inventory.services.inventory_movement_service import create_inventory_movement
@@ -39,6 +40,24 @@ def _sale_price(inventory: InventoryDB) -> Decimal:
         Decimal(inventory.purchase_price)
         * (Decimal("1") + Decimal(inventory.profit_percentage or 0))
     )
+
+
+def _client_is_eligible_for_sale(
+    client: ClientDB,
+    db: Session,
+    tenant_id: int,
+) -> bool:
+    """Evaluate the client's effective sales eligibility.
+
+    A compliance MATCH/listing remains part of the historical record. A
+    recorded compliance override is the auditable exception that releases
+    the restriction without erasing that history.
+    """
+    if client.status != "ACTIVE":
+        return False
+    if client.is_listed or client.compliance_status == "MATCH":
+        return has_compliance_override(client.id, db, tenant_id)
+    return True
 
 
 def create_sale(
@@ -181,11 +200,7 @@ def create_sale(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="Client not found",
                     )
-                if (
-                    client.status != "ACTIVE"
-                    or client.is_listed
-                    or client.compliance_status == "MATCH"
-                ):
+                if not _client_is_eligible_for_sale(client, db, tenant_id):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="Client is not eligible for sales",
