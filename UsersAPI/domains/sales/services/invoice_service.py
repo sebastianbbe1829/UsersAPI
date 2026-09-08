@@ -1,13 +1,13 @@
+import base64
 import html
-import os
 from decimal import Decimal
 
-import requests
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.clients.models import ClientDB
+from UsersAPI.util.email_utils import send_email
 
 from ..models import SaleDB
 from .sale_service import get_sale
@@ -48,46 +48,27 @@ def send_invoice_email(sale_id, db: Session, tenant_id: int) -> list[str]:
     sale = get_sale(sale_id, db, tenant_id)
     recipient_ids = {customer.client_id for customer in sale.customers if customer.client_id is not None}
     if not recipient_ids:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="The sale has no registered customers with email",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The sale has no registered customers with email")
 
-    clients = db.scalars(
-        select(ClientDB).where(
-            ClientDB.tenant_id == tenant_id,
-            ClientDB.id.in_(recipient_ids),
-        )
-    ).all()
+    clients = db.scalars(select(ClientDB).where(ClientDB.tenant_id == tenant_id, ClientDB.id.in_(recipient_ids))).all()
     recipients = sorted({str(client.email) for client in clients if client.email})
     if not recipients:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="The sale customers do not have an email configured",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The sale customers do not have an email configured")
 
-    api_key = os.getenv("RESEND_API_KEY")
-    sender = os.getenv("SALES_EMAIL_FROM") or os.getenv("RESEND_FROM_EMAIL")
-    if not api_key or not sender:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Invoice email is not configured",
-        )
-
-    response = requests.post(
-        "https://api.resend.com/emails",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "from": sender,
-            "to": recipients,
-            "subject": f"Factura {sale.sale_number}",
-            "html": _invoice_html(sale),
-        },
-        timeout=15,
-    )
-    if not response.ok:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The invoice email could not be sent",
-        )
+    invoice_html = _invoice_html(sale)
+    attachment = {
+        "name": f"factura-{sale.sale_number}.html",
+        "content": base64.b64encode(invoice_html.encode("utf-8")).decode("ascii"),
+    }
+    try:
+        for recipient in recipients:
+            send_email(
+                recipient=recipient,
+                subject=f"Factura {sale.sale_number}",
+                message=f"Adjuntamos la factura {sale.sale_number} por un total de {_money(sale.total)}.",
+                template="default",
+                attachments=[attachment],
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="The invoice email could not be sent") from exc
     return recipients
