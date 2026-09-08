@@ -36,7 +36,7 @@ class SaleRepository:
         return sale
 
     def get_by_id(self, tenant_id: int, sale_id: UUID) -> SaleDB | None:
-        return self.db.scalar(
+        result = self.db.scalars(
             select(SaleDB)
             .options(
                 joinedload(SaleDB.items),
@@ -44,7 +44,8 @@ class SaleRepository:
                 joinedload(SaleDB.payments),
             )
             .where(SaleDB.tenant_id == tenant_id, SaleDB.id == sale_id)
-        )
+        ).unique()
+        return result.first()
 
     def list(self, tenant_id: int, limit: int = 100, offset: int = 0) -> list[SaleDB]:
         return list(
