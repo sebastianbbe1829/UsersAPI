@@ -14,6 +14,7 @@ from UsersAPI.models import (
     UserTenantDB,
     UserTenantRoleDB,
 )
+from UsersAPI.security.inventory_permissions import INVENTORY_PERMISSIONS
 from UsersAPI.security.permission_definitions import PERMISSIONS
 from UsersAPI.services import bootstrap_tenant_service
 from UsersAPI.settings import Settings
@@ -149,7 +150,7 @@ def test_bootstrap_creates_new_tenant_with_admin_context(db_session, client):
     admin_permission_count = db_session.query(RolePermissionDB).filter(
         RolePermissionDB.role_id == admin_role.id
     ).count()
-    assert admin_permission_count == len(PERMISSIONS)
+    assert admin_permission_count == len(PERMISSIONS) + len(INVENTORY_PERMISSIONS)
 
     auth_permission = db_session.query(RolePermissionDB).filter(
         RolePermissionDB.role_id == authenticate_role.id,

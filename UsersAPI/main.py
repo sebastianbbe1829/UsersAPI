@@ -35,6 +35,7 @@ from .domains.core.routes import (
     user_tenant_routes,
 )
 from .domains.core.routes.diagnostics_routes import router as diagnostics_router
+from .domains.inventory.routes import inventory_routes
 from .logging_config import logger
 
 CURRENT_FILE = os.path.abspath(__file__)
@@ -132,6 +133,10 @@ app = FastAPI(
         {
             "name": "Clientes - Listas Restrictivas",
             "description": "Screening e histórico de listas restrictivas",
+        },
+        {
+            "name": "Inventarios",
+            "description": "Tipos, productos, inventario y movimientos por tenant",
         },
     ],
 )
@@ -234,6 +239,8 @@ app.include_router(client_routes)
 logger.debug("Rutas de clientes registradas")
 app.include_router(screening_routes)
 logger.debug("Rutas de screening de clientes registradas")
+app.include_router(inventory_routes)
+logger.debug("Rutas de inventarios registradas")
 app.include_router(diagnostics_router)
 
 

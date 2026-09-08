@@ -1,5 +1,6 @@
 from UsersAPI.database import SessionLocal
 from UsersAPI.models import PermissionDB
+from UsersAPI.security.inventory_permissions import INVENTORY_PERMISSIONS
 from UsersAPI.security.permission_definitions import PERMISSIONS
 
 
@@ -9,6 +10,7 @@ from UsersAPI.security.permission_definitions import PERMISSIONS
 
 def seed_permissions():
     db = SessionLocal()
+    permission_definitions = [*PERMISSIONS, *INVENTORY_PERMISSIONS]
 
     try:
 
@@ -19,7 +21,7 @@ def seed_permissions():
         # RECORRER DEFINICIÓN DE PERMISOS
         # ====================================================
 
-        for code, name, description in PERMISSIONS:
+        for code, name, description in permission_definitions:
 
             permission = (
                 db.query(PermissionDB)

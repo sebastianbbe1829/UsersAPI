@@ -85,6 +85,34 @@ def tenant_ids(bootstrap_database_url):
                 if tenant_ids:
                     cur.execute(
                         """
+                        DELETE FROM users_api.inventory_movements
+                        WHERE tenant_id = ANY(%s)
+                        """,
+                        (tenant_ids,),
+                    )
+                    cur.execute(
+                        """
+                        DELETE FROM users_api.inventories
+                        WHERE tenant_id = ANY(%s)
+                        """,
+                        (tenant_ids,),
+                    )
+                    cur.execute(
+                        """
+                        DELETE FROM users_api.products
+                        WHERE tenant_id = ANY(%s)
+                        """,
+                        (tenant_ids,),
+                    )
+                    cur.execute(
+                        """
+                        DELETE FROM users_api.inventory_types
+                        WHERE tenant_id = ANY(%s)
+                        """,
+                        (tenant_ids,),
+                    )
+                    cur.execute(
+                        """
                         DELETE FROM users_api.user_tenants
                         WHERE tenant_id = ANY(%s)
                         """,
