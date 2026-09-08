@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
-from uuid import uuid4
 
 from UsersAPI.domains.clients.models import IdentificationTypeDB
 from UsersAPI.domains.clients.repositories.client_repository import ClientRepository
@@ -110,7 +110,6 @@ def test_update_client_regenerates_full_name_and_audit_fields():
         status="ACTIVE",
         compliance_status="CLEAR",
         is_listed=False,
-        credit_limit=0,
     )
     data = MagicMock()
     data.model_dump.return_value = {"first_name": "Juan", "last_name": "Pérez"}
@@ -159,7 +158,6 @@ def test_update_client_clears_consent_timestamp_when_consent_revoked():
         status="ACTIVE",
         compliance_status="CLEAR",
         is_listed=False,
-        credit_limit=0,
     )
     data = ClientUpdate(consent_given=False)
 
@@ -275,14 +273,13 @@ def test_get_client_raises_when_not_found():
 def test_list_and_delete_clients_delegate_to_repository():
     db = MagicMock()
     repository = MagicMock()
-    client = SimpleNamespace(id=uuid4(), credit_limit=0)
+    client = SimpleNamespace(id=uuid4())
     repository.get_all.return_value = [client]
 
     with patch.object(client_service, "ClientRepository", return_value=repository):
-        with patch.object(client_service, "_credit_used_map", return_value={}):
-            assert client_service.list_clients(db, 10, limit=20, offset=5, search="juan") == [
-                client
-            ]
+        assert client_service.list_clients(
+            db, 10, limit=20, offset=5, search="juan"
+        ) == [client]
         with patch.object(client_service, "get_client", return_value=client):
             client_service.delete_client(client.id, db, 10)
 
