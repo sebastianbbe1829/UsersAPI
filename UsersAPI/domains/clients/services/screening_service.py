@@ -6,11 +6,14 @@ from ..models import ClientDB, ClientScreeningDB
 from .screening_provider import ScreeningProvider
 
 
+SCREENING_PROVIDER_CODE = "INTERNAL_OFFICIAL"
+
+
 def screen_client(client: ClientDB, db: Session) -> ClientScreeningDB:
     screening = ClientScreeningDB(
         tenant_id=client.tenant_id,
         client_id=client.id,
-        provider=ScreeningProvider.code,
+        provider=SCREENING_PROVIDER_CODE,
         status="PENDING",
         requested_at=datetime.now(UTC),
     )
