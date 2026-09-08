@@ -3,6 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models import InventoryDB, InventoryMovementDB
@@ -20,6 +21,7 @@ ALLOWED_ORIGIN_TYPES = {
     "MANUAL_ADJUSTMENT",
     "SALES_RETURN",
     "PURCHASE_RETURN",
+    "REVERSAL",
 }
 
 
@@ -53,6 +55,11 @@ def _validate_origin(data: InventoryMovementCreate, origin_type: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="PURCHASE movements require unit_purchase_price",
+        )
+    if origin_type == "REVERSAL":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="REVERSAL movements must be created from the Kardex reversal action",
         )
 
 
@@ -105,9 +112,6 @@ def create_inventory_movement(
     )
     quantity = Decimal(data.quantity)
 
-    # Products are created without an inventory row. The first ENTRY creates
-    # the stock record as part of the movement itself, keeping product creation
-    # free of stock changes.
     if inventory is None:
         if data.movement_type == "EXIT":
             raise HTTPException(
@@ -165,6 +169,74 @@ def create_inventory_movement(
         created_by=actor,
     )
     return InventoryMovementRepository(db).add(movement)
+
+
+def reverse_inventory_movement(
+    movement_id: UUID,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+    quantity: Decimal | None = None,
+) -> InventoryMovementDB:
+    repository = InventoryMovementRepository(db)
+    original = repository.get_by_id(tenant_id, movement_id)
+    if original is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory movement not found",
+        )
+    if original.origin_type == "REVERSAL" or original.reversal_of_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A reversal movement cannot be reversed",
+        )
+
+    already_reversed = db.query(func.coalesce(func.sum(InventoryMovementDB.quantity), 0)).filter(
+        InventoryMovementDB.tenant_id == tenant_id,
+        InventoryMovementDB.reversal_of_id == original.id,
+    ).scalar()
+    already_reversed = Decimal(already_reversed or 0)
+    available = Decimal(original.quantity) - already_reversed
+    if available <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This movement has already been completely reversed",
+        )
+
+    requested = available if quantity is None else Decimal(quantity)
+    if requested <= 0 or requested > available:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"The maximum quantity available for reversal is {available}",
+        )
+
+    movement_type = "EXIT" if original.movement_type == "ENTRY" else "ENTRY"
+    unit_purchase_price = original.unit_purchase_price
+    if movement_type == "ENTRY" and unit_purchase_price is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The original movement has no purchase cost to restore",
+        )
+
+    data = InventoryMovementCreate(
+        product_id=original.product_id,
+        movement_type=movement_type,
+        origin_type="REVERSAL",
+        quantity=requested,
+        unit_purchase_price=unit_purchase_price,
+        profit_percentage=original.profit_percentage,
+        notes=f"Reversión del movimiento {original.id}",
+    )
+
+    reversed_movement = create_inventory_movement(
+        data,
+        db,
+        tenant_id,
+        current_user,
+    )
+    reversed_movement.reversal_of_id = original.id
+    db.flush()
+    return reversed_movement
 
 
 def list_inventory_movements(
