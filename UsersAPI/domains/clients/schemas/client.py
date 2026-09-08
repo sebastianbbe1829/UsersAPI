@@ -74,6 +74,8 @@ class ClientRead(ClientBase):
     compliance_status: str
     is_listed: bool
     list_type: str | None
+    credit_used: Decimal = Decimal("0")
+    credit_available: Decimal = Decimal("0")
     created_at: datetime
     created_by: str
     updated_at: datetime | None
