@@ -1,6 +1,6 @@
 from sqlalchemy import func
 
-from UsersAPI.database import SessionLocal
+from UsersAPI.database import BootstrapSessionLocal
 from UsersAPI.models import PermissionDB, RoleDB, RolePermissionDB
 from UsersAPI.security.inventory_permissions import INVENTORY_PERMISSIONS
 from UsersAPI.security.permission_definitions import PERMISSIONS
@@ -11,7 +11,9 @@ from UsersAPI.security.permission_definitions import PERMISSIONS
 # ============================================================
 
 def seed_permissions():
-    db = SessionLocal()
+    # Este proceso es de bootstrap y debe poder consultar/sincronizar
+    # roles y role_permissions protegidos por RLS.
+    db = BootstrapSessionLocal()
     permission_definitions = [*PERMISSIONS, *INVENTORY_PERMISSIONS]
 
     try:
