@@ -144,6 +144,7 @@ def create_sale(
 
     subtotal = Decimal("0")
     inventory_costs: dict[int, Decimal] = {}
+    inventory_profits: dict[int, Decimal] = {}
     for item in data.items:
         inventory = db.scalar(
             select(InventoryDB)
@@ -176,6 +177,7 @@ def create_sale(
             )
 
         inventory_costs[item.product_id] = Decimal(inventory.purchase_price or 0)
+        inventory_profits[item.product_id] = Decimal(inventory.profit_percentage or 0)
         unit_price = _sale_price(inventory)
         line_total = _money(Decimal(item.quantity) * unit_price)
         subtotal += line_total
@@ -326,6 +328,7 @@ def create_sale(
                 origin_id=sale.id,
                 quantity=item.quantity,
                 unit_purchase_price=inventory_costs[item.product_id],
+                profit_percentage=inventory_profits[item.product_id],
                 notes=f"Venta {sale.sale_number}",
             ),
             db,
