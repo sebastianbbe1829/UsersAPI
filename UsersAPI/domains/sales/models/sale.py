@@ -31,6 +31,10 @@ class SaleDB(Base):
             "subtotal >= 0 AND discount_amount >= 0 AND total >= 0",
             name="ck_sales_amounts",
         ),
+        CheckConstraint(
+            "status IN ('PENDING', 'COMPLETED', 'CANCELLED')",
+            name="ck_sales_status",
+        ),
         {"schema": "users_api"},
     )
 
@@ -50,6 +54,7 @@ class SaleDB(Base):
     items = relationship("SaleItemDB", back_populates="sale", cascade="all, delete-orphan")
     customers = relationship("SaleCustomerDB", back_populates="sale", cascade="all, delete-orphan")
     payments = relationship("SalePaymentDB", back_populates="sale", cascade="all, delete-orphan")
+    obligation = relationship("ObligationDB", back_populates="sale", uselist=False)
 
 
 class SaleItemDB(Base):

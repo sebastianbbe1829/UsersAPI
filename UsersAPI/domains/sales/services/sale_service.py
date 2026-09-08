@@ -14,6 +14,7 @@ from UsersAPI.domains.inventory.schemas import InventoryMovementCreate
 from UsersAPI.domains.inventory.services.inventory_movement_service import (
     create_inventory_movement,
 )
+from UsersAPI.domains.portfolio.models import CreditLimitDB, ObligationDB
 
 from ..models import SaleCustomerDB, SaleDB, SaleItemDB, SalePaymentDB
 from ..repositories import SaleRepository
@@ -52,7 +53,6 @@ def _client_is_eligible_for_sale(
     db: Session,
     tenant_id: int,
 ) -> bool:
-    """Evaluate the client's effective sales eligibility."""
     if client.status != "ACTIVE":
         return False
     if client.is_listed or client.compliance_status == "MATCH":
@@ -60,26 +60,38 @@ def _client_is_eligible_for_sale(
     return True
 
 
-def _client_credit_used(
+def _credit_available(
     client_id: UUID,
     db: Session,
     tenant_id: int,
 ) -> Decimal:
-    value = db.scalar(
-        select(func.coalesce(func.sum(SalePaymentDB.amount), 0))
-        .select_from(SalePaymentDB)
-        .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
-        .join(SaleCustomerDB, SaleCustomerDB.sale_id == SaleDB.id)
+    credit_limit = db.scalar(
+        select(CreditLimitDB)
         .where(
-            SalePaymentDB.tenant_id == tenant_id,
-            SalePaymentDB.payment_method == CREDIT_METHOD,
-            SaleDB.tenant_id == tenant_id,
-            SaleDB.status == "COMPLETED",
-            SaleCustomerDB.tenant_id == tenant_id,
-            SaleCustomerDB.client_id == client_id,
+            CreditLimitDB.tenant_id == tenant_id,
+            CreditLimitDB.client_id == client_id,
+            CreditLimitDB.active.is_(True),
+        )
+        .with_for_update()
+    )
+    if credit_limit is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Client does not have an active credit limit",
+        )
+    used = db.scalar(
+        select(func.coalesce(func.sum(ObligationDB.balance), 0)).where(
+            ObligationDB.tenant_id == tenant_id,
+            ObligationDB.client_id == client_id,
+            ObligationDB.status == "ACTIVE",
         )
     )
-    return _money(Decimal(value or 0))
+    return _money(
+        max(
+            Decimal("0"),
+            Decimal(credit_limit.approved_limit) - Decimal(used or 0),
+        )
+    )
 
 
 def create_sale(
@@ -115,24 +127,29 @@ def create_sale(
         )
     )
     has_credit = credit_amount > 0
-
-    if has_credit:
-        if (
-            len(data.customers) != 1
-            or data.customers[0].client_id is None
-            or data.customers[0].is_generic
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Credit sales cannot be split and require exactly one registered client",
-            )
+    if has_credit and (
+        len(data.payments) != 1 or normalized_methods[0] != CREDIT_METHOD
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit sales must be fully financed by a single CREDITO payment",
+        )
+    if has_credit and (
+        len(data.customers) != 1
+        or data.customers[0].client_id is None
+        or data.customers[0].is_generic
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit sales cannot be split and require exactly one registered client",
+        )
 
     actor = _actor_name(current_user)
     repository = SaleRepository(db)
     sale = SaleDB(
         tenant_id=tenant_id,
         sale_number=repository.next_sale_number(tenant_id),
-        status="COMPLETED",
+        status="PENDING" if has_credit else "COMPLETED",
         subtotal=Decimal("0"),
         discount_percentage=data.discount_percentage,
         discount_amount=Decimal("0"),
@@ -177,7 +194,9 @@ def create_sale(
             )
 
         inventory_costs[item.product_id] = Decimal(inventory.purchase_price or 0)
-        inventory_profits[item.product_id] = Decimal(inventory.profit_percentage or 0)
+        inventory_profits[item.product_id] = Decimal(
+            inventory.profit_percentage or 0
+        )
         unit_price = _sale_price(inventory)
         line_total = _money(Decimal(item.quantity) * unit_price)
         subtotal += line_total
@@ -275,16 +294,13 @@ def create_sale(
                         detail="Client is not eligible for sales",
                     )
                 if has_credit:
-                    credit_used = _client_credit_used(client.id, db, tenant_id)
-                    credit_available = _money(
-                        Decimal(client.credit_limit or 0) - credit_used
-                    )
-                    if credit_amount > credit_available:
+                    available = _credit_available(client.id, db, tenant_id)
+                    if total > available:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
                             detail=(
-                                "Client credit limit exceeded. "
-                                f"Available credit: {credit_available}"
+                                "Insufficient available credit. "
+                                f"Available credit: {available}"
                             ),
                         )
                 customer_name = client.full_name
@@ -317,6 +333,18 @@ def create_sale(
                 amount=_money(Decimal(payment.amount)),
             )
         )
+
+    if has_credit:
+        obligation = ObligationDB(
+            tenant_id=tenant_id,
+            client_id=data.customers[0].client_id,
+            sale_id=sale.id,
+            initial_amount=total,
+            balance=total,
+            status="ACTIVE",
+            created_by=actor,
+        )
+        db.add(obligation)
 
     db.flush()
     for item in sale.items:

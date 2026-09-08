@@ -6,7 +6,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    Numeric,
     String,
     UniqueConstraint,
     text,
@@ -77,9 +76,6 @@ class ClientDB(Base):
     )
     is_listed = Column(Boolean, nullable=False, server_default=text("false"))
     list_type = Column(String(50), nullable=True)
-    credit_limit = Column(
-        Numeric(18, 2), nullable=False, server_default=text("0")
-    )
     consent_given = Column(Boolean, nullable=False, server_default=text("false"))
     consent_at = Column(DateTime, nullable=True)
     consent_source = Column(String(100), nullable=True)

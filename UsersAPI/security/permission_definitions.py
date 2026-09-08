@@ -59,4 +59,19 @@ PERMISSIONS = [
         "Enviar factura por correo",
         "Permite enviar la factura de una venta a los clientes registrados",
     ),
+    (
+        "PORTFOLIO_READ",
+        "Consultar cartera",
+        "Permite consultar cupos, obligaciones y pagos de cartera",
+    ),
+    (
+        "PORTFOLIO_CREDIT_UPDATE",
+        "Administrar cupos",
+        "Permite crear y actualizar el cupo de los clientes",
+    ),
+    (
+        "PORTFOLIO_PAYMENT_CREATE",
+        "Registrar pagos de cartera",
+        "Permite registrar pagos y aplicarlos a obligaciones",
+    ),
 ]

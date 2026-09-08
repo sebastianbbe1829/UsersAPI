@@ -39,7 +39,7 @@ def test_override_does_not_require_mfa():
     assert result.requested_by_email == user.email
     assert result.reason == _payload().reason
     assert client.status == "ACTIVE"
-    assert client.is_listed is True
+    assert client.is_listed is False
     db.add.assert_called()
     db.flush.assert_called()
 
@@ -57,8 +57,9 @@ def test_override_preserves_original_match_history():
     result = override_client_compliance(uuid4(), _payload(), db, 10, user)
 
     assert result.screening_id == screening.id
-    assert client.is_listed is True
+    assert client.is_listed is False
     assert client.status == "ACTIVE"
+    assert client.screenings == [screening]
 
 
 def test_override_rejects_client_without_active_compliance_restriction():

@@ -11,6 +11,7 @@ import UsersAPI.models  # noqa: F401
 import UsersAPI.domains.clients.models  # noqa: F401
 import UsersAPI.domains.inventory.models  # noqa: F401
 import UsersAPI.domains.sales.models  # noqa: F401
+import UsersAPI.domains.portfolio.models  # noqa: F401
 from UsersAPI.settings import settings
 
 

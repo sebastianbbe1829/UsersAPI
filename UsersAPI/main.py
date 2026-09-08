@@ -36,6 +36,7 @@ from .domains.core.routes import (
 )
 from .domains.core.routes.diagnostics_routes import router as diagnostics_router
 from .domains.inventory.routes import inventory_routes
+from .domains.portfolio.routes import portfolio_routes
 from .domains.sales.routes import sales_routes
 from .logging_config import logger
 
@@ -136,6 +137,10 @@ app = FastAPI(
         {
             "name": "Ventas",
             "description": "Ventas, clientes participantes, pagos y descuentos por tenant",
+        },
+        {
+            "name": "Cartera",
+            "description": "Cupos, obligaciones, saldos y pagos por tenant",
         },
     ],
 )
@@ -242,6 +247,8 @@ app.include_router(inventory_routes)
 logger.debug("Rutas de inventarios registradas")
 app.include_router(sales_routes)
 logger.debug("Rutas de ventas registradas")
+app.include_router(portfolio_routes)
+logger.debug("Rutas de cartera registradas")
 app.include_router(diagnostics_router)
 
 
