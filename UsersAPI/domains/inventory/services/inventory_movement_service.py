@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..models import InventoryMovementDB
+from ..models import InventoryDB, InventoryMovementDB
 from ..repositories import (
     InventoryMovementRepository,
     InventoryRepository,
@@ -83,13 +83,27 @@ def create_inventory_movement(
         data.product_id,
         lock=True,
     )
-    if inventory is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Inventory not found",
-        )
-
     quantity = Decimal(data.quantity)
+
+    # Products are created without an inventory row. The first ENTRY creates
+    # the stock record as part of the movement itself, keeping product creation
+    # free of stock changes.
+    if inventory is None:
+        if data.movement_type == "EXIT":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Insufficient inventory for this movement",
+            )
+        inventory = InventoryDB(
+            tenant_id=tenant_id,
+            product_id=data.product_id,
+            quantity=Decimal("0"),
+            purchase_price=None,
+            profit_percentage=Decimal("0"),
+            created_by=_actor_name(current_user),
+        )
+        inventory_repository.add(inventory)
+
     before = Decimal(inventory.quantity or 0)
     if data.movement_type == "EXIT" and quantity > before:
         raise HTTPException(
