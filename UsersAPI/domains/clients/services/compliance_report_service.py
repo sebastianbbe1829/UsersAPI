@@ -4,6 +4,19 @@ from sqlalchemy.orm import Session
 from ..models import ClientComplianceOverrideDB, ClientDB, ClientScreeningDB
 
 
+def _screening_list_data(screening: ClientScreeningDB | None):
+    if screening is None:
+        return None, None
+
+    response = screening.response if isinstance(screening.response, dict) else {}
+    matches = response.get("matches") or []
+    if not matches:
+        return None, None
+
+    match = matches[0] if isinstance(matches[0], dict) else {}
+    return match.get("source"), match.get("source_name")
+
+
 def list_restricted_clients_report(db: Session, tenant_id: int):
     historical_match = exists().where(
         ClientScreeningDB.client_id == ClientDB.id,
@@ -54,6 +67,9 @@ def list_restricted_clients_report(db: Session, tenant_id: int):
             if client.status == "BLOCKED"
             else client.status
         )
+        matched_list_code, matched_list_name = _screening_list_data(screening)
+        list_type = client.list_type or matched_list_code
+        list_name = matched_list_name or list_type
 
         result.append(
             {
@@ -64,7 +80,8 @@ def list_restricted_clients_report(db: Session, tenant_id: int):
                 "status": client.status,
                 "report_status": report_status,
                 "compliance_status": client.compliance_status,
-                "list_type": client.list_type,
+                "list_type": list_type,
+                "list_name": list_name,
                 "is_listed": client.is_listed,
                 "client_created_at": client.created_at,
                 "client_created_by": client.created_by,
