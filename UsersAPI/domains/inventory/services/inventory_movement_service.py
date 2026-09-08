@@ -121,13 +121,13 @@ def create_inventory_movement(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unsupported inventory movement origin",
         )
-    _validate_origin(data, origin_type, reversal_of_id)
     product = ProductRepository(db).get_by_id(tenant_id, data.product_id)
     if product is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found",
         )
+    _validate_origin(data, origin_type, reversal_of_id)
     if not product.active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
