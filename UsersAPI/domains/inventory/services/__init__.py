@@ -1,6 +1,10 @@
 from .inventory_movement_service import create_inventory_movement
 from .inventory_service import get_inventory, list_inventory
-from .inventory_type_service import create_inventory_type, list_inventory_types, update_inventory_type
+from .inventory_type_service import (
+    create_inventory_type,
+    list_inventory_types,
+    update_inventory_type,
+)
 from .product_service import create_product, list_products, update_product
 
 __all__ = [
