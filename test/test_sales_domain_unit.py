@@ -94,6 +94,56 @@ def test_create_sale_rejects_payment_total_mismatch():
     assert "Payment total must equal sale total" in error.value.detail
 
 
+def test_client_with_match_is_not_eligible_without_override(monkeypatch):
+    monkeypatch.setattr(sale_service, "has_compliance_override", lambda *_args: False)
+    client = SimpleNamespace(
+        id=uuid4(),
+        status="ACTIVE",
+        is_listed=True,
+        compliance_status="MATCH",
+    )
+
+    assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is False
+
+
+def test_client_with_match_is_eligible_with_override(monkeypatch):
+    monkeypatch.setattr(sale_service, "has_compliance_override", lambda *_args: True)
+    client = SimpleNamespace(
+        id=uuid4(),
+        status="ACTIVE",
+        is_listed=True,
+        compliance_status="MATCH",
+    )
+
+    assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is True
+
+
+def test_inactive_client_is_not_eligible_even_with_override(monkeypatch):
+    monkeypatch.setattr(sale_service, "has_compliance_override", lambda *_args: True)
+    client = SimpleNamespace(
+        id=uuid4(),
+        status="BLOCKED",
+        is_listed=True,
+        compliance_status="MATCH",
+    )
+
+    assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is False
+
+
+def test_clean_active_client_is_eligible_without_override(monkeypatch):
+    override_check = MagicMock(return_value=False)
+    monkeypatch.setattr(sale_service, "has_compliance_override", override_check)
+    client = SimpleNamespace(
+        id=uuid4(),
+        status="ACTIVE",
+        is_listed=False,
+        compliance_status="PENDING",
+    )
+
+    assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is True
+    override_check.assert_not_called()
+
+
 def test_get_and_list_sales_delegate_to_repository(monkeypatch):
     repository = MagicMock()
     repository.get_by_id.return_value = "sale"
