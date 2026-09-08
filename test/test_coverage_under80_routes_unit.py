@@ -29,15 +29,41 @@ def test_client_routes_delegate_all_endpoints():
         levantar_restriccion_cliente=MagicMock(return_value="override"),
         eliminar_cliente=MagicMock(),
     ) as mocks:
-        assert asyncio.run(route("/clients", "POST").endpoint(data, db, user, user)) == "created"
-        assert asyncio.run(route("/clients", "GET").endpoint(2, 5, "abc", db, user)) == "listed"
-        assert asyncio.run(route("/clients/restricted-report", "GET").endpoint(db, user)) == "report"
-        assert asyncio.run(route("/clients/compliance/override-history", "GET").endpoint(db, user)) == "history"
-        assert asyncio.run(route("/clients/{client_id}", "GET").endpoint(client_id, db, user)) == "got"
-        assert asyncio.run(route("/clients/{client_id}", "PATCH").endpoint(client_id, data, db, user, user)) == "updated"
-        assert asyncio.run(route("/clients/{client_id}/compliance/screen", "POST").endpoint(client_id, db, user)) == "screened"
-        assert asyncio.run(route("/clients/{client_id}/compliance/override", "POST").endpoint(client_id, data, db, user, user)) == "override"
-        assert asyncio.run(route("/clients/{client_id}", "DELETE").endpoint(client_id, db, user, user)) is None
+        assert asyncio.run(
+            route("/clients", "POST").endpoint(data, db, user, user)
+        ) == "created"
+        assert asyncio.run(
+            route("/clients", "GET").endpoint(2, 5, "abc", db, user)
+        ) == "listed"
+        assert asyncio.run(
+            route("/clients/restricted-report", "GET").endpoint(db, user)
+        ) == "report"
+        assert asyncio.run(
+            route("/clients/compliance/override-history", "GET").endpoint(db, user)
+        ) == "history"
+        assert asyncio.run(
+            route("/clients/{client_id}", "GET").endpoint(client_id, db, user)
+        ) == "got"
+        assert asyncio.run(
+            route("/clients/{client_id}", "PATCH").endpoint(
+                client_id, data, db, user, user
+            )
+        ) == "updated"
+        assert asyncio.run(
+            route("/clients/{client_id}/compliance/screen", "POST").endpoint(
+                client_id, db, user
+            )
+        ) == "screened"
+        assert asyncio.run(
+            route("/clients/{client_id}/compliance/override", "POST").endpoint(
+                client_id, data, db, user, user
+            )
+        ) == "override"
+        assert asyncio.run(
+            route("/clients/{client_id}", "DELETE").endpoint(
+                client_id, db, user, user
+            )
+        ) is None
 
     assert mocks["listar_clientes"].call_args.kwargs == {
         "limit": 5,
