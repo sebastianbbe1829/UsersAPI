@@ -110,8 +110,48 @@ def upgrade() -> None:
             WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)"""
         )
 
+    op.execute(
+        """
+        INSERT INTO users_api.permissions (code, name, description, status, created_by)
+        VALUES
+            ('SALES_READ', 'Consultar ventas', 'Permite consultar ventas y sus detalles', 1, 'SYSTEM'),
+            ('SALES_CREATE', 'Crear ventas', 'Permite registrar ventas y afectar el inventario', 1, 'SYSTEM')
+        ON CONFLICT (code) DO UPDATE
+        SET name = EXCLUDED.name,
+            description = EXCLUDED.description,
+            status = 1
+        """
+    )
+    op.execute(
+        """
+        INSERT INTO users_api.role_permissions (role_id, permission_id)
+        SELECT r.id, p.id
+        FROM users_api.roles r
+        CROSS JOIN users_api.permissions p
+        WHERE r.code = 'ADMIN'
+          AND p.code IN ('SALES_READ', 'SALES_CREATE')
+        ON CONFLICT (role_id, permission_id) DO NOTHING
+        """
+    )
+
 
 def downgrade() -> None:
+    op.execute(
+        """
+        DELETE FROM users_api.role_permissions
+        WHERE permission_id IN (
+            SELECT id FROM users_api.permissions
+            WHERE code IN ('SALES_READ', 'SALES_CREATE')
+        )
+        """
+    )
+    op.execute(
+        """
+        DELETE FROM users_api.permissions
+        WHERE code IN ('SALES_READ', 'SALES_CREATE')
+        """
+    )
+
     for table in ("sale_payments", "sale_customers", "sale_items", "sales"):
         op.execute(f"DROP POLICY IF EXISTS {table}_tenant_isolation ON {SCHEMA}.{table}")
         op.execute(f"ALTER TABLE {SCHEMA}.{table} NO FORCE ROW LEVEL SECURITY")
