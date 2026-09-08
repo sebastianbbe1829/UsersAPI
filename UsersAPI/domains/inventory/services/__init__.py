@@ -19,7 +19,6 @@ __all__ = [
     "create_product",
     "get_inventory",
     "get_inventory_movement",
-    "get_inventory",
     "list_inventory",
     "list_inventory_movements",
     "list_inventory_types",
