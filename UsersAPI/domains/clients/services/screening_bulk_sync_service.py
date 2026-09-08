@@ -24,7 +24,12 @@ BATCH_SIZE = 500
 def _sync_source_bulk(db: Session, source_code: str) -> dict[str, int | str]:
     source = _get_source(db, source_code)
     now = datetime.now(UTC).replace(tzinfo=None)
-    logger.info("[SCREENING_SYNC] Iniciando fuente %s (%s) URL=%s", source_code, source.name, source.url)
+    logger.info(
+        "[SCREENING_SYNC] Iniciando fuente %s (%s) URL=%s",
+        source_code,
+        source.name,
+        source.url,
+    )
 
     try:
         logger.info("[SCREENING_SYNC] %s descargando datos...", source_code)
@@ -43,7 +48,11 @@ def _sync_source_bulk(db: Session, source_code: str) -> dict[str, int | str]:
 
         logger.info("[SCREENING_SYNC] %s procesando XML...", source_code)
         parsed_entries = _parse_source(source_code, response.content)
-        logger.info("[SCREENING_SYNC] %s XML procesado: %s registros", source_code, len(parsed_entries))
+        logger.info(
+            "[SCREENING_SYNC] %s XML procesado: %s registros",
+            source_code,
+            len(parsed_entries),
+        )
 
         logger.info("[SCREENING_SYNC] %s consultando IDs existentes...", source_code)
         existing_ids = {
@@ -71,7 +80,9 @@ def _sync_source_bulk(db: Session, source_code: str) -> dict[str, int | str]:
                     "name": str(data["name"])[:300],
                     "normalized_name": normalize_screening_text(data["name"])[:300],
                     "aliases": [str(value)[:300] for value in data["aliases"]],
-                    "identification_numbers": [str(value)[:150] for value in data["identification_numbers"]],
+                    "identification_numbers": [
+                        str(value)[:150] for value in data["identification_numbers"]
+                    ],
                     "raw_data": data["raw_data"],
                     "active": True,
                     "updated_at": now,
@@ -81,7 +92,8 @@ def _sync_source_bulk(db: Session, source_code: str) -> dict[str, int | str]:
         created = sum(1 for row in rows if row["external_id"] not in existing_ids)
         updated = len(rows) - created
         logger.info(
-            "[SCREENING_SYNC] %s preparados: %s registros (creados=%s actualizados=%s duplicados_omitidos=%s)",
+            "[SCREENING_SYNC] %s preparados: %s registros "
+            "(creados=%s actualizados=%s duplicados_omitidos=%s)",
             source_code,
             len(rows),
             created,
@@ -167,7 +179,8 @@ def sync_all_screening_lists_bulk(db: Session) -> dict:
             results.append(_sync_source_bulk(db, code))
         except Exception as exc:
             logger.error(
-                "[SCREENING_SYNC] Fuente %s terminó con ERROR; continuando con las demás",
+                "[SCREENING_SYNC] Fuente %s terminó con ERROR; "
+                "continuando con las demás",
                 code,
             )
             results.append({"source": code, "status": "ERROR", "error": str(exc)[:2000]})
@@ -183,7 +196,8 @@ def sync_all_screening_lists_bulk(db: Session) -> dict:
         "failed_sources": failed,
     }
     logger.info(
-        "[SCREENING_SYNC] Sincronización optimizada finalizada: status=%s total=%s exitosas=%s fallidas=%s",
+        "[SCREENING_SYNC] Sincronización optimizada finalizada: "
+        "status=%s total=%s exitosas=%s fallidas=%s",
         final_status,
         len(results),
         successful,
