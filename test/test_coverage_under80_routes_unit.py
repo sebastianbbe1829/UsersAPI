@@ -65,11 +65,11 @@ def test_client_routes_delegate_all_endpoints():
             )
         ) is None
 
-    assert mocks["listar_clientes"].call_args.kwargs == {
-        "limit": 5,
-        "offset": 5,
-        "search": "abc",
-    }
+        assert mocks["listar_clientes"].call_args.kwargs == {
+            "limit": 5,
+            "offset": 5,
+            "search": "abc",
+        }
 
 
 def test_sales_permissions_module_is_importable():
