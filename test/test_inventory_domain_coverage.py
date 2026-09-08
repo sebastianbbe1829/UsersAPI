@@ -20,10 +20,14 @@ def test_list_movements_rejects_invalid_date_range():
     assert error.value.status_code == 400
 
 
-def test_get_movement_not_found():
+def test_get_movement_not_found(monkeypatch):
     repository = MagicMock()
     repository.get_by_id.return_value = None
-    movement_service.InventoryMovementRepository = lambda _db: repository
+    monkeypatch.setattr(
+        movement_service,
+        "InventoryMovementRepository",
+        lambda _db: repository,
+    )
 
     with pytest.raises(HTTPException) as error:
         movement_service.get_inventory_movement(MagicMock(), 7, uuid4())
