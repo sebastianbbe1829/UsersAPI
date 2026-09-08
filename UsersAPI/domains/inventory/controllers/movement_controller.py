@@ -1,12 +1,14 @@
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..models import InventoryMovementDB
-from ..repositories import InventoryMovementRepository
 from ..schemas import InventoryMovementCreate
-from ..services import create_inventory_movement
+from ..services import (
+    create_inventory_movement,
+    get_inventory_movement,
+    list_inventory_movements,
+)
 
 
 def create_movement(
@@ -25,7 +27,8 @@ def list_movements(
     limit: int = 100,
     offset: int = 0,
 ) -> list[InventoryMovementDB]:
-    return InventoryMovementRepository(db).list_by_product(
+    return list_inventory_movements(
+        db,
         tenant_id,
         product_id,
         limit=limit,
@@ -38,10 +41,4 @@ def get_movement(
     db: Session,
     tenant_id: int,
 ) -> InventoryMovementDB:
-    movement = InventoryMovementRepository(db).get_by_id(tenant_id, movement_id)
-    if movement is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Inventory movement not found",
-        )
-    return movement
+    return get_inventory_movement(db, tenant_id, movement_id)
