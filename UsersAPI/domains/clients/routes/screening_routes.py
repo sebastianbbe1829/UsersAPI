@@ -1,4 +1,3 @@
-import os
 import secrets
 from typing import cast
 from uuid import UUID
@@ -11,6 +10,7 @@ from UsersAPI.domains.core.database import get_db
 from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
+from UsersAPI.settings import settings
 
 from ..schemas.screening import ClientScreeningRead
 from ..schemas.screening_sync import (
@@ -32,7 +32,7 @@ screening_routes = APIRouter(
 
 
 def _require_sync_key(x_job_key: str | None = Header(default=None, alias="X-Job-Key")) -> None:
-    expected = os.getenv("CLIENT_SCREENING_SYNC_KEY")
+    expected = settings.client_screening_sync_key
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
