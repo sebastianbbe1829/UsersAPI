@@ -35,6 +35,7 @@ from .domains.core.routes import (
     user_tenant_routes,
 )
 from .domains.core.routes.diagnostics_routes import router as diagnostics_router
+from .domains.inventory.routes import inventory_routes
 from .logging_config import logger
 
 CURRENT_FILE = os.path.abspath(__file__)
@@ -61,78 +62,28 @@ app = FastAPI(
     },
     openapi_tags=[
         {"name": "Usuarios", "description": "Operaciones sobre usuarios"},
-        {
-            "name": "Autenticación",
-            "description": "Autenticación de usuarios y generación de tokens JWT",
-        },
-        {
-            "name": "Recuperación de contraseña",
-            "description": "Recuperación de contraseña mediante OTP",
-        },
-        {
-            "name": "Autenticación SUPER",
-            "description": "Autenticación global del usuario SUPER con MFA",
-        },
-        {
-            "name": "Usuarios SUPER",
-            "description": "Administración global de usuarios SUPER",
-        },
+        {"name": "Autenticación", "description": "Autenticación de usuarios y generación de tokens JWT"},
+        {"name": "Recuperación de contraseña", "description": "Recuperación de contraseña mediante OTP"},
+        {"name": "Autenticación SUPER", "description": "Autenticación global del usuario SUPER con MFA"},
+        {"name": "Usuarios SUPER", "description": "Administración global de usuarios SUPER"},
         {"name": "Tenants", "description": "Operaciones sobre tenants"},
-        {
-            "name": "Configuración UI",
-            "description": "Configuración visual parametrizable por tenant",
-        },
-        {
-            "name": "Usuarios - Tenants",
-            "description": "Gestión de asociaciones entre usuarios y tenants",
-        },
+        {"name": "Configuración UI", "description": "Configuración visual parametrizable por tenant"},
+        {"name": "Usuarios - Tenants", "description": "Gestión de asociaciones entre usuarios y tenants"},
         {"name": "Roles", "description": "Operaciones sobre roles"},
-        {
-            "name": "Usuarios - Roles",
-            "description": "Gestión de asociaciones entre usuarios y roles",
-        },
-        {
-            "name": "Roles - Permisos",
-            "description": "Gestión de permisos asociados a roles",
-        },
-        {
-            "name": "Bootstrap",
-            "description": "Inicialización de tenants y configuración inicial del sistema",
-        },
+        {"name": "Usuarios - Roles", "description": "Gestión de asociaciones entre usuarios y roles"},
+        {"name": "Roles - Permisos", "description": "Gestión de permisos asociados a roles"},
+        {"name": "Bootstrap", "description": "Inicialización de tenants y configuración inicial del sistema"},
         {"name": "Permisos", "description": "Operaciones sobre permisos"},
-        {
-            "name": "Email",
-            "description": "Pruebas administrativas de correo transaccional",
-        },
-        {
-            "name": "OTP",
-            "description": "Generación y validación de códigos OTP temporales",
-        },
-        {
-            "name": "Extintores",
-            "description": "Inventario y gestión de extintores por tenant",
-        },
-        {
-            "name": "Tipos de extintor",
-            "description": "Catálogo global de tipos de extintor",
-        },
-        {
-            "name": "Revisiones de extintores",
-            "description": "Histórico y control de revisiones de extintores",
-        },
-        {
-            "name": "Ítems de revisión",
-            "description": "Catálogo de ítems utilizados en las revisiones de extintores",
-        },
+        {"name": "Email", "description": "Pruebas administrativas de correo transaccional"},
+        {"name": "OTP", "description": "Generación y validación de códigos OTP temporales"},
+        {"name": "Extintores", "description": "Inventario y gestión de extintores por tenant"},
+        {"name": "Tipos de extintor", "description": "Catálogo global de tipos de extintor"},
+        {"name": "Revisiones de extintores", "description": "Histórico y control de revisiones de extintores"},
+        {"name": "Ítems de revisión", "description": "Catálogo de ítems utilizados en las revisiones de extintores"},
         {"name": "Clientes", "description": "Gestión de clientes por tenant"},
-        {
-            "name": "Catálogos de clientes",
-            "description": "Catálogos de solo lectura utilizados por el dominio de clientes",
-        },
-        {
-            "name": "Clientes - Listas Restrictivas",
-            "description": "Screening e histórico de listas restrictivas",
-        },
+        {"name": "Catálogos de clientes", "description": "Catálogos de solo lectura utilizados por el dominio de clientes"},
+        {"name": "Clientes - Listas Restrictivas", "description": "Screening e histórico de listas restrictivas"},
+        {"name": "Inventarios", "description": "Tipos, productos, inventario y movimientos por tenant"},
     ],
 )
 
@@ -234,6 +185,8 @@ app.include_router(client_routes)
 logger.debug("Rutas de clientes registradas")
 app.include_router(screening_routes)
 logger.debug("Rutas de screening de clientes registradas")
+app.include_router(inventory_routes)
+logger.debug("Rutas de inventarios registradas")
 app.include_router(diagnostics_router)
 
 
