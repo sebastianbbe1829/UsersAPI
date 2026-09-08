@@ -85,7 +85,10 @@ def create_inventory_movement(data: InventoryMovementCreate, db: Session, tenant
         if original is not None and original.movement_type == "ENTRY":
             inventory.purchase_price = _calculate_reversed_average_cost(before, inventory.purchase_price, quantity, original.unit_purchase_price, after)
 
-    if data.profit_percentage is not None and reversal_of_id is None:
+    if after <= 0:
+        inventory.purchase_price = None
+        inventory.profit_percentage = Decimal("0")
+    elif data.profit_percentage is not None and reversal_of_id is None:
         inventory.profit_percentage = data.profit_percentage
     inventory.updated_at = now
     inventory.updated_by = actor
