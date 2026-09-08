@@ -31,6 +31,12 @@ class Query:
         self.value = value
         self.values = values if values is not None else ([] if value is None else [value])
 
+    def options(self, *args):
+        return self
+
+    def join(self, *args):
+        return self
+
     def filter(self, *args):
         return self
 
@@ -243,10 +249,13 @@ def test_identification_seed_creates_updates_and_deactivates(monkeypatch):
 
     def query(model):
         q = MagicMock()
-        q.filter.return_value.first.return_value = (
-            existing if model is IdentificationTypeDB else None
-        )
-        q.all.return_value = [obsolete]
+        if model is IdentificationTypeDB:
+            def first():
+                expression = q.filter.call_args.args[0]
+                code = expression.right.value
+                return existing if code == "CC" else None
+            q.filter.return_value.first.side_effect = first
+            q.all.return_value = [obsolete]
         return q
 
     db.query.side_effect = query
