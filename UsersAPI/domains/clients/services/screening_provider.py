@@ -440,67 +440,84 @@ def sync_all_screening_lists(db: Session) -> dict:
 
 
 class ScreeningProvider:
-    def screen(self, client: ClientDB, db: Session) -> ScreeningResult:
-        name = normalize_screening_text(client.name)
-        identification_number = normalize_screening_text(
-            client.identification_number
-        )
+    code = "INTERNAL_OFFICIAL"
 
-        entries = (
+    def screen(self, client: ClientDB, db: Session) -> ScreeningResult:
+        sources = (
+            db.query(ScreeningSourceDB)
+            .filter(ScreeningSourceDB.active.is_(True))
+            .all()
+        )
+        if not sources:
+            return ScreeningResult(
+                status="PENDING",
+                risk_level="UNKNOWN",
+                matched=False,
+                list_type=None,
+                response={"reason": "No screening sources are synchronized"},
+            )
+
+        source_ids = [source.id for source in sources]
+        document = normalize_screening_text(client.identification_number)
+        name = normalize_screening_text(client.full_name)
+
+        candidates = (
             db.query(ScreeningEntryDB)
-            .join(ScreeningSourceDB)
-            .filter(ScreeningEntryDB.active.is_(True))
+            .filter(
+                ScreeningEntryDB.source_id.in_(source_ids),
+                ScreeningEntryDB.active.is_(True),
+                (
+                    ScreeningEntryDB.normalized_name.ilike(f"%{name}%")
+                    | ScreeningEntryDB.identification_numbers.contains([document])
+                ),
+            )
             .all()
         )
 
-        best_match: ScreeningEntryDB | None = None
-        best_score = 0.0
-
-        for entry in entries:
+        matches: list[dict] = []
+        for entry in candidates:
+            document_match = document and document in (
+                entry.identification_numbers or []
+            )
             name_score = _similarity(name, entry.normalized_name)
             alias_score = max(
                 [
-                    _similarity(name, normalize_screening_text(alias))
+                    _similarity(
+                        name,
+                        normalize_screening_text(alias),
+                    )
                     for alias in (entry.aliases or [])
                 ],
                 default=0.0,
             )
-            identification_score = 0.0
-            if identification_number:
-                for value in entry.identification_numbers or []:
-                    if identification_number == normalize_screening_text(value):
-                        identification_score = 1.0
-                        break
+            score = max(name_score, alias_score)
+            if document_match or score >= 0.88:
+                matches.append(
+                    {
+                        "source": entry.source.code if entry.source else None,
+                        "source_name": entry.source.name if entry.source else None,
+                        "external_id": entry.external_id,
+                        "name": entry.name,
+                        "entry_type": entry.entry_type,
+                        "score": round(score, 4),
+                        "document_match": bool(document_match),
+                        "aliases": entry.aliases or [],
+                    }
+                )
 
-            score = max(name_score, alias_score, identification_score)
-            if score > best_score:
-                best_score = score
-                best_match = entry
-
-        matched = best_match is not None and best_score >= 0.90
-        if not matched:
+        if matches:
             return ScreeningResult(
-                status="CLEAR",
-                risk_level="LOW",
-                matched=False,
-                list_type=None,
-                response={"score": best_score},
+                status="MATCH",
+                risk_level="HIGH",
+                matched=True,
+                list_type=matches[0]["source"],
+                response={"matches": matches},
             )
 
-        source = db.query(ScreeningSourceDB).filter(
-            ScreeningSourceDB.id == best_match.source_id
-        ).one_or_none()
-        list_type = source.code if source else None
-
         return ScreeningResult(
-            status="MATCH",
-            risk_level="HIGH",
-            matched=True,
-            list_type=list_type,
-            response={
-                "score": best_score,
-                "external_id": best_match.external_id,
-                "name": best_match.name,
-                "list_type": list_type,
-            },
+            status="CLEAR",
+            risk_level="LOW",
+            matched=False,
+            list_type=None,
+            response={"matches": []},
         )
