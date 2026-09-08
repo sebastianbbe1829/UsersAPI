@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
+from UsersAPI.domains.portfolio.models.obligation import ObligationDB
 from UsersAPI.domains.portfolio.schemas.portfolio import CreditLimitUpdate
 from UsersAPI.domains.portfolio.services.portfolio_service import (
     get_client_credit,
@@ -413,3 +414,12 @@ def test_list_payments_supports_client_filter():
     result = list_payments(db, 1, uuid4())
 
     assert result == [payment]
+
+
+def test_obligation_sale_number_property():
+    obligation = ObligationDB()
+    obligation.sale = SimpleNamespace(sale_number="V-000123")
+    assert obligation.sale_number == "V-000123"
+
+    obligation.sale = None
+    assert obligation.sale_number is None
