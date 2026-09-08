@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -73,6 +74,7 @@ class SaleRead(BaseModel):
     discount_percentage: Decimal
     discount_amount: Decimal
     total: Decimal
+    created_at: datetime
     items: list[SaleItemRead]
     customers: list[SaleCustomerRead]
     payments: list[SalePaymentRead]

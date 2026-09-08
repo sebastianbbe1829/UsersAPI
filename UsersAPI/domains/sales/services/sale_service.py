@@ -2,23 +2,29 @@ from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.clients.models import ClientDB
+from UsersAPI.domains.clients.services.compliance_override_service import (
+    has_compliance_override,
+)
 from UsersAPI.domains.inventory.models import InventoryDB, ProductDB
 from UsersAPI.domains.inventory.schemas import InventoryMovementCreate
-from UsersAPI.domains.inventory.services.inventory_movement_service import create_inventory_movement
+from UsersAPI.domains.inventory.services.inventory_movement_service import (
+    create_inventory_movement,
+)
 
 from ..models import SaleCustomerDB, SaleDB, SaleItemDB, SalePaymentDB
 from ..repositories import SaleRepository
 from ..schemas import SaleCreate
 
-CENT = Decimal("0.01")
+MONEY_UNIT = Decimal("1")
+CREDIT_METHOD = "CREDITO"
 
 
 def _money(value: Decimal) -> Decimal:
-    return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+    return Decimal(value).quantize(MONEY_UNIT, rounding=ROUND_HALF_UP)
 
 
 def _actor_name(current_user: object | None) -> str:
@@ -41,6 +47,41 @@ def _sale_price(inventory: InventoryDB) -> Decimal:
     )
 
 
+def _client_is_eligible_for_sale(
+    client: ClientDB,
+    db: Session,
+    tenant_id: int,
+) -> bool:
+    """Evaluate the client's effective sales eligibility."""
+    if client.status != "ACTIVE":
+        return False
+    if client.is_listed or client.compliance_status == "MATCH":
+        return has_compliance_override(client.id, db, tenant_id)
+    return True
+
+
+def _client_credit_used(
+    client_id: UUID,
+    db: Session,
+    tenant_id: int,
+) -> Decimal:
+    value = db.scalar(
+        select(func.coalesce(func.sum(SalePaymentDB.amount), 0))
+        .select_from(SalePaymentDB)
+        .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
+        .join(SaleCustomerDB, SaleCustomerDB.sale_id == SaleDB.id)
+        .where(
+            SalePaymentDB.tenant_id == tenant_id,
+            SalePaymentDB.payment_method == CREDIT_METHOD,
+            SaleDB.tenant_id == tenant_id,
+            SaleDB.status == "COMPLETED",
+            SaleCustomerDB.tenant_id == tenant_id,
+            SaleCustomerDB.client_id == client_id,
+        )
+    )
+    return _money(Decimal(value or 0))
+
+
 def create_sale(
     data: SaleCreate,
     db: Session,
@@ -55,8 +96,37 @@ def create_sale(
         )
 
     payment_total = _money(
-        sum((Decimal(payment.amount) for payment in data.payments), Decimal("0"))
+        sum(
+            (Decimal(payment.amount) for payment in data.payments),
+            Decimal("0"),
+        )
     )
+    normalized_methods = [
+        payment.payment_method.strip().upper() for payment in data.payments
+    ]
+    credit_amount = _money(
+        sum(
+            (
+                Decimal(payment.amount)
+                for payment, method in zip(data.payments, normalized_methods)
+                if method == CREDIT_METHOD
+            ),
+            Decimal("0"),
+        )
+    )
+    has_credit = credit_amount > 0
+
+    if has_credit:
+        if (
+            len(data.customers) != 1
+            or data.customers[0].client_id is None
+            or data.customers[0].is_generic
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Credit sales cannot be split and require exactly one registered client",
+            )
+
     actor = _actor_name(current_user)
     repository = SaleRepository(db)
     sale = SaleDB(
@@ -137,18 +207,26 @@ def create_sale(
     sale.total = total
 
     if not data.customers:
+        if has_credit:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Credit sales require exactly one registered client",
+            )
         sale.customers.append(
             SaleCustomerDB(
                 tenant_id=tenant_id,
                 customer_name="Consumidor final",
                 allocation_percentage=Decimal("100"),
                 allocation_amount=total,
-                is_generic=1,
+                is_generic=True,
             )
         )
     else:
         percentage_total = sum(
-            (Decimal(customer.allocation_percentage) for customer in data.customers),
+            (
+                Decimal(customer.allocation_percentage)
+                for customer in data.customers
+            ),
             Decimal("0"),
         )
         if percentage_total != Decimal("100"):
@@ -156,6 +234,7 @@ def create_sale(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Customer allocation must total 100%",
             )
+
         allocation_total = Decimal("0")
         for index, customer in enumerate(data.customers):
             if customer.is_generic and customer.client_id is not None:
@@ -168,29 +247,46 @@ def create_sale(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Each customer must have client_id or be generic",
                 )
+            if has_credit and (customer.is_generic or customer.client_id is None):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Credit sales require a registered client",
+                )
+
             customer_name = "Consumidor final"
             if customer.client_id is not None:
-                client = db.scalar(
-                    select(ClientDB).where(
-                        ClientDB.tenant_id == tenant_id,
-                        ClientDB.id == customer.client_id,
-                    )
+                query = select(ClientDB).where(
+                    ClientDB.tenant_id == tenant_id,
+                    ClientDB.id == customer.client_id,
                 )
+                if has_credit:
+                    query = query.with_for_update()
+                client = db.scalar(query)
                 if client is None:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail="Client not found",
                     )
-                if (
-                    client.status != "ACTIVE"
-                    or client.is_listed
-                    or client.compliance_status == "MATCH"
-                ):
+                if not _client_is_eligible_for_sale(client, db, tenant_id):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="Client is not eligible for sales",
                     )
+                if has_credit:
+                    credit_used = _client_credit_used(client.id, db, tenant_id)
+                    credit_available = _money(
+                        Decimal(client.credit_limit or 0) - credit_used
+                    )
+                    if credit_amount > credit_available:
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail=(
+                                "Client credit limit exceeded. "
+                                f"Available credit: {credit_available}"
+                            ),
+                        )
                 customer_name = client.full_name
+
             if index == len(data.customers) - 1:
                 allocation_amount = _money(total - allocation_total)
             else:
@@ -211,12 +307,12 @@ def create_sale(
                 )
             )
 
-    for payment in data.payments:
+    for payment, method in zip(data.payments, normalized_methods):
         sale.payments.append(
             SalePaymentDB(
                 tenant_id=tenant_id,
-                payment_method=payment.payment_method.strip().upper(),
-                amount=payment.amount,
+                payment_method=method,
+                amount=_money(Decimal(payment.amount)),
             )
         )
 

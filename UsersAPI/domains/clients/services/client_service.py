@@ -1,8 +1,12 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
+from UsersAPI.domains.sales.models import SaleCustomerDB, SaleDB, SalePaymentDB
 
 from ..models import ClientDB, IdentificationTypeDB
 from ..repositories.client_repository import ClientRepository
@@ -19,7 +23,6 @@ def _normalizar_texto(valor: str | None) -> str:
 def _full_name(data: ClientCreate | ClientUpdate | ClientDB) -> str:
     if data.person_type == "JURIDICA":
         return _normalizar_texto(data.business_name)
-
     parts = [
         _normalizar_texto(data.first_name),
         _normalizar_texto(data.middle_name),
@@ -42,10 +45,7 @@ def _validate_identity_data(
             if person_type == "NATURAL"
             else "Legal person requires business_name"
         )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=detail,
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 def _validate_identification_type(
@@ -82,6 +82,51 @@ def _actor_name(current_user: object | None) -> str:
     )
 
 
+def _credit_used_map(
+    db: Session,
+    tenant_id: int,
+    client_ids: list[UUID],
+) -> dict[UUID, Decimal]:
+    if not client_ids:
+        return {}
+    rows = db.execute(
+        select(
+            SaleCustomerDB.client_id,
+            func.coalesce(func.sum(SalePaymentDB.amount), 0),
+        )
+        .select_from(SaleCustomerDB)
+        .join(SaleDB, SaleDB.id == SaleCustomerDB.sale_id)
+        .join(SalePaymentDB, SalePaymentDB.sale_id == SaleDB.id)
+        .where(
+            SaleCustomerDB.tenant_id == tenant_id,
+            SaleCustomerDB.client_id.in_(client_ids),
+            SaleDB.tenant_id == tenant_id,
+            SaleDB.status == "COMPLETED",
+            SalePaymentDB.tenant_id == tenant_id,
+            SalePaymentDB.payment_method == "CREDITO",
+        )
+        .group_by(SaleCustomerDB.client_id)
+    ).all()
+    return {
+        row[0]: Decimal(row[1] or 0).quantize(Decimal("0.01"))
+        for row in rows
+    }
+
+
+def _attach_credit_status(
+    clients: list[ClientDB],
+    db: Session,
+    tenant_id: int,
+) -> list[ClientDB]:
+    used = _credit_used_map(db, tenant_id, [client.id for client in clients])
+    for client in clients:
+        credit_used = used.get(client.id, Decimal("0.00"))
+        credit_limit = Decimal(client.credit_limit or 0).quantize(Decimal("0.01"))
+        client.credit_used = credit_used
+        client.credit_available = max(Decimal("0.00"), credit_limit - credit_used)
+    return clients
+
+
 def create_client(
     data: ClientCreate,
     db: Session,
@@ -93,13 +138,9 @@ def create_client(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="BLOCKED is a system-managed compliance status",
         )
-
     full_name = _full_name(data)
     _validate_identity_data(
-        db,
-        data.identification_type_id,
-        data.person_type,
-        full_name,
+        db, data.identification_type_id, data.person_type, full_name
     )
     repository = ClientRepository(db)
     if repository.get_by_identification(
@@ -111,13 +152,11 @@ def create_client(
             status_code=status.HTTP_409_CONFLICT,
             detail="Client identification already exists in this tenant",
         )
-
     now = datetime.now(UTC)
     created_by = _actor_name(current_user)
     consent_at = data.consent_at if data.consent_given else None
     if data.consent_given and consent_at is None:
         consent_at = now
-
     datos = data.model_dump(exclude={"consent_at"})
     datos.update(
         {
@@ -141,7 +180,7 @@ def create_client(
     )
     client = repository.add(client)
     screen_client(client, db)
-    return client
+    return _attach_credit_status([client], db, tenant_id)[0]
 
 
 def list_clients(
@@ -151,12 +190,13 @@ def list_clients(
     offset: int = 0,
     search: str | None = None,
 ) -> list[ClientDB]:
-    return ClientRepository(db).get_all(
+    clients = ClientRepository(db).get_all(
         tenant_id,
         limit=limit,
         offset=offset,
         search=search,
     )
+    return _attach_credit_status(clients, db, tenant_id)
 
 
 def get_client(client_id: UUID, db: Session, tenant_id: int) -> ClientDB:
@@ -166,7 +206,7 @@ def get_client(client_id: UUID, db: Session, tenant_id: int) -> ClientDB:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Client not found",
         )
-    return client
+    return _attach_credit_status([client], db, tenant_id)[0]
 
 
 def update_client(
@@ -191,8 +231,8 @@ def update_client(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
-                    "A blocked client can only be reactivated through "
-                    "the compliance override flow"
+                    "A blocked client can only be reactivated through the "
+                    "compliance override flow"
                 ),
             )
         if requested_status == "ACTIVE" and (
@@ -205,6 +245,12 @@ def update_client(
                     "be reactivated through the compliance override flow"
                 ),
             )
+
+    if "credit_limit" in changes and Decimal(changes["credit_limit"] or 0) < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit limit cannot be negative",
+        )
 
     identity_fields = {
         "identification_type_id",
@@ -223,7 +269,6 @@ def update_client(
 
     for field, value in changes.items():
         setattr(client, field, value)
-
     client.first_name = _normalizar_texto(client.first_name)
     client.middle_name = _normalizar_texto(client.middle_name)
     client.last_name = _normalizar_texto(client.last_name)
@@ -240,7 +285,6 @@ def update_client(
         client.person_type,
         full_name,
     )
-
     if "identification_type_id" in changes or "identification_number" in changes:
         duplicate = repository.get_by_identification(
             client.identification_type_id,
@@ -260,14 +304,13 @@ def update_client(
         client.consent_at = client.updated_at
     elif not client.consent_given:
         client.consent_at = None
-
     client = repository.update(client)
     if identity_changed and any(
         original_values[field] != getattr(client, field)
         for field in identity_fields
     ):
         screen_client(client, db)
-    return client
+    return _attach_credit_status([client], db, tenant_id)[0]
 
 
 def delete_client(

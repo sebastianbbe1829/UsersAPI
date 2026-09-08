@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     UniqueConstraint,
     text,
@@ -35,7 +36,6 @@ class ClientDB(Base):
         nullable=False,
         index=True,
     )
-
     identification_type_id = Column(
         Integer,
         ForeignKey("users_api.identification_types.id"),
@@ -43,7 +43,6 @@ class ClientDB(Base):
         index=True,
     )
     identification_number = Column(String(50), nullable=False)
-
     person_type = Column(String(20), nullable=False)
     first_name = Column(String(100), nullable=True)
     middle_name = Column(String(100), nullable=True)
@@ -51,11 +50,9 @@ class ClientDB(Base):
     second_last_name = Column(String(100), nullable=True)
     business_name = Column(String(250), nullable=True)
     full_name = Column(String(250), nullable=False)
-
     email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     address = Column(String(250), nullable=True)
-
     country_id = Column(
         Integer,
         ForeignKey("users_api.countries.id"),
@@ -74,22 +71,28 @@ class ClientDB(Base):
         nullable=True,
         index=True,
     )
-
     status = Column(String(20), nullable=False, server_default=text("'ACTIVE'"))
-    compliance_status = Column(String(20), nullable=False, server_default=text("'PENDING'"))
+    compliance_status = Column(
+        String(20), nullable=False, server_default=text("'PENDING'")
+    )
     is_listed = Column(Boolean, nullable=False, server_default=text("false"))
     list_type = Column(String(50), nullable=True)
-
+    credit_limit = Column(
+        Numeric(18, 2), nullable=False, server_default=text("0")
+    )
     consent_given = Column(Boolean, nullable=False, server_default=text("false"))
     consent_at = Column(DateTime, nullable=True)
     consent_source = Column(String(100), nullable=True)
-
-    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    created_at = Column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
     created_by = Column(String(100), nullable=False)
     updated_at = Column(DateTime, nullable=True)
     updated_by = Column(String(100), nullable=True)
 
-    identification_type = relationship("IdentificationTypeDB", back_populates="clients")
+    identification_type = relationship(
+        "IdentificationTypeDB", back_populates="clients"
+    )
     country = relationship("CountryDB", back_populates="clients")
     department = relationship("DepartmentDB", back_populates="clients")
     city = relationship("CityDB", back_populates="clients")

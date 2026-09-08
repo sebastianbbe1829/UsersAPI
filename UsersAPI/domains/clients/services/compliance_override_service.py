@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
@@ -9,6 +10,21 @@ from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
 from ..models import ClientComplianceOverrideDB
 from ..repositories.client_repository import ClientRepository
 from ..schemas.compliance_override import ClientComplianceOverrideRequest
+
+
+def has_compliance_override(
+    client_id: UUID,
+    db: Session,
+    tenant_id: int,
+) -> bool:
+    """Return whether the client has an auditable compliance release."""
+    override_id = db.scalar(
+        select(ClientComplianceOverrideDB.id).where(
+            ClientComplianceOverrideDB.tenant_id == tenant_id,
+            ClientComplianceOverrideDB.client_id == client_id,
+        )
+    )
+    return override_id is not None
 
 
 def override_client_compliance(
