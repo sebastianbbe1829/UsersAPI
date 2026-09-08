@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, joinedload
 
 from ..models import SaleDB
