@@ -1,7 +1,7 @@
 """create portfolio domain
 
 Revision ID: c7d8e9f0a1b2
-Revises: b5c6d7e8f9a0
+Revises: c6d7e8f9a0b1
 """
 
 import uuid
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "c7d8e9f0a1b2"
-down_revision = "b5c6d7e8f9a0"
+down_revision = "c6d7e8f9a0b1"
 branch_labels = None
 depends_on = None
 SCHEMA = "users_api"
@@ -20,11 +20,9 @@ SCHEMA = "users_api"
 def _enable_rls(table: str) -> None:
     op.execute(f"ALTER TABLE {SCHEMA}.{table} ENABLE ROW LEVEL SECURITY")
     op.execute(f"ALTER TABLE {SCHEMA}.{table} FORCE ROW LEVEL SECURITY")
-    op.execute(
-        f"""CREATE POLICY {table}_isolation ON {SCHEMA}.{table}
+    op.execute(f"""CREATE POLICY {table}_isolation ON {SCHEMA}.{table}
         USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)
-        WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)"""
-    )
+        WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::integer)""")
 
 
 def _disable_rls(table: str) -> None:
@@ -122,16 +120,12 @@ def upgrade() -> None:
     op.create_index("ix_users_api_payment_allocations_obligation_id", "payment_allocations", ["obligation_id"], schema=SCHEMA)
 
     bind = op.get_bind()
-    clients = bind.execute(
-        sa.text(f"SELECT id, tenant_id, credit_limit, created_by FROM {SCHEMA}.clients")
-    ).mappings().all()
+    clients = bind.execute(sa.text(f"SELECT id, tenant_id, credit_limit, created_by FROM {SCHEMA}.clients")).mappings().all()
     for client in clients:
         bind.execute(
-            sa.text(
-                f"""INSERT INTO {SCHEMA}.credit_limits
+            sa.text(f"""INSERT INTO {SCHEMA}.credit_limits
                 (id, tenant_id, client_id, approved_limit, active, created_by)
-                VALUES (:id, :tenant_id, :client_id, :approved_limit, true, :created_by)"""
-            ),
+                VALUES (:id, :tenant_id, :client_id, :approved_limit, true, :created_by)"""),
             {
                 "id": uuid.uuid4(),
                 "tenant_id": client["tenant_id"],
@@ -151,16 +145,11 @@ def downgrade() -> None:
     for table in ("credit_limits", "obligations", "portfolio_payments", "payment_allocations"):
         _disable_rls(table)
 
-    op.add_column(
-        "clients",
-        sa.Column("credit_limit", sa.Numeric(18, 2), nullable=False, server_default=sa.text("0")),
-        schema=SCHEMA,
-    )
+    op.add_column("clients", sa.Column("credit_limit", sa.Numeric(18, 2), nullable=False, server_default=sa.text("0")), schema=SCHEMA)
     op.execute(
         f"""UPDATE {SCHEMA}.clients c
         SET credit_limit = COALESCE((
-            SELECT cl.approved_limit
-            FROM {SCHEMA}.credit_limits cl
+            SELECT cl.approved_limit FROM {SCHEMA}.credit_limits cl
             WHERE cl.tenant_id = c.tenant_id AND cl.client_id = c.id
         ), 0)"""
     )
