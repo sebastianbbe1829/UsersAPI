@@ -1,11 +1,6 @@
 from sqlalchemy.orm import Session
 
-from ..schemas import (
-    InventoryTypeCreate,
-    InventoryTypeUpdate,
-    ProductCreate,
-    ProductUpdate,
-)
+from ..schemas import InventoryTypeUpdate, ProductCreate, ProductUpdate
 from ..services import (
     create_inventory_type,
     create_product,
