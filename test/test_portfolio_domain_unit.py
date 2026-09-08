@@ -8,7 +8,6 @@ from fastapi import HTTPException
 from UsersAPI.domains.portfolio.models.obligation import ObligationDB
 from UsersAPI.domains.portfolio.schemas.portfolio import CreditLimitUpdate
 from UsersAPI.domains.portfolio.services.portfolio_service import (
-    annul_payment,
     get_client_credit,
     list_client_obligations,
     list_obligations,
@@ -20,11 +19,28 @@ from UsersAPI.domains.portfolio.services.portfolio_service import (
 
 def test_get_client_credit(monkeypatch):
     client_id = uuid4()
-    credit = SimpleNamespace(client_id=client_id, approved_limit=Decimal("5000.00"), active=True, updated_at=None, updated_by=None)
-    repository = SimpleNamespace(get_credit_limit=lambda *_args, **_kwargs: credit, credit_used=lambda *_args, **_kwargs: Decimal("1250.00"))
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    credit = SimpleNamespace(
+        client_id=client_id,
+        approved_limit=Decimal("5000.00"),
+        active=True,
+        updated_at=None,
+        updated_by=None,
+    )
+    repository = SimpleNamespace(
+        get_credit_limit=lambda *_args, **_kwargs: credit,
+        credit_used=lambda *_args, **_kwargs: Decimal("1250.00"),
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     result = get_client_credit(client_id, SimpleNamespace(), 1)
+
     assert result.approved_limit == Decimal("5000.00")
     assert result.credit_used == Decimal("1250.00")
     assert result.credit_available == Decimal("3750.00")
@@ -33,29 +49,60 @@ def test_get_client_credit(monkeypatch):
 def test_get_client_credit_without_limit(monkeypatch):
     client_id = uuid4()
     repository = SimpleNamespace(get_credit_limit=lambda *_args, **_kwargs: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         get_client_credit(client_id, SimpleNamespace(), 1)
+
     assert exc_info.value.status_code == 404
 
 
 def test_get_client_credit_rejects_missing_client():
     db = SimpleNamespace(scalar=lambda _query: None)
+
     with pytest.raises(HTTPException) as exc_info:
         get_client_credit(uuid4(), db, 1)
+
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Client not found"
 
 
 def test_upsert_client_credit_limit_creates_limit(monkeypatch):
     client_id = uuid4()
-    repository = SimpleNamespace(get_credit_limit=lambda *_args, **_kwargs: None, add_credit_limit=lambda credit: setattr(repository, "created", credit), credit_used=lambda *_args, **_kwargs: Decimal("0"))
+    repository = SimpleNamespace(
+        get_credit_limit=lambda *_args, **_kwargs: None,
+        add_credit_limit=lambda credit: setattr(repository, "created", credit),
+        credit_used=lambda *_args, **_kwargs: Decimal("0"),
+    )
     db = SimpleNamespace(flush=lambda: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._credit_read", lambda credit, *_args: credit)
-    result = upsert_client_credit_limit(client_id, CreditLimitUpdate(approved_limit=Decimal("1500.50")), db, 1, SimpleNamespace(email="admin@test.com"))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._credit_read",
+        lambda credit, *_args: credit,
+    )
+
+    result = upsert_client_credit_limit(
+        client_id,
+        CreditLimitUpdate(approved_limit=Decimal("1500.50")),
+        db,
+        1,
+        SimpleNamespace(email="admin@test.com"),
+    )
+
     assert result.approved_limit == Decimal("1500.50")
     assert result.created_by == "admin@test.com"
     assert result.active is True
@@ -63,13 +110,39 @@ def test_upsert_client_credit_limit_creates_limit(monkeypatch):
 
 def test_upsert_client_credit_limit_updates_existing_limit(monkeypatch):
     client_id = uuid4()
-    credit = SimpleNamespace(client_id=client_id, approved_limit=Decimal("1000.00"), active=False, updated_at=None, updated_by=None)
-    repository = SimpleNamespace(get_credit_limit=lambda *_args, **_kwargs: credit, credit_used=lambda *_args, **_kwargs: Decimal("250.00"))
+    credit = SimpleNamespace(
+        client_id=client_id,
+        approved_limit=Decimal("1000.00"),
+        active=False,
+        updated_at=None,
+        updated_by=None,
+    )
+    repository = SimpleNamespace(
+        get_credit_limit=lambda *_args, **_kwargs: credit,
+        credit_used=lambda *_args, **_kwargs: Decimal("250.00"),
+    )
     db = SimpleNamespace(flush=lambda: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._credit_read", lambda credit, *_args: credit)
-    result = upsert_client_credit_limit(client_id, CreditLimitUpdate(approved_limit=Decimal("900.00")), db, 1, SimpleNamespace(username="operator"))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._credit_read",
+        lambda credit, *_args: credit,
+    )
+
+    result = upsert_client_credit_limit(
+        client_id,
+        CreditLimitUpdate(approved_limit=Decimal("900.00")),
+        db,
+        1,
+        SimpleNamespace(username="operator"),
+    )
+
     assert result.approved_limit == Decimal("900.00")
     assert result.updated_by == "operator"
     assert result.active is True
@@ -77,12 +150,35 @@ def test_upsert_client_credit_limit_updates_existing_limit(monkeypatch):
 
 def test_upsert_client_credit_limit_rejects_limit_below_usage(monkeypatch):
     client_id = uuid4()
-    credit = SimpleNamespace(client_id=client_id, approved_limit=Decimal("1000.00"), active=True, updated_at=None, updated_by=None)
-    repository = SimpleNamespace(get_credit_limit=lambda *_args, **_kwargs: credit, credit_used=lambda *_args, **_kwargs: Decimal("800.00"))
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    credit = SimpleNamespace(
+        client_id=client_id,
+        approved_limit=Decimal("1000.00"),
+        active=True,
+        updated_at=None,
+        updated_by=None,
+    )
+    repository = SimpleNamespace(
+        get_credit_limit=lambda *_args, **_kwargs: credit,
+        credit_used=lambda *_args, **_kwargs: Decimal("800.00"),
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
-        upsert_client_credit_limit(client_id, CreditLimitUpdate(approved_limit=Decimal("799.99")), SimpleNamespace(flush=lambda: None), 1, SimpleNamespace(email="admin@test.com"))
+        upsert_client_credit_limit(
+            client_id,
+            CreditLimitUpdate(approved_limit=Decimal("799.99")),
+            SimpleNamespace(flush=lambda: None),
+            1,
+            SimpleNamespace(email="admin@test.com"),
+        )
+
     assert exc_info.value.status_code == 409
     assert "cannot be lower" in exc_info.value.detail.lower()
 
@@ -90,7 +186,11 @@ def test_upsert_client_credit_limit_rejects_limit_below_usage(monkeypatch):
 def test_list_obligations_delegates_to_repository(monkeypatch):
     obligations = [SimpleNamespace(id=uuid4())]
     repository = SimpleNamespace(list_obligations=lambda *_args, **_kwargs: obligations)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+
     assert list_obligations(SimpleNamespace(), 7) == obligations
 
 
@@ -98,14 +198,29 @@ def test_list_client_obligations_filters_by_client(monkeypatch):
     client_id = uuid4()
     obligations = [SimpleNamespace(id=uuid4())]
     repository = SimpleNamespace(list_obligations=lambda *_args, **_kwargs: obligations)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     assert list_client_obligations(client_id, SimpleNamespace(), 7) == obligations
 
 
 def _payment_data(client_id, obligation_id, amount="100.00"):
     from UsersAPI.domains.portfolio.schemas.portfolio import PaymentCreate
-    return PaymentCreate(client_id=client_id, payment_method=" cash ", amount=Decimal(amount), allocations=[{"obligation_id": obligation_id, "amount": Decimal(amount)}])
+
+    return PaymentCreate(
+        client_id=client_id,
+        payment_method=" cash ",
+        amount=Decimal(amount),
+        allocations=[
+            {"obligation_id": obligation_id, "amount": Decimal(amount)}
+        ],
+    )
 
 
 def test_register_payment_rejects_allocation_total(monkeypatch):
@@ -113,9 +228,14 @@ def test_register_payment_rejects_allocation_total(monkeypatch):
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
     data.allocations[0].amount = Decimal("90.00")
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         register_payment(data, SimpleNamespace(), 1, SimpleNamespace())
+
     assert exc_info.value.status_code == 400
 
 
@@ -124,10 +244,18 @@ def test_register_payment_rejects_unknown_obligation(monkeypatch):
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
     repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         register_payment(data, SimpleNamespace(), 1, SimpleNamespace())
+
     assert exc_info.value.status_code == 404
 
 
@@ -135,12 +263,22 @@ def test_register_payment_rejects_wrong_client(monkeypatch):
     client_id = uuid4()
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(client_id=uuid4(), status="ACTIVE", balance=Decimal("200.00"))
+    obligation = SimpleNamespace(
+        client_id=uuid4(), status="ACTIVE", balance=Decimal("200.00")
+    )
     repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         register_payment(data, SimpleNamespace(), 1, SimpleNamespace())
+
     assert exc_info.value.status_code == 409
 
 
@@ -148,12 +286,22 @@ def test_register_payment_rejects_inactive_obligation(monkeypatch):
     client_id = uuid4()
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(client_id=client_id, status="SETTLED", balance=Decimal("200.00"))
+    obligation = SimpleNamespace(
+        client_id=client_id, status="SETTLED", balance=Decimal("200.00")
+    )
     repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         register_payment(data, SimpleNamespace(), 1, SimpleNamespace())
+
     assert exc_info.value.status_code == 409
 
 
@@ -161,12 +309,25 @@ def test_register_payment_rejects_amount_above_balance(monkeypatch):
     client_id = uuid4()
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(id=obligation_id, client_id=client_id, status="ACTIVE", balance=Decimal("50.00"))
+    obligation = SimpleNamespace(
+        id=obligation_id,
+        client_id=client_id,
+        status="ACTIVE",
+        balance=Decimal("50.00"),
+    )
     repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         register_payment(data, SimpleNamespace(), 1, SimpleNamespace())
+
     assert exc_info.value.status_code == 409
 
 
@@ -174,15 +335,34 @@ def test_register_payment_applies_partial_payment(monkeypatch):
     client_id = uuid4()
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(id=obligation_id, client_id=client_id, status="ACTIVE", balance=Decimal("200.00"), sale_id=uuid4(), updated_at=None, updated_by=None)
-    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation, add_payment=lambda _payment: None, get_payment=lambda *_args, **_kwargs: None)
+    obligation = SimpleNamespace(
+        id=obligation_id,
+        client_id=client_id,
+        status="ACTIVE",
+        balance=Decimal("200.00"),
+        sale_id=uuid4(),
+        updated_at=None,
+        updated_by=None,
+    )
+    repository = SimpleNamespace(
+        get_obligation=lambda *_args, **_kwargs: obligation,
+        add_payment=lambda _payment: None,
+        get_payment=lambda *_args, **_kwargs: None,
+    )
     db = SimpleNamespace(flush=lambda: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     result = register_payment(data, db, 1, SimpleNamespace(email="cashier"))
+
     assert result.amount == Decimal("100.00")
     assert result.payment_method == "CASH"
-    assert result.status == "APLICADO"
     assert obligation.balance == Decimal("100.00")
     assert obligation.status == "ACTIVE"
     assert len(result.allocations) == 1
@@ -193,80 +373,53 @@ def test_register_payment_settles_obligation_and_sale(monkeypatch):
     obligation_id = uuid4()
     sale_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(id=obligation_id, client_id=client_id, status="ACTIVE", balance=Decimal("100.00"), sale_id=sale_id, updated_at=None, updated_by=None)
+    obligation = SimpleNamespace(
+        id=obligation_id,
+        client_id=client_id,
+        status="ACTIVE",
+        balance=Decimal("100.00"),
+        sale_id=sale_id,
+        updated_at=None,
+        updated_by=None,
+    )
     sale = SimpleNamespace(status="PENDING", updated_at=None, updated_by=None)
-    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation, add_payment=lambda _payment: None, get_payment=lambda *_args, **_kwargs: None)
+    repository = SimpleNamespace(
+        get_obligation=lambda *_args, **_kwargs: obligation,
+        add_payment=lambda _payment: None,
+        get_payment=lambda *_args, **_kwargs: None,
+    )
     db = SimpleNamespace(flush=lambda: None, scalar=lambda _query: sale)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service._client", lambda *_args, **_kwargs: SimpleNamespace(id=client_id))
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
+        lambda _db: repository,
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service._client",
+        lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+
     register_payment(data, db, 1, SimpleNamespace(email="cashier"))
+
     assert obligation.balance == Decimal("0.00")
     assert obligation.status == "SETTLED"
     assert sale.status == "COMPLETED"
     assert sale.updated_by == "cashier"
 
 
-def _payment_query_chain():
-    query = SimpleNamespace()
-    query.options = lambda *_args, **_kwargs: query
-    query.where = lambda *_args, **_kwargs: query
-    query.with_for_update = lambda: query
-    return query
-
-
-def test_annul_payment_reverses_allocations_and_reopens_settled_obligation(monkeypatch):
-    payment_id = uuid4()
-    obligation_id = uuid4()
-    allocation = SimpleNamespace(obligation_id=obligation_id, amount=Decimal("100.00"))
-    payment = SimpleNamespace(id=payment_id, status="APLICADO", allocations=[allocation])
-    obligation = SimpleNamespace(id=obligation_id, status="SETTLED", balance=Decimal("0.00"), initial_amount=Decimal("100.00"), updated_at=None, updated_by=None)
-    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation, get_payment=lambda *_args, **_kwargs: payment)
-    query = _payment_query_chain()
-    db = SimpleNamespace(scalar=lambda _query: payment, flush=lambda: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.select", lambda *_args, **_kwargs: query)
-    result = annul_payment(payment_id, db, 1, SimpleNamespace(email="supervisor"))
-    assert result.status == "ANULADO"
-    assert obligation.balance == Decimal("100.00")
-    assert obligation.status == "ACTIVE"
-    assert obligation.updated_by == "supervisor"
-
-
-def test_annul_payment_rejects_already_annulled(monkeypatch):
-    payment = SimpleNamespace(id=uuid4(), status="ANULADO", allocations=[])
-    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: None)
-    query = _payment_query_chain()
-    db = SimpleNamespace(scalar=lambda _query: payment)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.select", lambda *_args, **_kwargs: query)
-    with pytest.raises(HTTPException) as exc_info:
-        annul_payment(payment.id, db, 1, SimpleNamespace())
-    assert exc_info.value.status_code == 409
-    assert "already annulled" in exc_info.value.detail.lower()
-
-
-def test_annul_payment_rejects_missing_payment(monkeypatch):
-    repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: None)
-    query = _payment_query_chain()
-    db = SimpleNamespace(scalar=lambda _query: None)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository", lambda _db: repository)
-    monkeypatch.setattr("UsersAPI.domains.portfolio.services.portfolio_service.select", lambda *_args, **_kwargs: query)
-    with pytest.raises(HTTPException) as exc_info:
-        annul_payment(uuid4(), db, 1, SimpleNamespace())
-    assert exc_info.value.status_code == 404
-
-
-def test_list_payments_supports_filters():
-    payment_applied = SimpleNamespace(id=uuid4(), client_id=uuid4(), payment_date="2026-09-08", status="APLICADO")
-    scalar_result = SimpleNamespace(unique=lambda: [payment_applied])
+def test_list_payments_supports_client_filter():
+    payment = SimpleNamespace(id=uuid4())
+    scalar_result = SimpleNamespace(unique=lambda: [payment])
     db = SimpleNamespace(scalars=lambda _query: scalar_result)
-    result = list_payments(db, 1, payment_applied.client_id, date_from="2026-09-01", date_to="2026-09-08", payment_status="APLICADO")
-    assert result == [payment_applied]
+
+    result = list_payments(db, 1, uuid4())
+
+    assert result == [payment]
 
 
 def test_obligation_sale_number_property():
     obligation = ObligationDB()
     obligation.sale = SimpleNamespace(sale_number="V-000123")
     assert obligation.sale_number == "V-000123"
+
     obligation.sale = None
     assert obligation.sale_number is None
