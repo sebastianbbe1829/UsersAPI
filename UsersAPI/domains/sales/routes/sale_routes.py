@@ -12,6 +12,7 @@ from UsersAPI.security.permissions import require_permission
 
 from ..controllers import create, get, list_all
 from ..schemas import SaleCreate, SaleRead
+from ..services.invoice_service import send_invoice_email
 
 sales_routes = APIRouter(prefix="/sales", tags=["Ventas"])
 
@@ -56,3 +57,17 @@ async def get_sale_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     return get(sale_id, db, cast(int, user_tenant.tenant_id))
+
+
+@sales_routes.post(
+    "/{sale_id}/invoice/email",
+    response_model=dict,
+    dependencies=[Depends(require_permission("SALES_EMAIL"))],
+)
+async def email_invoice_route(
+    sale_id: UUID,
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    recipients = send_invoice_email(sale_id, db, cast(int, user_tenant.tenant_id))
+    return {"message": "Invoice sent successfully", "recipients": recipients}
