@@ -1,0 +1,204 @@
+from decimal import Decimal, ROUND_HALF_UP
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from UsersAPI.domains.clients.models import ClientDB
+from UsersAPI.domains.inventory.models import InventoryDB, ProductDB
+from UsersAPI.domains.inventory.schemas import InventoryMovementCreate
+from UsersAPI.domains.inventory.services.inventory_movement_service import create_inventory_movement
+
+from ..models import SaleCustomerDB, SaleDB, SaleItemDB, SalePaymentDB
+from ..repositories import SaleRepository
+from ..schemas import SaleCreate
+
+CENT = Decimal("0.01")
+
+
+def _money(value: Decimal) -> Decimal:
+    return Decimal(value).quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def _actor_name(current_user: object | None) -> str:
+    return (
+        getattr(current_user, "email", None)
+        or getattr(current_user, "username", None)
+        or "system"
+    )
+
+
+def _sale_price(inventory: InventoryDB) -> Decimal:
+    if inventory.quantity <= 0 or inventory.purchase_price is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Product has no available inventory price",
+        )
+    return _money(
+        Decimal(inventory.purchase_price)
+        * (Decimal("1") + Decimal(inventory.profit_percentage or 0) / Decimal("100"))
+    )
+
+
+def create_sale(
+    data: SaleCreate,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+) -> SaleDB:
+    product_ids = [item.product_id for item in data.items]
+    if len(product_ids) != len(set(product_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A product cannot appear more than once in a sale",
+        )
+
+    payment_total = _money(sum((Decimal(payment.amount) for payment in data.payments), Decimal("0")))
+    actor = _actor_name(current_user)
+    repository = SaleRepository(db)
+    sale_number = repository.next_sale_number(tenant_id)
+
+    sale = SaleDB(
+        tenant_id=tenant_id,
+        sale_number=sale_number,
+        status="COMPLETED",
+        subtotal=Decimal("0"),
+        discount_percentage=data.discount_percentage,
+        discount_amount=Decimal("0"),
+        total=Decimal("0"),
+        created_by=actor,
+    )
+    repository.add(sale)
+    db.flush()
+
+    subtotal = Decimal("0")
+    for item in data.items:
+        inventory = db.scalar(
+            select(InventoryDB)
+            .join(ProductDB, (ProductDB.id == InventoryDB.product_id) & (ProductDB.tenant_id == InventoryDB.tenant_id))
+            .where(
+                InventoryDB.tenant_id == tenant_id,
+                InventoryDB.product_id == item.product_id,
+                ProductDB.active.is_(True),
+            )
+        )
+        if inventory is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+        product = db.scalar(
+            select(ProductDB).where(ProductDB.tenant_id == tenant_id, ProductDB.id == item.product_id)
+        )
+        if product is None or not product.active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Inactive products cannot be sold")
+
+        unit_price = _sale_price(inventory)
+        line_total = _money(Decimal(item.quantity) * unit_price)
+        subtotal += line_total
+        sale.items.append(
+            SaleItemDB(
+                tenant_id=tenant_id,
+                product_id=product.id,
+                product_code=product.code,
+                product_name=product.name,
+                quantity=item.quantity,
+                unit_price=unit_price,
+                line_total=line_total,
+            )
+        )
+
+    subtotal = _money(subtotal)
+    discount_amount = _money(subtotal * Decimal(data.discount_percentage) / Decimal("100"))
+    total = _money(subtotal - discount_amount)
+    if payment_total != total:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Payment total must equal sale total: {total}",
+        )
+
+    sale.subtotal = subtotal
+    sale.discount_amount = discount_amount
+    sale.total = total
+
+    customers = data.customers
+    if not customers:
+        sale.customers.append(
+            SaleCustomerDB(
+                tenant_id=tenant_id,
+                customer_name="Consumidor final",
+                allocation_percentage=Decimal("100"),
+                allocation_amount=total,
+                is_generic=1,
+            )
+        )
+    else:
+        percentage_total = _money(sum((Decimal(customer.allocation_percentage) for customer in customers), Decimal("0")))
+        if percentage_total != Decimal("100.00"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer allocation must total 100%")
+        for customer in customers:
+            if customer.is_generic and customer.client_id is not None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Generic customer cannot have client_id")
+            if customer.client_id is None and not customer.is_generic:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Each customer must have client_id or be generic")
+            customer_name = "Consumidor final"
+            if customer.client_id is not None:
+                client = db.scalar(
+                    select(ClientDB).where(ClientDB.tenant_id == tenant_id, ClientDB.id == customer.client_id)
+                )
+                if client is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+                if client.status != "ACTIVE" or client.is_listed or client.compliance_status == "MATCH":
+                    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Client is not eligible for sales")
+                customer_name = client.full_name
+            allocation_amount = _money(total * Decimal(customer.allocation_percentage) / Decimal("100"))
+            sale.customers.append(
+                SaleCustomerDB(
+                    tenant_id=tenant_id,
+                    client_id=customer.client_id,
+                    customer_name=customer_name,
+                    allocation_percentage=customer.allocation_percentage,
+                    allocation_amount=allocation_amount,
+                    is_generic=1 if customer.is_generic else 0,
+                )
+            )
+
+    for payment in data.payments:
+        sale.payments.append(
+            SalePaymentDB(
+                tenant_id=tenant_id,
+                payment_method=payment.payment_method.strip().upper(),
+                amount=payment.amount,
+            )
+        )
+
+    db.flush()
+    for item in sale.items:
+        create_inventory_movement(
+            InventoryMovementCreate(
+                product_id=item.product_id,
+                movement_type="EXIT",
+                origin_type="SALE",
+                origin_id=sale.id,
+                quantity=item.quantity,
+                unit_purchase_price=item.unit_price,
+                profit_percentage=None,
+                notes=f"Venta {sale.sale_number}",
+            ),
+            db,
+            tenant_id,
+            current_user,
+        )
+
+    db.flush()
+    return repository.get_by_id(tenant_id, sale.id) or sale
+
+
+def get_sale(sale_id: UUID, db: Session, tenant_id: int) -> SaleDB:
+    sale = SaleRepository(db).get_by_id(tenant_id, sale_id)
+    if sale is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sale not found")
+    return sale
+
+
+def list_sales(db: Session, tenant_id: int, limit: int = 100, offset: int = 0) -> list[SaleDB]:
+    return SaleRepository(db).list(tenant_id, limit=limit, offset=offset)
