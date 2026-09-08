@@ -13,8 +13,15 @@ from sqlalchemy.orm import Session
 from ..models import ClientDB, ScreeningEntryDB, ScreeningSourceDB
 
 
-OFAC_SDN_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
 OFAC_SDN_CODE = "OFAC_SDN"
+OFAC_CONSOLIDATED_CODE = "OFAC_CONSOLIDATED"
+UN_CONSOLIDATED_CODE = "UN_CONSOLIDATED"
+
+OFAC_SDN_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
+OFAC_CONSOLIDATED_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/CONSOLIDATED.XML"
+UN_CONSOLIDATED_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
+
+SCREENING_HTTP_TIMEOUT = (15, 120)
 
 
 @dataclass(frozen=True)
@@ -43,108 +50,181 @@ def _similarity(left: str, right: str) -> float:
 
 
 def _local_name(element: ET.Element) -> str:
-    return element.tag.rsplit("}", 1)[-1]
+    return element.tag.rsplit("}", 1)[-1].upper()
+
+
+def _text(elements: list[ET.Element] | None) -> list[str]:
+    return [
+        " ".join((element.text or "").split())
+        for element in (elements or [])
+        if (element.text or "").strip()
+    ]
+
+
+def _children_map(element: ET.Element) -> dict[str, list[ET.Element]]:
+    result: dict[str, list[ET.Element]] = {}
+    for child in element.iter():
+        if child is element:
+            continue
+        result.setdefault(_local_name(child), []).append(child)
+    return result
 
 
 def _child_text(element: ET.Element, name: str) -> str | None:
+    target = name.upper()
     for child in element.iter():
-        if _local_name(child) == name and child is not element and child.text:
+        if _local_name(child) == target and child is not element and child.text:
             value = child.text.strip()
             if value:
                 return value
     return None
 
 
-def _child_values(element: ET.Element, name: str) -> list[str]:
-    values: list[str] = []
-    for child in element.iter():
-        if _local_name(child) == name and child is not element and child.text:
-            value = child.text.strip()
-            if value:
-                values.append(value)
-    return values
-
-
-def _parse_ofac_sdn(xml_content: bytes) -> list[dict]:
+def _parse_ofac(xml_content: bytes, source_code: str) -> list[dict]:
     root = ET.fromstring(xml_content)
     entries: list[dict] = []
 
     for node in root.iter():
-        if _local_name(node) != "sdnEntry":
+        if _local_name(node) != "SDNENTRY":
             continue
 
-        external_id = _child_text(node, "uid")
-        entry_type = (_child_text(node, "sdnType") or "ENTITY").upper()
-        first_name = _child_text(node, "firstName")
-        last_name = _child_text(node, "lastName")
-        entity_name = _child_text(node, "entityName")
-        ship_name = _child_text(node, "shipName")
-        name = (
-            entity_name
-            or ship_name
-            or " ".join(part for part in (first_name, last_name) if part)
+        fields = _children_map(node)
+        external_id = (_text(fields.get("UID")) or [None])[0]
+        entry_type = (_text(fields.get("SDNTYPE")) or ["ENTITY"])[0].upper()
+        first_name = (_text(fields.get("FIRSTNAME")) or [None])[0]
+        last_name = (_text(fields.get("LASTNAME")) or [None])[0]
+        entity_name = (_text(fields.get("ENTITYNAME")) or [None])[0]
+        ship_name = (_text(fields.get("SHIPNAME")) or [None])[0]
+        name = entity_name or ship_name or " ".join(
+            part for part in (first_name, last_name) if part
         )
         if not external_id or not name:
             continue
 
         aliases: list[str] = []
         for aka in node.iter():
-            if _local_name(aka) != "aka":
+            if _local_name(aka) != "AKA":
                 continue
-            aka_first = _child_text(aka, "firstName")
-            aka_last = _child_text(aka, "lastName")
-            aka_name = _child_text(aka, "name") or " ".join(
-                part for part in (aka_first, aka_last) if part
-            )
+            aka_fields = _children_map(aka)
+            aka_name = (_text(aka_fields.get("NAME")) or [None])[0]
+            if not aka_name:
+                aka_first = (_text(aka_fields.get("FIRSTNAME")) or [None])[0]
+                aka_last = (_text(aka_fields.get("LASTNAME")) or [None])[0]
+                aka_name = " ".join(
+                    part for part in (aka_first, aka_last) if part
+                )
             if aka_name and aka_name not in aliases:
                 aliases.append(aka_name)
 
-        identification_numbers = _child_values(node, "idNumber")
+        identification_numbers: list[str] = []
+        for identifier in node.iter():
+            if _local_name(identifier) != "ID":
+                continue
+            for child in identifier.iter():
+                if _local_name(child) == "NUMBER" and child.text:
+                    value = child.text.strip()
+                    if value and value not in identification_numbers:
+                        identification_numbers.append(value)
+
         entries.append(
             {
                 "external_id": external_id,
                 "entry_type": entry_type,
                 "name": name,
-                "normalized_name": normalize_screening_text(name),
                 "aliases": aliases,
                 "identification_numbers": identification_numbers,
-                "raw_data": {"source": OFAC_SDN_CODE, "uid": external_id},
+                "raw_data": {"source": source_code, "uid": external_id},
             }
         )
 
     if not entries:
-        raise ValueError("OFAC SDN no contiene registros procesables")
+        raise ValueError(f"{source_code} no contiene registros procesables")
     return entries
 
 
-def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
-    now = datetime.now(UTC).replace(tzinfo=None)
+def _parse_un(xml_content: bytes) -> list[dict]:
+    root = ET.fromstring(xml_content)
+    entries: list[dict] = []
+
+    for section in root.iter():
+        section_name = _local_name(section)
+        if section_name not in {"INDIVIDUAL", "ENTITY"}:
+            continue
+
+        fields = _children_map(section)
+        names: list[str] = []
+        for key in (
+            "FIRST_NAME",
+            "SECOND_NAME",
+            "THIRD_NAME",
+            "FOURTH_NAME",
+            "NAME",
+        ):
+            names.extend(_text(fields.get(key)))
+        name = " ".join(dict.fromkeys(names)).strip()
+        if not name:
+            continue
+
+        aliases: list[str] = []
+        for key in ("ALIAS_NAME", "ALIAS"):
+            aliases.extend(_text(fields.get(key)))
+
+        external_id = (_text(fields.get("REFERENCE_NUMBER")) or [name])[0]
+        identification_numbers: list[str] = []
+        for key in ("NUMBER", "IDENTIFICATION_NUMBER", "PASSPORT_NUMBER"):
+            for value in _text(fields.get(key)):
+                if value not in identification_numbers:
+                    identification_numbers.append(value)
+
+        entries.append(
+            {
+                "external_id": external_id,
+                "entry_type": "INDIVIDUAL" if section_name == "INDIVIDUAL" else "ENTITY",
+                "name": name,
+                "aliases": aliases,
+                "identification_numbers": identification_numbers,
+                "raw_data": {"source": UN_CONSOLIDATED_CODE, "reference_number": external_id},
+            }
+        )
+
+    if not entries:
+        raise ValueError("UN_CONSOLIDATED no contiene registros procesables")
+    return entries
+
+
+def _parse_source(source_code: str, xml_content: bytes) -> list[dict]:
+    if source_code in {OFAC_SDN_CODE, OFAC_CONSOLIDATED_CODE}:
+        return _parse_ofac(xml_content, source_code)
+    if source_code == UN_CONSOLIDATED_CODE:
+        return _parse_un(xml_content)
+    raise ValueError(f"Fuente de listas restrictivas no soportada: {source_code}")
+
+
+def _get_source(db: Session, source_code: str) -> ScreeningSourceDB:
     source = (
         db.query(ScreeningSourceDB)
-        .filter(ScreeningSourceDB.code == OFAC_SDN_CODE)
+        .filter(ScreeningSourceDB.code == source_code)
         .one_or_none()
     )
     if source is None:
-        source = ScreeningSourceDB(
-            code=OFAC_SDN_CODE,
-            name="OFAC SDN",
-            provider="OFAC",
-            url=OFAC_SDN_URL,
-            active=True,
+        raise RuntimeError(
+            f"La fuente {source_code} no está configurada. Ejecute las migraciones de catálogos de listas restrictivas."
         )
-        db.add(source)
-        db.flush()
-    elif source.url != OFAC_SDN_URL:
-        source.url = OFAC_SDN_URL
+    return source
+
+
+def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
+    source = _get_source(db, source_code)
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     try:
         response = requests.get(
-            OFAC_SDN_URL,
+            source.url,
             headers={"User-Agent": "UsersAPI-Compliance-Screening/1.0"},
-            timeout=(15, 120),
+            timeout=SCREENING_HTTP_TIMEOUT,
         )
         response.raise_for_status()
-        parsed_entries = _parse_ofac_sdn(response.content)
+        parsed_entries = _parse_source(source_code, response.content)
 
         existing = {
             item.external_id: item
@@ -153,24 +233,33 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
             .all()
         }
         seen_ids: set[str] = set()
-        created = updated = 0
+        created = updated = deactivated = 0
 
         for data in parsed_entries:
-            external_id = data["external_id"]
+            external_id = str(data["external_id"])[:150]
             seen_ids.add(external_id)
+            values = {
+                "external_id": external_id,
+                "entry_type": str(data["entry_type"])[:20],
+                "name": str(data["name"])[:300],
+                "normalized_name": normalize_screening_text(data["name"])[:300],
+                "aliases": [str(value)[:300] for value in data["aliases"]],
+                "identification_numbers": [
+                    str(value)[:150] for value in data["identification_numbers"]
+                ],
+                "raw_data": data["raw_data"],
+            }
             item = existing.get(external_id)
             if item is None:
-                item = ScreeningEntryDB(source_id=source.id, **data)
-                db.add(item)
+                db.add(ScreeningEntryDB(source_id=source.id, **values))
                 created += 1
             else:
-                for field, value in data.items():
+                for field, value in values.items():
                     setattr(item, field, value)
                 item.active = True
                 item.updated_at = now
                 updated += 1
 
-        deactivated = 0
         for external_id, item in existing.items():
             if external_id not in seen_ids and item.active:
                 item.active = False
@@ -184,7 +273,7 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
         db.commit()
 
         return {
-            "source": OFAC_SDN_CODE,
+            "source": source_code,
             "status": "SUCCESS",
             "total": len(parsed_entries),
             "created": created,
@@ -193,21 +282,30 @@ def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
         }
     except Exception as exc:
         db.rollback()
-        source = (
-            db.query(ScreeningSourceDB)
-            .filter(ScreeningSourceDB.code == OFAC_SDN_CODE)
-            .one_or_none()
-        )
-        if source is not None:
-            source.last_sync_at = now
-            source.last_sync_status = "ERROR"
-            source.last_sync_error = str(exc)[:2000]
-            db.commit()
+        source = _get_source(db, source_code)
+        source.last_sync_at = now
+        source.last_sync_status = "ERROR"
+        source.last_sync_error = str(exc)[:2000]
+        db.commit()
         raise
+
+
+def sync_ofac_sdn(db: Session) -> dict[str, int | str]:
+    return _sync_source(db, OFAC_SDN_CODE)
+
+
+def sync_ofac_consolidated(db: Session) -> dict[str, int | str]:
+    return _sync_source(db, OFAC_CONSOLIDATED_CODE)
+
+
+def sync_un_consolidated(db: Session) -> dict[str, int | str]:
+    return _sync_source(db, UN_CONSOLIDATED_CODE)
 
 
 SCREENING_LIST_PROVIDERS = {
     OFAC_SDN_CODE: sync_ofac_sdn,
+    OFAC_CONSOLIDATED_CODE: sync_ofac_consolidated,
+    UN_CONSOLIDATED_CODE: sync_un_consolidated,
 }
 
 
@@ -287,10 +385,7 @@ class ScreeningProvider:
             name_score = _similarity(name, entry.normalized_name)
             alias_score = max(
                 [
-                    _similarity(
-                        name,
-                        normalize_screening_text(alias),
-                    )
+                    _similarity(name, normalize_screening_text(alias))
                     for alias in (entry.aliases or [])
                 ],
                 default=0.0,
