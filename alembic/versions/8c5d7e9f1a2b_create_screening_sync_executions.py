@@ -1,7 +1,7 @@
 """create screening sync executions
 
 Revision ID: 8c5d7e9f1a2b
-Revises: 7b4c9d2e1f30
+Revises: 8d5e7a9c2b14
 Create Date: 2026-09-07
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = "8c5d7e9f1a2b"
-down_revision: Union[str, Sequence[str], None] = "7b4c9d2e1f30"
+down_revision: Union[str, Sequence[str], None] = "8d5e7a9c2b14"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 SCHEMA = "users_api"
