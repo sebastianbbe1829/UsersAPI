@@ -44,6 +44,8 @@ def create_product(
         code=repository.next_code(tenant_id),
         name=data.name.strip(),
         inventory_type_id=data.inventory_type_id,
+        brand=data.brand.strip() if data.brand else None,
+        presentation=data.presentation.strip() if data.presentation else None,
         active=data.active,
         image_url=str(data.image_url) if data.image_url else None,
         image_source=data.image_source,
@@ -83,6 +85,10 @@ def update_product(
         product.inventory_type_id = changes["inventory_type_id"]
     if "active" in changes:
         product.active = changes["active"]
+    if "brand" in changes:
+        product.brand = changes["brand"].strip() if changes["brand"] else None
+    if "presentation" in changes:
+        product.presentation = changes["presentation"].strip() if changes["presentation"] else None
     if "image_url" in changes:
         product.image_url = str(changes["image_url"]) if changes["image_url"] else None
     if "image_source" in changes:
