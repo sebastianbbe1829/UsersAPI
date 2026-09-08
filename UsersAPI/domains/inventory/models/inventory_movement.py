@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKeyConstraint,
+    Index,
     Integer,
     Numeric,
     String,
@@ -31,6 +32,11 @@ class InventoryMovementDB(Base):
         CheckConstraint(
             "balance_before >= 0 AND balance_after >= 0",
             name="ck_inventory_movements_balances_non_negative",
+        ),
+        Index(
+            "ix_users_api_inventory_movements_origin",
+            "origin_type",
+            "origin_id",
         ),
         {"schema": "users_api"},
     )
