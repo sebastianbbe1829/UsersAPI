@@ -14,6 +14,8 @@ from ..repositories import PortfolioRepository
 from ..schemas import CreditLimitUpdate, PaymentCreate
 
 MONEY_UNIT = Decimal("0.01")
+PAYMENT_STATUS_APPLIED = "APLICADO"
+PAYMENT_STATUS_CANCELLED = "ANULADO"
 
 
 def _money(value: Decimal) -> Decimal:
@@ -187,6 +189,7 @@ def register_payment(
         payment_date=data.payment_date or date.today(),
         payment_method=data.payment_method.strip().upper(),
         amount=payment_amount,
+        status=PAYMENT_STATUS_APPLIED,
         reference=data.reference.strip() if data.reference else None,
         notes=data.notes.strip() if data.notes else None,
         created_by=actor,
@@ -223,7 +226,76 @@ def register_payment(
     return repository.get_payment(tenant_id, payment.id) or payment
 
 
-def list_payments(db: Session, tenant_id: int, client_id: UUID | None = None):
+def annul_payment(
+    payment_id: UUID,
+    db: Session,
+    tenant_id: int,
+    current_user: object,
+):
+    repository = PortfolioRepository(db)
+    payment = db.scalar(
+        select(PaymentDB)
+        .options(joinedload(PaymentDB.allocations))
+        .where(
+            PaymentDB.tenant_id == tenant_id,
+            PaymentDB.id == payment_id,
+        )
+        .with_for_update()
+    )
+    if payment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment not found",
+        )
+    if payment.status == PAYMENT_STATUS_CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Payment is already annulled",
+        )
+    if payment.status != PAYMENT_STATUS_APPLIED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Payment cannot be annulled from its current status",
+        )
+
+    actor = _actor_name(current_user)
+    for allocation in payment.allocations:
+        obligation = repository.get_obligation(
+            tenant_id,
+            allocation.obligation_id,
+            lock=True,
+        )
+        if obligation is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot annul payment because an allocated obligation was not found",
+            )
+
+        new_balance = _money(Decimal(obligation.balance) + Decimal(allocation.amount))
+        if new_balance > _money(obligation.initial_amount):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot annul payment because the obligation balance would exceed its initial amount",
+            )
+        obligation.balance = new_balance
+        if obligation.status == "SETTLED":
+            obligation.status = "ACTIVE"
+        obligation.updated_at = datetime.now(UTC)
+        obligation.updated_by = actor
+
+    payment.status = PAYMENT_STATUS_CANCELLED
+    db.flush()
+    return repository.get_payment(tenant_id, payment.id) or payment
+
+
+def list_payments(
+    db: Session,
+    tenant_id: int,
+    client_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_status: str | None = None,
+):
     query = (
         select(PaymentDB)
         .options(joinedload(PaymentDB.allocations))
@@ -231,6 +303,12 @@ def list_payments(db: Session, tenant_id: int, client_id: UUID | None = None):
     )
     if client_id is not None:
         query = query.where(PaymentDB.client_id == client_id)
+    if date_from is not None:
+        query = query.where(PaymentDB.payment_date >= date_from)
+    if date_to is not None:
+        query = query.where(PaymentDB.payment_date <= date_to)
+    if payment_status is not None:
+        query = query.where(PaymentDB.status == payment_status)
     return list(
         db.scalars(
             query.order_by(
