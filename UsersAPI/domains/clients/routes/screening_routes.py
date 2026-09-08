@@ -6,15 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from UsersAPI.controllers.auth_controller import get_current_user
 from UsersAPI.domains.core.database import get_db
 from UsersAPI.domains.core.models import GlobalUserDB, UserTenantDB
-from UsersAPI.security.controllers.auth_controller import get_current_user
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
 from ..schemas.screening import ClientScreeningRead
 from ..schemas.screening_sync import ScreeningSyncExecutionAccepted, ScreeningSyncExecutionRead
-from ..services.screening_provider import sync_all_screening_lists
 from ..services.screening_report_service import list_screenings
 from ..services.screening_sync_service import create_sync_execution, list_sync_executions, run_sync_execution
 
@@ -105,8 +104,3 @@ async def manual_sync_screening_lists_route(
     if execution.status == "PENDING":
         background_tasks.add_task(run_sync_execution, execution.id)
     return _accepted(execution, "Sincronización manual de listas programada correctamente.")
-
-
-# Conserva una referencia al servicio síncrono para evitar romper integraciones
-# internas que lo importen directamente desde este módulo.
-_sync_all_screening_lists = sync_all_screening_lists
