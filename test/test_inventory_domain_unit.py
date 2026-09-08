@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from UsersAPI.domains.inventory.models import InventoryDB, InventoryMovementDB, ProductDB
+from UsersAPI.domains.inventory.models import InventoryDB, InventoryMovementDB, ProductDB  # noqa: F401
 from UsersAPI.domains.inventory.schemas import (
     InventoryMovementCreate,
     InventoryTypeCreate,
@@ -101,7 +101,9 @@ def test_inventory_type_service_not_found_and_duplicate_update(monkeypatch):
     duplicate = SimpleNamespace(id=2, code="B")
     repository.value = current
     original = repository.get_by_code
-    repository.get_by_code = lambda tenant_id, code: duplicate if code == "B" else original(tenant_id, code)
+    repository.get_by_code = lambda tenant_id, code: (
+        duplicate if code == "B" else original(tenant_id, code)
+    )
 
     with pytest.raises(HTTPException) as error:
         type_service.update_inventory_type(
@@ -159,7 +161,13 @@ def test_product_service_duplicate_and_invalid_type(monkeypatch):
 
 
 def test_product_service_update(monkeypatch):
-    product = SimpleNamespace(id=4, code="P4", name="Old", inventory_type_id=1, active=True)
+    product = SimpleNamespace(
+        id=4,
+        code="P4",
+        name="Old",
+        inventory_type_id=1,
+        active=True,
+    )
     repository = FakeRepository(product)
     type_repo = FakeRepository(SimpleNamespace(id=2, active=True))
     monkeypatch.setattr(product_service, "ProductRepository", lambda _db: repository)
@@ -178,7 +186,7 @@ def test_product_service_update(monkeypatch):
     assert result.active is False
 
 
-def test_inventory_service_calculates_values():
+def test_inventory_service_calculates_values(monkeypatch):
     inventory = InventoryDB(
         tenant_id=7,
         product_id=1,
@@ -187,15 +195,25 @@ def test_inventory_service_calculates_values():
         profit_percentage=Decimal("0.50"),
         created_by="system",
     )
+    movement = InventoryMovementDB(
+        tenant_id=7,
+        product_id=1,
+        movement_type="ENTRY",
+        origin_type="PURCHASE",
+        quantity=Decimal("20"),
+        balance_before=Decimal("0"),
+        balance_after=Decimal("20"),
+        created_by="system",
+    )
+    assert movement.movement_type == "ENTRY"
+
     repo = MagicMock()
     repo.list.return_value = [inventory]
     repo.get_by_product.return_value = inventory
-
-    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(inventory_service, "InventoryRepository", lambda _db: repo)
+
     assert inventory_service.list_inventory(MagicMock(), 7)[0].total_inventory == Decimal("340000")
     assert inventory_service.get_inventory(1, MagicMock(), 7).sale_price == Decimal("25500.00")
-    monkeypatch.undo()
 
 
 def test_inventory_service_not_found(monkeypatch):
@@ -326,7 +344,7 @@ def test_movement_validates_origin_product_and_inventory(monkeypatch):
         )
     assert error.value.status_code == 409
 
-    product, inventory = movement_fixture()
+    product, _ = movement_fixture()
     product_repo.get_by_id.return_value = product
     inventory_repo = MagicMock()
     inventory_repo.get_by_product.return_value = None
