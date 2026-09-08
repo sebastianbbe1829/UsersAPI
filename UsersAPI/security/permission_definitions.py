@@ -21,11 +21,7 @@ PERMISSIONS = [
     ("AUTHENTICATE", "Autenticación", "Permite la autenticación en el sistema"),
     ("CONFIG_UI_CREATE", "Crear configuración de UI", "Permite crear configuración de UI"),
     ("CONFIG_UI_READ", "Consultar configuración de UI", "Permite consultar la configuración de UI"),
-    (
-        "CONFIG_UI_UPDATE",
-        "Actualizar configuración de UI",
-        "Permite actualizar configuración de UI",
-    ),
+    ("CONFIG_UI_UPDATE", "Actualizar configuración de UI", "Permite actualizar configuración de UI"),
     ("EXTINGUISHER_READ", "Consultar extintores", "Permite consultar extintores"),
     ("EXTINGUISHER_CREATE", "Crear extintores", "Permite crear extintores"),
     ("EXTINGUISHER_UPDATE", "Actualizar extintores", "Permite actualizar extintores"),
@@ -44,19 +40,10 @@ PERMISSIONS = [
         "Levantar restricción de cliente",
         "Permite levantar una restricción de compliance mediante autorización",
     ),
-    (
-        "SALES_READ",
-        "Consultar ventas",
-        "Permite consultar ventas y sus detalles",
-    ),
-    (
-        "SALES_CREATE",
-        "Crear ventas",
-        "Permite registrar ventas y afectar el inventario",
-    ),
-    (
-        "SALES_EMAIL",
-        "Enviar factura por correo",
-        "Permite enviar la factura de una venta a los clientes registrados",
-    ),
+    ("SALES_READ", "Consultar ventas", "Permite consultar ventas y sus detalles"),
+    ("SALES_CREATE", "Crear ventas", "Permite registrar ventas y afectar el inventario"),
+    ("SALES_EMAIL", "Enviar factura por correo", "Permite enviar la factura de una venta a los clientes registrados"),
+    ("PORTFOLIO_READ", "Consultar cartera", "Permite consultar cupos, obligaciones y pagos de cartera"),
+    ("PORTFOLIO_CREDIT_UPDATE", "Administrar cupos", "Permite crear y actualizar el cupo de los clientes"),
+    ("PORTFOLIO_PAYMENT_CREATE", "Registrar pagos de cartera", "Permite registrar pagos y aplicarlos a obligaciones"),
 ]
