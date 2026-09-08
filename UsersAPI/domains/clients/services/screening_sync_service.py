@@ -8,7 +8,7 @@ from uuid import UUID
 from UsersAPI.database import SessionLocal
 
 from ..models import ScreeningSyncExecutionDB
-from .screening_provider import sync_all_screening_lists
+from .screening_bulk_sync_service import sync_all_screening_lists_bulk
 
 
 logger = logging.getLogger("UsersAPI.screening")
@@ -74,7 +74,7 @@ def run_sync_execution(execution_id: UUID) -> None:
             started.isoformat(),
         )
 
-        result = sync_all_screening_lists(db)
+        result = sync_all_screening_lists_bulk(db)
         finished = datetime.now(UTC)
         execution.status = result["status"]
         execution.finished_at = finished
