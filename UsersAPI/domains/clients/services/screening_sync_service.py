@@ -27,7 +27,8 @@ def create_sync_execution(
     )
     if running is not None:
         logger.warning(
-            "[SCREENING_SYNC] Se solicitó una nueva ejecución %s pero ya existe una activa id=%s status=%s",
+            "[SCREENING_SYNC] Se solicitó una nueva ejecución %s pero ya existe "
+            "una activa id=%s status=%s",
             trigger_type,
             running.id,
             running.status,
@@ -103,7 +104,11 @@ def run_sync_execution(execution_id: UUID) -> None:
             execution.duration_ms = max(0, int((perf_counter() - started_perf) * 1000))
             execution.error_message = str(exc)[:2000]
             db.commit()
-        logger.exception("[SCREENING_SYNC] Ejecución id=%s terminó con ERROR: %s", execution_id, exc)
+        logger.exception(
+            "[SCREENING_SYNC] Ejecución id=%s terminó con ERROR: %s",
+            execution_id,
+            exc,
+        )
     finally:
         db.close()
         logger.info("[SCREENING_SYNC] Background task finalizada id=%s", execution_id)
