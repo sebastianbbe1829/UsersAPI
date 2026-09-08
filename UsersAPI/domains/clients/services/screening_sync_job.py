@@ -58,13 +58,14 @@ def run_restrictive_lists_sync_job(trigger_type: str = "MANUAL") -> dict:
     now = datetime.now(timezone)
     target = _scheduled_target(now)
 
-    if trigger_type == "SCHEDULE" and now < target:
+    if now < target:
         logger.info(
             "Restrictive lists sync triggered before configured time; skipping: "
-            "current=%s configured=%s timezone=%s",
+            "current=%s configured=%s timezone=%s trigger=%s",
             now.strftime("%H:%M:%S"),
             RUN_TIME,
             TIMEZONE,
+            trigger_type,
         )
         return {
             "status": "skipped",
@@ -72,6 +73,7 @@ def run_restrictive_lists_sync_job(trigger_type: str = "MANUAL") -> dict:
             "current_time": now.strftime("%H:%M:%S"),
             "configured_time": RUN_TIME,
             "timezone": TIMEZONE,
+            "trigger_type": trigger_type,
         }
 
     logger.info(
