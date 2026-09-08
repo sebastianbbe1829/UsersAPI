@@ -26,11 +26,23 @@ class CreditLimitDB(Base):
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
-    client_id = Column(UUID(as_uuid=True), ForeignKey("users_api.clients.id"), nullable=False, index=True)
+    tenant_id = Column(
+        Integer,
+        ForeignKey("users_api.tenants.id"),
+        nullable=False,
+        index=True,
+    )
+    client_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users_api.clients.id"),
+        nullable=False,
+        index=True,
+    )
     approved_limit = Column(Numeric(18, 2), nullable=False, server_default=text("0"))
     active = Column(Boolean, nullable=False, server_default=text("true"))
-    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    created_at = Column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
     created_by = Column(String(100), nullable=False)
     updated_at = Column(DateTime, nullable=True)
     updated_by = Column(String(100), nullable=True)
