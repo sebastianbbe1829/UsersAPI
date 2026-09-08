@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -30,16 +31,52 @@ class InventoryMovementRepository:
         product_id: int,
         limit: int | None = None,
         offset: int = 0,
+        from_datetime: datetime | None = None,
+        to_datetime: datetime | None = None,
     ) -> list[InventoryMovementDB]:
+        query = self._base_query(tenant_id).filter(
+            InventoryMovementDB.product_id == product_id,
+        )
+        query = self._apply_dates(query, from_datetime, to_datetime)
         query = (
-            self.db.query(InventoryMovementDB)
-            .filter(
-                InventoryMovementDB.tenant_id == tenant_id,
-                InventoryMovementDB.product_id == product_id,
-            )
-            .order_by(InventoryMovementDB.created_at, InventoryMovementDB.id)
+            query.order_by(InventoryMovementDB.created_at, InventoryMovementDB.id)
             .offset(max(offset, 0))
         )
         if limit is not None:
             query = query.limit(limit)
         return query.all()
+
+    def list_all(
+        self,
+        tenant_id: int,
+        limit: int | None = None,
+        offset: int = 0,
+        from_datetime: datetime | None = None,
+        to_datetime: datetime | None = None,
+    ) -> list[InventoryMovementDB]:
+        query = self._base_query(tenant_id)
+        query = self._apply_dates(query, from_datetime, to_datetime)
+        query = (
+            query.order_by(InventoryMovementDB.created_at, InventoryMovementDB.id)
+            .offset(max(offset, 0))
+        )
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
+
+    def _base_query(self, tenant_id: int):
+        return self.db.query(InventoryMovementDB).filter(
+            InventoryMovementDB.tenant_id == tenant_id,
+        )
+
+    @staticmethod
+    def _apply_dates(
+        query,
+        from_datetime: datetime | None,
+        to_datetime: datetime | None,
+    ):
+        if from_datetime is not None:
+            query = query.filter(InventoryMovementDB.created_at >= from_datetime)
+        if to_datetime is not None:
+            query = query.filter(InventoryMovementDB.created_at < to_datetime)
+        return query

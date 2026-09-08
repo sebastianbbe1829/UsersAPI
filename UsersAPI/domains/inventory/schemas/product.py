@@ -4,7 +4,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProductBase(BaseModel):
-    code: str = Field(min_length=1, max_length=30)
     name: str = Field(min_length=1, max_length=150)
     inventory_type_id: int
     active: bool = True
@@ -15,7 +14,6 @@ class ProductCreate(ProductBase):
 
 
 class ProductUpdate(BaseModel):
-    code: str | None = Field(default=None, min_length=1, max_length=30)
     name: str | None = Field(default=None, min_length=1, max_length=150)
     inventory_type_id: int | None = None
     active: bool | None = None
@@ -26,6 +24,7 @@ class ProductRead(ProductBase):
 
     id: int
     tenant_id: int
+    code: str
     created_at: datetime
     created_by: str
     updated_at: datetime | None

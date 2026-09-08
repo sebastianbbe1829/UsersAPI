@@ -14,6 +14,9 @@ ignore = [
   "B008",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"test/test_inventory_domain_unit.py" = ["E501", "F401"]
+
 [tool.pytest.ini_options]
 filterwarnings = [
   "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning:starlette.testclient",

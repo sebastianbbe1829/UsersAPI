@@ -2,6 +2,7 @@ from .inventory_movement_service import (
     create_inventory_movement,
     get_inventory_movement,
     list_inventory_movements,
+    reverse_inventory_movement,
 )
 from .inventory_service import get_inventory, list_inventory
 from .inventory_type_service import (
@@ -21,6 +22,7 @@ __all__ = [
     "list_inventory_movements",
     "list_inventory_types",
     "list_products",
+    "reverse_inventory_movement",
     "update_inventory_type",
     "update_product",
 ]

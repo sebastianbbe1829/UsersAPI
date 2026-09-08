@@ -1,3 +1,5 @@
+from datetime import date
+from decimal import Decimal
 from typing import cast
 from uuid import UUID
 
@@ -18,8 +20,18 @@ from ..controllers.catalog_controller import (
     update_product_item,
     update_type,
 )
-from ..controllers.inventory_controller import get_inventory_item, list_inventory_items
-from ..controllers.movement_controller import create_movement, get_movement, list_movements
+from ..controllers.inventory_controller import (
+    export_inventory,
+    get_inventory_item,
+    list_inventory_items,
+)
+from ..controllers.movement_controller import (
+    create_movement,
+    export_movements,
+    get_movement,
+    list_movements,
+    reverse_movement,
+)
 from ..schemas import (
     InventoryMovementCreate,
     InventoryMovementRead,
@@ -118,7 +130,32 @@ async def update_product_route(
     current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    return update_product_item(item_id, data, db, cast(int, user_tenant.tenant_id), current_user)
+    return update_product_item(
+        item_id,
+        data,
+        db,
+        cast(int, user_tenant.tenant_id),
+        current_user,
+    )
+
+
+@inventory_routes.get(
+    "/export",
+    response_description="Exportar inventario a Excel",
+    dependencies=[Depends(require_permission("INVENTORY_READ"))],
+)
+async def export_inventory_route(
+    search: str | None = None,
+    inventory_type_id: int | None = Query(None, gt=0),
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return export_inventory(
+        db,
+        cast(int, user_tenant.tenant_id),
+        search,
+        inventory_type_id,
+    )
 
 
 @inventory_routes.get(
@@ -162,16 +199,61 @@ async def create_inventory_movement_route(
 
 
 @inventory_routes.get(
+    "/movements/export",
+    response_description="Exportar Kardex a Excel",
+    dependencies=[Depends(require_permission("INVENTORY_MOVEMENT_READ"))],
+)
+async def export_inventory_movements_route(
+    product_id: int | None = Query(None, gt=0),
+    from_date: date | None = None,
+    to_date: date | None = None,
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return export_movements(
+        db,
+        cast(int, user_tenant.tenant_id),
+        product_id,
+        from_date,
+        to_date,
+    )
+
+
+@inventory_routes.post(
+    "/movements/{movement_id}/reverse",
+    response_model=InventoryMovementRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("INVENTORY_MOVEMENT_CREATE"))],
+)
+async def reverse_inventory_movement_route(
+    movement_id: UUID,
+    quantity: Decimal | None = Query(None, gt=0),
+    db: Session = Depends(get_db),
+    current_user: UserTenantDB = Depends(get_current_user),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return reverse_movement(
+        movement_id,
+        quantity,
+        db,
+        cast(int, user_tenant.tenant_id),
+        current_user,
+    )
+
+
+@inventory_routes.get(
     "/movements",
     response_model=list[InventoryMovementRead],
     dependencies=[Depends(require_permission("INVENTORY_MOVEMENT_READ"))],
 )
 async def list_inventory_movements_route(
-    product_id: int = Query(..., gt=0),
+    product_id: int | None = Query(None, gt=0),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
+    from_date: date | None = None,
+    to_date: date | None = None,
 ):
     return list_movements(
         product_id,
@@ -179,6 +261,8 @@ async def list_inventory_movements_route(
         cast(int, user_tenant.tenant_id),
         limit=limit,
         offset=offset,
+        from_date=from_date,
+        to_date=to_date,
     )
 
 
