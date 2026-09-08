@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -29,8 +30,20 @@ def update_client_credit(
     return upsert_client_credit_limit(client_id, data, db, tenant_id, current_user)
 
 
-def obligations(db: Session, tenant_id: int):
-    return list_obligations(db, tenant_id)
+def obligations(
+    db: Session,
+    tenant_id: int,
+    client_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+):
+    return list_obligations(
+        db,
+        tenant_id,
+        client_id=client_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 def client_obligations(client_id: UUID, db: Session, tenant_id: int):
