@@ -12,6 +12,7 @@ from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
 from ..controllers import (
+    annul_payment_route,
     client_credit,
     client_obligations,
     create_payment,
@@ -113,6 +114,25 @@ async def create_payment_route(
     return create_payment(data, db, cast(int, user_tenant.tenant_id), current_user)
 
 
+@portfolio_routes.post(
+    "/payments/{payment_id}/annul",
+    response_model=PaymentRead,
+    dependencies=[Depends(require_permission("PORTFOLIO_PAYMENT_CREATE"))],
+)
+async def annul_payment_endpoint(
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserTenantDB = Depends(get_current_user),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return annul_payment_route(
+        payment_id,
+        db,
+        cast(int, user_tenant.tenant_id),
+        current_user,
+    )
+
+
 @portfolio_routes.get(
     "/payments",
     response_model=list[PaymentRead],
@@ -120,7 +140,17 @@ async def create_payment_route(
 )
 async def list_payments_route(
     client_id: UUID | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    payment_status: str | None = Query(None, alias="status", pattern="^(APLICADO|ANULADO)$"),
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    return payments(db, cast(int, user_tenant.tenant_id), client_id)
+    return payments(
+        db,
+        cast(int, user_tenant.tenant_id),
+        client_id=client_id,
+        date_from=date_from,
+        date_to=date_to,
+        payment_status=payment_status,
+    )
