@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..models import InventoryDB, ProductDB
-from ..repositories import InventoryRepository, InventoryTypeRepository, ProductRepository
+from ..models import ProductDB
+from ..repositories import InventoryTypeRepository, ProductRepository
 from ..schemas import ProductCreate, ProductUpdate
 
 
@@ -36,38 +36,19 @@ def create_product(
     current_user: object,
 ) -> ProductDB:
     repository = ProductRepository(db)
-    code = data.code.strip().upper()
-    if repository.get_by_code(tenant_id, code):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Product code already exists in this tenant",
-        )
     _validate_inventory_type(db, tenant_id, data.inventory_type_id)
 
     now = datetime.now(UTC)
     product = ProductDB(
         tenant_id=tenant_id,
-        code=code,
+        code=repository.next_code(tenant_id),
         name=data.name.strip(),
         inventory_type_id=data.inventory_type_id,
         active=data.active,
         created_at=now,
         created_by=_actor_name(current_user),
     )
-    product = repository.add(product)
-
-    InventoryRepository(db).add(
-        InventoryDB(
-            tenant_id=tenant_id,
-            product_id=product.id,
-            quantity=0,
-            purchase_price=None,
-            profit_percentage=0,
-            created_at=now,
-            created_by=_actor_name(current_user),
-        )
-    )
-    return product
+    return repository.add(product)
 
 
 def list_products(
@@ -91,15 +72,6 @@ def update_product(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
     changes = data.model_dump(exclude_unset=True)
-    if "code" in changes:
-        code = changes["code"].strip().upper()
-        duplicate = repository.get_by_code(tenant_id, code)
-        if duplicate is not None and duplicate.id != product.id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Product code already exists in this tenant",
-            )
-        product.code = code
     if "name" in changes:
         product.name = changes["name"].strip()
     if "inventory_type_id" in changes:
