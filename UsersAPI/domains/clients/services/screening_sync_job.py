@@ -99,7 +99,8 @@ def run_restrictive_lists_sync_job(trigger_type: str = "MANUAL") -> dict:
 
         if _already_succeeded_today(db, now):
             logger.info(
-                "[SCREENING_SYNC_JOB] Ya existe una sincronización SUCCESS para %s; no se ejecuta nuevamente",
+                "[SCREENING_SYNC_JOB] Ya existe una sincronización SUCCESS para %s; "
+                "no se ejecuta nuevamente",
                 now.date().isoformat(),
             )
             return {
