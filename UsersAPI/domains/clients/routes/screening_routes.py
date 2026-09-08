@@ -13,9 +13,16 @@ from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
 from ..schemas.screening import ClientScreeningRead
-from ..schemas.screening_sync import ScreeningSyncExecutionAccepted, ScreeningSyncExecutionRead
+from ..schemas.screening_sync import (
+    ScreeningSyncExecutionAccepted,
+    ScreeningSyncExecutionRead,
+)
 from ..services.screening_report_service import list_screenings
-from ..services.screening_sync_service import create_sync_execution, list_sync_executions, run_sync_execution
+from ..services.screening_sync_service import (
+    create_sync_execution,
+    list_sync_executions,
+    run_sync_execution,
+)
 
 
 screening_routes = APIRouter(
