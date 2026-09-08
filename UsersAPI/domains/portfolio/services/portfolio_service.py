@@ -107,8 +107,19 @@ def upsert_client_credit_limit(
     return _credit_read(credit_limit, db, tenant_id)
 
 
-def list_obligations(db: Session, tenant_id: int):
-    return PortfolioRepository(db).list_obligations(tenant_id)
+def list_obligations(
+    db: Session,
+    tenant_id: int,
+    client_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+):
+    return PortfolioRepository(db).list_obligations(
+        tenant_id,
+        client_id=client_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 def list_client_obligations(client_id: UUID, db: Session, tenant_id: int):
