@@ -24,7 +24,13 @@ class SaleCreate(BaseModel):
     items: list[SaleItemCreate] = Field(min_length=1)
     customers: list[SaleCustomerCreate] = Field(default_factory=list)
     payments: list[SalePaymentCreate] = Field(min_length=1)
-    discount_percentage: Decimal = Field(default=Decimal("0"), ge=0, le=100, max_digits=7, decimal_places=4)
+    discount_percentage: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        le=100,
+        max_digits=7,
+        decimal_places=4,
+    )
 
 
 class SaleItemRead(BaseModel):
