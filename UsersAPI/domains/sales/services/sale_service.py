@@ -137,14 +137,6 @@ def create_sale(
     )
     has_credit = credit_amount > 0
 
-    if has_credit and (
-        normalized_methods.count("CREDITO") != 1 or len(normalized_methods) != 1
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Credit sales require a single CREDITO payment method",
-        )
-
     if has_credit and len(data.customers) > 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
