@@ -4,9 +4,6 @@ from urllib.parse import urlparse
 import requests
 from fastapi import HTTPException, status
 
-BRAVE_IMAGES_URL = "https://api.search.brave.com/res/v1/images/search"
-PEXELS_IMAGES_URL = "https://api.pexels.com/v1/search"
-
 
 def _hostname(url: str | None) -> str | None:
     if not url:
@@ -14,9 +11,14 @@ def _hostname(url: str | None) -> str | None:
     return urlparse(url).hostname
 
 
-def _search_brave(query: str, per_page: int, api_key: str) -> list[dict[str, str | int | None]]:
+def _provider_url(name: str) -> str | None:
+    value = os.getenv(name)
+    return value.strip() if value and value.strip() else None
+
+
+def _search_brave(query: str, per_page: int, api_key: str, images_url: str) -> list[dict[str, str | int | None]]:
     response = requests.get(
-        BRAVE_IMAGES_URL,
+        images_url,
         headers={
             "Accept": "application/json",
             "Accept-Encoding": "gzip",
@@ -60,9 +62,9 @@ def _search_brave(query: str, per_page: int, api_key: str) -> list[dict[str, str
     return results
 
 
-def _search_pexels(query: str, per_page: int, api_key: str) -> list[dict[str, str | int | None]]:
+def _search_pexels(query: str, per_page: int, api_key: str, images_url: str) -> list[dict[str, str | int | None]]:
     response = requests.get(
-        PEXELS_IMAGES_URL,
+        images_url,
         headers={"Authorization": api_key},
         params={
             "query": query.strip(),
@@ -94,6 +96,8 @@ def search_product_images(query: str, per_page: int = 12) -> list[dict[str, str 
     clean_query = query.strip()
     brave_key = os.getenv("BRAVE_SEARCH_API_KEY")
     pexels_key = os.getenv("PEXELS_API_KEY")
+    brave_url = _provider_url("BRAVE_IMAGES_URL")
+    pexels_url = _provider_url("PEXELS_IMAGES_URL")
     limit = min(max(per_page, 1), 20)
 
     if not brave_key and not pexels_key:
@@ -102,17 +106,17 @@ def search_product_images(query: str, per_page: int = 12) -> list[dict[str, str 
             detail="Product image search is not configured. Set BRAVE_SEARCH_API_KEY or PEXELS_API_KEY.",
         )
 
-    if brave_key:
+    if brave_key and brave_url:
         try:
-            results = _search_brave(clean_query, limit, brave_key)
+            results = _search_brave(clean_query, limit, brave_key, brave_url)
             if results:
                 return results
         except requests.RequestException:
             pass
 
-    if pexels_key:
+    if pexels_key and pexels_url:
         try:
-            return _search_pexels(clean_query, limit, pexels_key)
+            return _search_pexels(clean_query, limit, pexels_key, pexels_url)
         except requests.RequestException as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -120,6 +124,6 @@ def search_product_images(query: str, per_page: int = 12) -> list[dict[str, str 
             ) from exc
 
     raise HTTPException(
-        status_code=status.HTTP_502_BAD_GATEWAY,
-        detail="Could not retrieve product images from the configured provider.",
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Product image search is not configured. Set the provider API key and URL environment variables.",
     )
