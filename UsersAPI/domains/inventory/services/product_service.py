@@ -67,6 +67,14 @@ def list_products(
     return ProductRepository(db).list(tenant_id, active_only=active_only)
 
 
+def list_top_selling_products(
+    db: Session,
+    tenant_id: int,
+    limit: int = 6,
+) -> list[ProductDB]:
+    return ProductRepository(db).list_top_selling(tenant_id, limit=limit)
+
+
 def update_product(
     product_id: int,
     data: ProductUpdate,
