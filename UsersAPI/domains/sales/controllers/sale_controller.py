@@ -8,8 +8,20 @@ from ..schemas import SaleCreate
 from ..services import create_sale, get_sale, list_sales
 
 
-def create(data: SaleCreate, db: Session, tenant_id: int, current_user: UserTenantDB):
-    return create_sale(data, db, tenant_id, current_user)
+def create(
+    data: SaleCreate,
+    db: Session,
+    tenant_id: int,
+    current_user: UserTenantDB,
+    is_autoconsumption: bool = False,
+):
+    return create_sale(
+        data,
+        db,
+        tenant_id,
+        current_user,
+        is_autoconsumption=is_autoconsumption,
+    )
 
 
 def get(sale_id: UUID, db: Session, tenant_id: int):
