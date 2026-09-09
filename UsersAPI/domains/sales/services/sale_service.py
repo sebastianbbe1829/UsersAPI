@@ -329,9 +329,10 @@ def create_sale(
                 )
             )
 
+    # SalePaymentDB represents the payment method selected for the sale.
+    # CREDITO is a valid sale payment method and must be persisted here.
+    # Actual money received later is represented separately by PaymentDB.
     for payment, method in zip(data.payments, normalized_methods):
-        if method in CREDIT_METHODS:
-            continue
         sale.payments.append(
             SalePaymentDB(
                 tenant_id=tenant_id,
