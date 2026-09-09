@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pytest
 
 from UsersAPI.domains.inventory.services import product_image_service
