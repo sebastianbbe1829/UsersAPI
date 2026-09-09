@@ -78,7 +78,7 @@ def _search_pexels(query: str, limit: int) -> list[dict[str, str | int | None]]:
     for item in payload.get("photos", []):
         src = item.get("src") or {}
         image_url = src.get("original") or src.get("large") or src.get("medium")
-        thumbnail_url = src.get("medium") or src.get("small") or image_url
+        thumbnail_url = src.get("small") or src.get("medium") or image_url
         source_url = item.get("url")
         if not _valid_image_url(image_url) or not _valid_image_url(thumbnail_url):
             continue
