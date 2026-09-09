@@ -1,4 +1,5 @@
 import pytest
+from types import SimpleNamespace
 
 from UsersAPI.domains.inventory.services import product_image_service
 
@@ -15,10 +16,16 @@ class FakeResponse:
 
 
 def configure_providers(monkeypatch):
-    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "brave-test-key")
-    monkeypatch.setenv("BRAVE_IMAGES_URL", "https://brave.example/images")
-    monkeypatch.setenv("PEXELS_API_KEY", "pexels-test-key")
-    monkeypatch.setenv("PEXELS_IMAGES_URL", "https://pexels.example/search")
+    monkeypatch.setattr(
+        product_image_service,
+        "settings",
+        SimpleNamespace(
+            brave_search_api_key="brave-test-key",
+            brave_images_url="https://brave.example/images",
+            pexels_api_key="pexels-test-key",
+            pexels_images_url="https://pexels.example/search",
+        ),
+    )
 
 
 def test_search_product_images_uses_brave_first(monkeypatch):
@@ -51,8 +58,12 @@ def test_search_product_images_uses_brave_first(monkeypatch):
     assert result[0]["source_url"] == "https://example.com/producto"
     assert calls[0][0] == "https://brave.example/images"
     assert calls[0][1]["headers"]["X-Subscription-Token"] == "brave-test-key"
-    assert calls[0][1]["params"]["country"] == "CO"
-    assert calls[0][1]["params"]["search_lang"] == "es"
+    assert calls[0][1]["params"] == {
+        "q": "Aguardiente Antioqueño Litro",
+        "count": 12,
+        "safesearch": "strict",
+        "spellcheck": "true",
+    }
 
 
 def test_search_product_images_falls_back_to_pexels(monkeypatch):
@@ -90,10 +101,16 @@ def test_search_product_images_falls_back_to_pexels(monkeypatch):
 
 
 def test_search_product_images_requires_at_least_one_provider(monkeypatch):
-    monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
-    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
-    monkeypatch.delenv("BRAVE_IMAGES_URL", raising=False)
-    monkeypatch.delenv("PEXELS_IMAGES_URL", raising=False)
+    monkeypatch.setattr(
+        product_image_service,
+        "settings",
+        SimpleNamespace(
+            brave_search_api_key="",
+            brave_images_url="",
+            pexels_api_key="",
+            pexels_images_url="",
+        ),
+    )
 
     with pytest.raises(product_image_service.HTTPException) as exc_info:
         product_image_service.search_product_images("cafe")
