@@ -39,7 +39,10 @@ class InventoryMovementRepository:
         )
         query = self._apply_dates(query, from_datetime, to_datetime)
         query = (
-            query.order_by(InventoryMovementDB.created_at, InventoryMovementDB.id)
+            query.order_by(
+                InventoryMovementDB.created_at.desc(),
+                InventoryMovementDB.id.desc(),
+            )
             .offset(max(offset, 0))
         )
         if limit is not None:
@@ -57,7 +60,10 @@ class InventoryMovementRepository:
         query = self._base_query(tenant_id)
         query = self._apply_dates(query, from_datetime, to_datetime)
         query = (
-            query.order_by(InventoryMovementDB.created_at, InventoryMovementDB.id)
+            query.order_by(
+                InventoryMovementDB.created_at.desc(),
+                InventoryMovementDB.id.desc(),
+            )
             .offset(max(offset, 0))
         )
         if limit is not None:
