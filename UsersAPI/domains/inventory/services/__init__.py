@@ -11,7 +11,12 @@ from .inventory_type_service import (
     update_inventory_type,
 )
 from .product_image_service import search_product_images
-from .product_service import create_product, list_products, update_product
+from .product_service import (
+    create_product,
+    list_products,
+    list_top_selling_products,
+    update_product,
+)
 
 __all__ = [
     "create_inventory_movement",
@@ -23,6 +28,7 @@ __all__ = [
     "list_inventory_movements",
     "list_inventory_types",
     "list_products",
+    "list_top_selling_products",
     "reverse_inventory_movement",
     "search_product_images",
     "update_inventory_type",

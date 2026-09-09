@@ -1,7 +1,9 @@
-from sqlalchemy import text
+from __future__ import annotations
+
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from ..models import ProductDB
+from ..models import InventoryMovementDB, ProductDB
 
 
 class ProductRepository:
@@ -60,6 +62,31 @@ class ProductRepository:
         if active_only:
             query = query.filter(ProductDB.active.is_(True))
         return query.order_by(ProductDB.name, ProductDB.id).all()
+
+    def list_top_selling(
+        self,
+        tenant_id: int,
+        limit: int = 6,
+    ) -> list[ProductDB]:
+        sales_quantity = func.coalesce(func.sum(InventoryMovementDB.quantity), 0)
+        return (
+            self.db.query(ProductDB)
+            .join(
+                InventoryMovementDB,
+                (InventoryMovementDB.tenant_id == ProductDB.tenant_id)
+                & (InventoryMovementDB.product_id == ProductDB.id),
+            )
+            .filter(
+                ProductDB.tenant_id == tenant_id,
+                ProductDB.active.is_(True),
+                InventoryMovementDB.origin_type == "SALE",
+                InventoryMovementDB.movement_type == "EXIT",
+            )
+            .group_by(ProductDB.id)
+            .order_by(sales_quantity.desc(), ProductDB.name, ProductDB.id)
+            .limit(limit)
+            .all()
+        )
 
     def save(self, product: ProductDB) -> ProductDB:
         self.db.add(product)

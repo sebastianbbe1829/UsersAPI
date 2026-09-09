@@ -16,6 +16,7 @@ from ..controllers.catalog_controller import (
     create_product_item,
     create_type,
     list_product_items,
+    list_top_selling_product_items,
     list_types,
     update_product_item,
     update_type,
@@ -102,6 +103,23 @@ async def list_products_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     return list_product_items(db, cast(int, user_tenant.tenant_id), active_only)
+
+
+@inventory_routes.get(
+    "/products/top-selling",
+    response_model=list[ProductRead],
+    dependencies=[Depends(require_permission("INVENTORY_READ"))],
+)
+async def list_top_selling_products_route(
+    limit: int = Query(6, ge=1, le=20),
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return list_top_selling_product_items(
+        db,
+        cast(int, user_tenant.tenant_id),
+        limit=limit,
+    )
 
 
 @inventory_routes.get(
