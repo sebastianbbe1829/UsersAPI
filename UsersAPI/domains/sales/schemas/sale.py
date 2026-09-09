@@ -70,6 +70,7 @@ class SaleRead(BaseModel):
     tenant_id: int
     sale_number: str
     status: str
+    is_autoconsumption: bool
     subtotal: Decimal
     discount_percentage: Decimal
     discount_amount: Decimal
