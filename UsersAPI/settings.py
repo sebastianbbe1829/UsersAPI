@@ -52,6 +52,10 @@ class Settings:
     whatsapp_mode: str = os.getenv("WHATSAPP_MODE", "template")
     whatsapp_api_url: str = os.getenv("WHATSAPP_API_URL", "")
     client_screening_sync_key: str = os.getenv("CLIENT_SCREENING_SYNC_KEY", "")
+    brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
+    brave_images_url: str = os.getenv("BRAVE_IMAGES_URL", "")
+    pexels_api_key: str = os.getenv("PEXELS_API_KEY", "")
+    pexels_images_url: str = os.getenv("PEXELS_IMAGES_URL", "")
     port: int = int(os.getenv("PORT", "8000"))
 
 

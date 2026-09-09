@@ -184,11 +184,19 @@ def test_divipola_helpers_and_seed(tmp_path):
 def test_product_image_service_success_and_errors():
     from UsersAPI.domains.inventory.services import product_image_service as service
 
-    with patch.dict("os.environ", {}, clear=True):
+    test_settings = SimpleNamespace(
+        brave_search_api_key="",
+        brave_images_url="",
+        pexels_api_key="",
+        pexels_images_url="",
+    )
+    with patch.object(service, "settings", test_settings):
         with pytest.raises(HTTPException) as exc:
             service.search_product_images("café")
         assert exc.value.status_code == 503
 
+    test_settings.pexels_api_key = "key"
+    test_settings.pexels_images_url = "https://pexels.example/search"
     response = MagicMock()
     response.json.return_value = {
         "photos": [
@@ -196,13 +204,13 @@ def test_product_image_service_success_and_errors():
             {"id": 2, "src": {}, "url": "https://p/2"},
         ]
     }
-    with patch.dict("os.environ", {"PEXELS_API_KEY": "key"}):
+    with patch.object(service, "settings", test_settings):
         with patch.object(service.requests, "get", return_value=response) as get:
             result = service.search_product_images("  café  ", 99)
-    assert result[0]["id"] == 1
+    assert result[0]["url"] == "https://img/1"
     assert get.call_args.kwargs["params"]["per_page"] == 20
 
-    with patch.dict("os.environ", {"PEXELS_API_KEY": "key"}):
+    with patch.object(service, "settings", test_settings):
         with patch.object(
             service.requests,
             "get",
