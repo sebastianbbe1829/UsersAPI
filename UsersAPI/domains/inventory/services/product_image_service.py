@@ -1,8 +1,9 @@
-import os
 from urllib.parse import urlparse
 
 import requests
 from fastapi import HTTPException, status
+
+from UsersAPI.settings import settings
 
 
 def _hostname(url: str | None) -> str | None:
@@ -11,18 +12,16 @@ def _hostname(url: str | None) -> str | None:
     return urlparse(url).hostname
 
 
-def _provider_url(name: str) -> str | None:
-    value = os.getenv(name)
-    return value.strip() if value and value.strip() else None
-
-
-def _search_brave(query: str, per_page: int, api_key: str, images_url: str) -> list[dict[str, str | int | None]]:
+def _search_brave(
+    query: str,
+    per_page: int,
+) -> list[dict[str, str | int | None]]:
     response = requests.get(
-        images_url,
+        settings.brave_images_url,
         headers={
             "Accept": "application/json",
             "Accept-Encoding": "gzip",
-            "X-Subscription-Token": api_key,
+            "X-Subscription-Token": settings.brave_search_api_key,
         },
         params={
             "q": query.strip(),
@@ -62,10 +61,13 @@ def _search_brave(query: str, per_page: int, api_key: str, images_url: str) -> l
     return results
 
 
-def _search_pexels(query: str, per_page: int, api_key: str, images_url: str) -> list[dict[str, str | int | None]]:
+def _search_pexels(
+    query: str,
+    per_page: int,
+) -> list[dict[str, str | int | None]]:
     response = requests.get(
-        images_url,
-        headers={"Authorization": api_key},
+        settings.pexels_images_url,
+        headers={"Authorization": settings.pexels_api_key},
         params={
             "query": query.strip(),
             "per_page": min(max(per_page, 1), 20),
@@ -92,31 +94,30 @@ def _search_pexels(query: str, per_page: int, api_key: str, images_url: str) -> 
     ]
 
 
-def search_product_images(query: str, per_page: int = 12) -> list[dict[str, str | int | None]]:
+def search_product_images(
+    query: str,
+    per_page: int = 12,
+) -> list[dict[str, str | int | None]]:
     clean_query = query.strip()
-    brave_key = os.getenv("BRAVE_SEARCH_API_KEY")
-    pexels_key = os.getenv("PEXELS_API_KEY")
-    brave_url = _provider_url("BRAVE_IMAGES_URL")
-    pexels_url = _provider_url("PEXELS_IMAGES_URL")
     limit = min(max(per_page, 1), 20)
 
-    if not brave_key and not pexels_key:
+    if not settings.brave_search_api_key and not settings.pexels_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Product image search is not configured. Set BRAVE_SEARCH_API_KEY or PEXELS_API_KEY.",
         )
 
-    if brave_key and brave_url:
+    if settings.brave_search_api_key and settings.brave_images_url:
         try:
-            results = _search_brave(clean_query, limit, brave_key, brave_url)
+            results = _search_brave(clean_query, limit)
             if results:
                 return results
         except requests.RequestException:
             pass
 
-    if pexels_key and pexels_url:
+    if settings.pexels_api_key and settings.pexels_images_url:
         try:
-            return _search_pexels(clean_query, limit, pexels_key, pexels_url)
+            return _search_pexels(clean_query, limit)
         except requests.RequestException as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
