@@ -1,7 +1,7 @@
-"""add sales autoconsumption
+"""add sales autoconsumption and merge current heads
 
 Revision ID: e1f3a5c7d9b1
-Revises: d9e0f1a2b3c4
+Revises: d9e0f1a2b3c4, a4b5c6d7e8f9, f7a9c2e1b304
 Create Date: 2026-09-08
 """
 
@@ -11,7 +11,11 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "e1f3a5c7d9b1"
-down_revision: Union[str, Sequence[str], None] = "d9e0f1a2b3c4"
+down_revision: Union[str, Sequence[str], None] = (
+    "d9e0f1a2b3c4",
+    "a4b5c6d7e8f9",
+    "f7a9c2e1b304",
+)
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -29,7 +33,6 @@ def upgrade() -> None:
         ),
         schema=SCHEMA,
     )
-
     op.execute(
         """
         INSERT INTO users_api.permissions (code, name, description, status, created_by)
@@ -64,15 +67,9 @@ def downgrade() -> None:
         """
         DELETE FROM users_api.role_permissions
         WHERE permission_id IN (
-            SELECT id FROM users_api.permissions
-            WHERE code = 'SALES_AUTOCONSUME'
+            SELECT id FROM users_api.permissions WHERE code = 'SALES_AUTOCONSUME'
         )
         """
     )
-    op.execute(
-        """
-        DELETE FROM users_api.permissions
-        WHERE code = 'SALES_AUTOCONSUME'
-        """
-    )
+    op.execute("DELETE FROM users_api.permissions WHERE code = 'SALES_AUTOCONSUME'")
     op.drop_column("sales", "is_autoconsumption", schema=SCHEMA)
