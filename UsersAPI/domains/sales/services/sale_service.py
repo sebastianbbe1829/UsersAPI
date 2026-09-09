@@ -21,7 +21,7 @@ from ..repositories import SaleRepository
 from ..schemas import SaleCreate
 
 MONEY_UNIT = Decimal("1")
-CREDIT_METHODS = {"CARTERA"}
+CREDIT_METHODS = {"CARTERA", "CREDITO"}
 STANDARD_CARTERA_METHOD = "CARTERA"
 
 
