@@ -42,17 +42,22 @@ def test_sale_service_validation_and_helpers():
         is_listed=False,
         compliance_status="CLEAR",
     )
+    sale = SimpleNamespace(total=Decimal("10"), payments=[])
     with (
         patch.object(service.SaleRepository, "next_sale_number", return_value="V-MIX"),
-        patch.object(service.SaleRepository, "get_by_id", side_effect=lambda tenant_id, sale_id: sale),
+        patch.object(
+            service.SaleRepository,
+            "get_by_id",
+            side_effect=lambda tenant_id, sale_id: sale,
+        ),
         patch.object(service, "_credit_available", return_value=Decimal("100")),
         patch.object(service, "create_inventory_movement"),
     ):
         db.scalar.side_effect = [inventory, product, client]
-        sale = service.create_sale(mixed_credit, db, 1, user)
+        result = service.create_sale(mixed_credit, db, 1, user)
 
-    assert sale.total == Decimal("10")
-    assert [(p.payment_method, p.amount) for p in sale.payments] == [
+    assert result.total == Decimal("10")
+    assert [(p.payment_method, p.amount) for p in result.payments] == [
         ("CREDITO", Decimal("5")),
         ("EFECTIVO", Decimal("5")),
     ]
