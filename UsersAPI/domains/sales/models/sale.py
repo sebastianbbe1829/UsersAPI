@@ -42,6 +42,7 @@ class SaleDB(Base):
     tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
     sale_number = Column(String(30), nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'COMPLETED'"))
+    is_autoconsumption = Column(Boolean, nullable=False, server_default=text("false"))
     subtotal = Column(Numeric(18, 2), nullable=False)
     discount_percentage = Column(Numeric(7, 4), nullable=False, server_default=text("0"))
     discount_amount = Column(Numeric(18, 2), nullable=False, server_default=text("0"))

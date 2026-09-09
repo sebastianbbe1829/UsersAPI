@@ -21,7 +21,7 @@ from ..repositories import SaleRepository
 from ..schemas import SaleCreate
 
 MONEY_UNIT = Decimal("1")
-CREDIT_METHOD = "CREDITO"
+CREDIT_METHODS = {"CREDITO"}
 
 
 def _money(value: Decimal) -> Decimal:
@@ -36,12 +36,14 @@ def _actor_name(current_user: object | None) -> str:
     )
 
 
-def _sale_price(inventory: InventoryDB) -> Decimal:
+def _sale_price(inventory: InventoryDB, at_cost: bool = False) -> Decimal:
     if inventory.quantity <= 0 or inventory.purchase_price is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Product has no available inventory price",
         )
+    if at_cost:
+        return _money(Decimal(inventory.purchase_price))
     return _money(
         Decimal(inventory.purchase_price)
         * (Decimal("1") + Decimal(inventory.profit_percentage or 0))
@@ -99,12 +101,19 @@ def create_sale(
     db: Session,
     tenant_id: int,
     current_user: object,
+    is_autoconsumption: bool = False,
 ) -> SaleDB:
     product_ids = [item.product_id for item in data.items]
     if len(product_ids) != len(set(product_ids)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A product cannot appear more than once in a sale",
+        )
+
+    if is_autoconsumption and Decimal(data.discount_percentage) != Decimal("0"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Autoconsumption sales cannot apply additional discounts",
         )
 
     payment_total = _money(
@@ -121,19 +130,19 @@ def create_sale(
             (
                 Decimal(payment.amount)
                 for payment, method in zip(data.payments, normalized_methods)
-                if method == CREDIT_METHOD
+                if method in CREDIT_METHODS
             ),
             Decimal("0"),
         )
     )
     has_credit = credit_amount > 0
-    if has_credit and (
-        len(data.payments) != 1 or normalized_methods[0] != CREDIT_METHOD
-    ):
+
+    if has_credit and len(data.customers) > 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Credit sales must be fully financed by a single CREDITO payment",
+            detail="Credit sales cannot be split among multiple clients",
         )
+
     if has_credit and (
         len(data.customers) != 1
         or data.customers[0].client_id is None
@@ -141,7 +150,7 @@ def create_sale(
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Credit sales cannot be split and require exactly one registered client",
+            detail="Credit sales require exactly one registered client",
         )
 
     actor = _actor_name(current_user)
@@ -150,6 +159,7 @@ def create_sale(
         tenant_id=tenant_id,
         sale_number=repository.next_sale_number(tenant_id),
         status="PENDING" if has_credit else "COMPLETED",
+        is_autoconsumption=is_autoconsumption,
         subtotal=Decimal("0"),
         discount_percentage=data.discount_percentage,
         discount_amount=Decimal("0"),
@@ -197,7 +207,7 @@ def create_sale(
         inventory_profits[item.product_id] = Decimal(
             inventory.profit_percentage or 0
         )
-        unit_price = _sale_price(inventory)
+        unit_price = _sale_price(inventory, at_cost=is_autoconsumption)
         line_total = _money(Decimal(item.quantity) * unit_price)
         subtotal += line_total
         sale.items.append(
@@ -295,7 +305,7 @@ def create_sale(
                     )
                 if has_credit:
                     available = _credit_available(client.id, db, tenant_id)
-                    if total > available:
+                    if credit_amount > available:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
                             detail=(
@@ -325,6 +335,9 @@ def create_sale(
                 )
             )
 
+    # SalePaymentDB represents the payment method selected for the sale.
+    # CREDITO is a valid sale payment method and must be persisted here.
+    # Actual money received later is represented separately by PaymentDB.
     for payment, method in zip(data.payments, normalized_methods):
         sale.payments.append(
             SalePaymentDB(
@@ -339,8 +352,8 @@ def create_sale(
             tenant_id=tenant_id,
             client_id=data.customers[0].client_id,
             sale_id=sale.id,
-            initial_amount=total,
-            balance=total,
+            initial_amount=credit_amount,
+            balance=credit_amount,
             status="ACTIVE",
             created_by=actor,
         )
@@ -356,8 +369,14 @@ def create_sale(
                 origin_id=sale.id,
                 quantity=item.quantity,
                 unit_purchase_price=inventory_costs[item.product_id],
-                profit_percentage=inventory_profits[item.product_id],
-                notes=f"Venta {sale.sale_number}",
+                profit_percentage=0
+                if is_autoconsumption
+                else inventory_profits[item.product_id],
+                notes=(
+                    f"Venta {sale.sale_number} - Autoconsumo"
+                    if is_autoconsumption
+                    else f"Venta {sale.sale_number}"
+                ),
             ),
             db,
             tenant_id,

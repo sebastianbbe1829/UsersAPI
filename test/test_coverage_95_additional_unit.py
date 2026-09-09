@@ -31,8 +31,41 @@ def test_sale_service_validation_and_helpers():
             {"payment_method": "EFECTIVO", "amount": 5},
         ],
     )
-    with pytest.raises(HTTPException, match="single CREDITO"):
-        service.create_sale(mixed_credit, db, 1, user)
+    inventory = SimpleNamespace(
+        quantity=1, purchase_price=Decimal("10"), profit_percentage=Decimal("0")
+    )
+    product = SimpleNamespace(id=1, code="P1", name="Product", active=True)
+    client = SimpleNamespace(
+        id=client_id,
+        full_name="Test Client",
+        status="ACTIVE",
+        is_listed=False,
+        compliance_status="CLEAR",
+    )
+    result_sale = SimpleNamespace(total=Decimal("10"), payments=[])
+    with (
+        patch.object(service.SaleRepository, "next_sale_number", return_value="V-MIX"),
+        patch.object(
+            service.SaleRepository,
+            "get_by_id",
+            side_effect=lambda tenant_id, sale_id: result_sale,
+        ),
+        patch.object(service, "_credit_available", return_value=Decimal("100")),
+        patch.object(service, "create_inventory_movement"),
+    ):
+        db.scalar.side_effect = [inventory, product, client]
+        result = service.create_sale(mixed_credit, db, 1, user)
+
+    created_sale = next(
+        obj
+        for call in db.add.call_args_list
+        if hasattr((obj := call.args[0]), "payments")
+    )
+    assert result.total == Decimal("10")
+    assert [(p.payment_method, p.amount) for p in created_sale.payments] == [
+        ("CREDITO", Decimal("5")),
+        ("EFECTIVO", Decimal("5")),
+    ]
 
     generic_credit = SaleCreate(
         items=[{"product_id": 1, "quantity": 1}],
