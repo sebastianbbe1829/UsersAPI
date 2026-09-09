@@ -22,7 +22,6 @@ from ..schemas import SaleCreate
 
 MONEY_UNIT = Decimal("1")
 CREDIT_METHODS = {"CREDITO"}
-STANDARD_CARTERA_METHOD = "CREDITO"
 
 
 def _money(value: Decimal) -> Decimal:
@@ -126,7 +125,7 @@ def create_sale(
     normalized_methods = [
         payment.payment_method.strip().upper() for payment in data.payments
     ]
-    cartera_amount = _money(
+    credit_amount = _money(
         sum(
             (
                 Decimal(payment.amount)
@@ -136,16 +135,16 @@ def create_sale(
             Decimal("0"),
         )
     )
-    has_cartera = cartera_amount > 0
+    has_credit = credit_amount > 0
 
-    if has_cartera and (
+    if has_credit and (
         len(data.customers) != 1
         or data.customers[0].client_id is None
         or data.customers[0].is_generic
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Portfolio payments require exactly one registered client",
+            detail="Credit sales require exactly one registered client",
         )
 
     actor = _actor_name(current_user)
@@ -153,7 +152,7 @@ def create_sale(
     sale = SaleDB(
         tenant_id=tenant_id,
         sale_number=repository.next_sale_number(tenant_id),
-        status="PENDING" if has_cartera else "COMPLETED",
+        status="PENDING" if has_credit else "COMPLETED",
         is_autoconsumption=is_autoconsumption,
         subtotal=Decimal("0"),
         discount_percentage=data.discount_percentage,
@@ -233,10 +232,10 @@ def create_sale(
     sale.total = total
 
     if not data.customers:
-        if has_cartera:
+        if has_credit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Portfolio payments require exactly one registered client",
+                detail="Credit sales require exactly one registered client",
             )
         sale.customers.append(
             SaleCustomerDB(
@@ -273,10 +272,10 @@ def create_sale(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Each customer must have client_id or be generic",
                 )
-            if has_cartera and (customer.is_generic or customer.client_id is None):
+            if has_credit and (customer.is_generic or customer.client_id is None):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Portfolio payments require a registered client",
+                    detail="Credit sales require a registered client",
                 )
 
             customer_name = "Consumidor final"
@@ -285,7 +284,7 @@ def create_sale(
                     ClientDB.tenant_id == tenant_id,
                     ClientDB.id == customer.client_id,
                 )
-                if has_cartera:
+                if has_credit:
                     query = query.with_for_update()
                 client = db.scalar(query)
                 if client is None:
@@ -298,9 +297,9 @@ def create_sale(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="Client is not eligible for sales",
                     )
-                if has_cartera:
+                if has_credit:
                     available = _credit_available(client.id, db, tenant_id)
-                    if cartera_amount > available:
+                    if credit_amount > available:
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
                             detail=(
@@ -331,6 +330,8 @@ def create_sale(
             )
 
     for payment, method in zip(data.payments, normalized_methods):
+        if method in CREDIT_METHODS:
+            continue
         sale.payments.append(
             SalePaymentDB(
                 tenant_id=tenant_id,
@@ -339,13 +340,13 @@ def create_sale(
             )
         )
 
-    if has_cartera:
+    if has_credit:
         obligation = ObligationDB(
             tenant_id=tenant_id,
             client_id=data.customers[0].client_id,
             sale_id=sale.id,
-            initial_amount=cartera_amount,
-            balance=cartera_amount,
+            initial_amount=credit_amount,
+            balance=credit_amount,
             status="ACTIVE",
             created_by=actor,
         )
