@@ -21,8 +21,8 @@ from ..repositories import SaleRepository
 from ..schemas import SaleCreate
 
 MONEY_UNIT = Decimal("1")
-CREDIT_METHODS = {"CARTERA", "CREDITO"}
-STANDARD_CARTERA_METHOD = "CARTERA"
+CREDIT_METHODS = {"CREDITO"}
+STANDARD_CARTERA_METHOD = "CREDITO"
 
 
 def _money(value: Decimal) -> Decimal:
@@ -334,7 +334,7 @@ def create_sale(
         sale.payments.append(
             SalePaymentDB(
                 tenant_id=tenant_id,
-                payment_method=STANDARD_CARTERA_METHOD if method in CREDIT_METHODS else method,
+                payment_method=method,
                 amount=_money(Decimal(payment.amount)),
             )
         )
