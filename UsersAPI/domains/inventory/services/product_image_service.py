@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from urllib.parse import urlparse
 
@@ -9,90 +11,90 @@ from UsersAPI.settings import settings
 logger = logging.getLogger(__name__)
 
 
-def _hostname(url: str | None) -> str | None:
-    if not url:
-        return None
-    return urlparse(url).hostname
+def _valid_image_url(value: object) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
-def _search_brave(
-    query: str,
-    per_page: int,
-) -> list[dict[str, str | int | None]]:
+def _search_brave(query: str, limit: int) -> list[dict[str, str | int | None]]:
+    headers = {
+        "Accept": "application/json",
+        "X-Subscription-Token": settings.brave_search_api_key,
+    }
+    params = {
+        "q": query,
+        "count": limit,
+        "safesearch": "strict",
+        "spellcheck": "true",
+    }
     response = requests.get(
         settings.brave_images_url,
-        headers={
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "X-Subscription-Token": settings.brave_search_api_key,
-        },
-        params={
-            "q": query.strip(),
-            "count": min(max(per_page, 1), 20),
-            "safesearch": "strict",
-            "spellcheck": "true",
-        },
+        headers=headers,
+        params=params,
         timeout=10,
     )
     response.raise_for_status()
-
     payload = response.json()
-    results = []
-    for index, item in enumerate(payload.get("results", [])):
-        properties = item.get("properties") or {}
-        image_url = properties.get("url")
-        thumbnail_url = (item.get("thumbnail") or {}).get("src")
-        source_url = item.get("url")
-        if not image_url or not thumbnail_url:
-            continue
+    results: list[dict[str, str | int | None]] = []
 
-        hostname = _hostname(source_url)
+    for item in payload.get("results", []):
+        properties = item.get("properties") or {}
+        thumbnail = item.get("thumbnail") or {}
+        image_url = properties.get("url")
+        thumbnail_url = thumbnail.get("src")
+        source_url = item.get("url")
+        if not _valid_image_url(image_url) or not _valid_image_url(thumbnail_url):
+            continue
         results.append(
             {
-                "id": item.get("id") or f"brave-{index}",
                 "url": image_url,
                 "thumbnail_url": thumbnail_url,
-                "source_url": source_url,
-                "credit": hostname or item.get("title") or "Brave Search",
-                "alt": item.get("title") or query.strip(),
                 "source": "BRAVE",
+                "source_url": source_url if _valid_image_url(source_url) else None,
+                "credit": item.get("title"),
             }
         )
+        if len(results) >= limit:
+            break
 
     return results
 
 
-def _search_pexels(
-    query: str,
-    per_page: int,
-) -> list[dict[str, str | int | None]]:
+def _search_pexels(query: str, limit: int) -> list[dict[str, str | int | None]]:
+    headers = {"Authorization": settings.pexels_api_key}
+    params = {"query": query, "per_page": limit}
     response = requests.get(
         settings.pexels_images_url,
-        headers={"Authorization": settings.pexels_api_key},
-        params={
-            "query": query.strip(),
-            "per_page": min(max(per_page, 1), 20),
-            "orientation": "square",
-            "locale": "es-ES",
-        },
+        headers=headers,
+        params=params,
         timeout=10,
     )
     response.raise_for_status()
-
     payload = response.json()
-    return [
-        {
-            "id": photo.get("id"),
-            "url": photo.get("src", {}).get("medium"),
-            "thumbnail_url": photo.get("src", {}).get("small"),
-            "source_url": photo.get("url"),
-            "credit": photo.get("photographer"),
-            "alt": photo.get("alt"),
-            "source": "PEXELS",
-        }
-        for photo in payload.get("photos", [])
-        if photo.get("src", {}).get("medium")
-    ]
+    results: list[dict[str, str | int | None]] = []
+
+    for item in payload.get("photos", []):
+        src = item.get("src") or {}
+        image_url = src.get("original") or src.get("large")
+        thumbnail_url = src.get("medium") or src.get("small") or image_url
+        source_url = item.get("url")
+        if not _valid_image_url(image_url) or not _valid_image_url(thumbnail_url):
+            continue
+        results.append(
+            {
+                "url": image_url,
+                "thumbnail_url": thumbnail_url,
+                "source": "PEXELS",
+                "source_url": source_url if _valid_image_url(source_url) else None,
+                "credit": item.get("photographer"),
+            }
+        )
+        if len(results) >= limit:
+            break
+
+    return results
 
 
 def search_product_images(
@@ -108,7 +110,10 @@ def search_product_images(
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Product image search is not configured. Set BRAVE_SEARCH_API_KEY or PEXELS_API_KEY.",
+            detail=(
+                "Product image search is not configured. Set "
+                "BRAVE_SEARCH_API_KEY or PEXELS_API_KEY."
+            ),
         )
 
     if settings.brave_search_api_key and settings.brave_images_url:
@@ -122,12 +127,14 @@ def search_product_images(
                 )
                 return results
             logger.warning(
-                "Product image search provider=BRAVE returned no usable images for query=%r; falling back to PEXELS",
+                "Product image search provider=BRAVE returned no usable images "
+                "for query=%r; falling back to PEXELS",
                 clean_query,
             )
         except requests.RequestException as exc:
             logger.warning(
-                "Product image search provider=BRAVE failed for query=%r error=%s; falling back to PEXELS",
+                "Product image search provider=BRAVE failed for query=%r "
+                "error=%s; falling back to PEXELS",
                 clean_query,
                 exc,
             )
@@ -158,5 +165,8 @@ def search_product_images(
     )
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Product image search is not configured. Set the provider API key and URL environment variables.",
+        detail=(
+            "Product image search is not configured. Set the provider API key "
+            "and URL environment variables."
+        ),
     )
