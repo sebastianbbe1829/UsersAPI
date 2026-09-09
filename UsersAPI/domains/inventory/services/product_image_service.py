@@ -1,9 +1,12 @@
+import logging
 from urllib.parse import urlparse
 
 import requests
 from fastapi import HTTPException, status
 
 from UsersAPI.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _hostname(url: str | None) -> str | None:
@@ -102,6 +105,9 @@ def search_product_images(
     limit = min(max(per_page, 1), 20)
 
     if not settings.brave_search_api_key and not settings.pexels_api_key:
+        logger.warning(
+            "Product image search not configured: no provider API key is available."
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Product image search is not configured. Set BRAVE_SEARCH_API_KEY or PEXELS_API_KEY.",
@@ -111,19 +117,47 @@ def search_product_images(
         try:
             results = _search_brave(clean_query, limit)
             if results:
+                logger.info(
+                    "Product image search provider=BRAVE query=%r results=%d",
+                    clean_query,
+                    len(results),
+                )
                 return results
-        except requests.RequestException:
-            pass
+            logger.warning(
+                "Product image search provider=BRAVE returned no usable images for query=%r; falling back to PEXELS",
+                clean_query,
+            )
+        except requests.RequestException as exc:
+            logger.warning(
+                "Product image search provider=BRAVE failed for query=%r error=%s; falling back to PEXELS",
+                clean_query,
+                exc,
+            )
 
     if settings.pexels_api_key and settings.pexels_images_url:
         try:
-            return _search_pexels(clean_query, limit)
+            results = _search_pexels(clean_query, limit)
+            logger.info(
+                "Product image search provider=PEXELS query=%r results=%d",
+                clean_query,
+                len(results),
+            )
+            return results
         except requests.RequestException as exc:
+            logger.warning(
+                "Product image search provider=PEXELS failed for query=%r error=%s",
+                clean_query,
+                exc,
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Could not retrieve product images.",
             ) from exc
 
+    logger.warning(
+        "Product image search has no usable fallback provider configured for query=%r",
+        clean_query,
+    )
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Product image search is not configured. Set the provider API key and URL environment variables.",
