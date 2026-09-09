@@ -29,8 +29,6 @@ def _search_brave(
         params={
             "q": query.strip(),
             "count": min(max(per_page, 1), 20),
-            "country": "CO",
-            "search_lang": "es",
             "safesearch": "strict",
             "spellcheck": "true",
         },
