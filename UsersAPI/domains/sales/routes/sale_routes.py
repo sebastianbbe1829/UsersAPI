@@ -32,6 +32,27 @@ async def create_sale_route(
     return create(data, db, cast(int, user_tenant.tenant_id), current_user)
 
 
+@sales_routes.post(
+    "/autoconsumption",
+    response_model=SaleRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("SALES_AUTOCONSUME"))],
+)
+async def create_autoconsumption_sale_route(
+    data: SaleCreate,
+    db: Session = Depends(get_db),
+    current_user: UserTenantDB = Depends(get_current_user),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return create(
+        data,
+        db,
+        cast(int, user_tenant.tenant_id),
+        current_user,
+        is_autoconsumption=True,
+    )
+
+
 @sales_routes.get(
     "",
     response_model=list[SaleRead],
