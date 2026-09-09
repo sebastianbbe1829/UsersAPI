@@ -17,6 +17,7 @@ class SaleDraftCreate(BaseModel):
         max_digits=7,
         decimal_places=4,
     )
+    alias: str | None = Field(default=None, max_length=100)
 
 
 class SaleDraftRead(BaseModel):
