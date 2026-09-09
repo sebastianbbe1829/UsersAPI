@@ -138,6 +138,20 @@ def create_sale(
     has_credit = credit_amount > 0
 
     if has_credit and (
+        normalized_methods.count("CREDITO") != 1 or len(normalized_methods) != 1
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit sales require a single CREDITO payment method",
+        )
+
+    if has_credit and len(data.customers) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit sales cannot be split among multiple clients",
+        )
+
+    if has_credit and (
         len(data.customers) != 1
         or data.customers[0].client_id is None
         or data.customers[0].is_generic
@@ -363,7 +377,9 @@ def create_sale(
                 origin_id=sale.id,
                 quantity=item.quantity,
                 unit_purchase_price=inventory_costs[item.product_id],
-                profit_percentage=0 if is_autoconsumption else inventory_profits[item.product_id],
+                profit_percentage=0
+                if is_autoconsumption
+                else inventory_profits[item.product_id],
                 notes=(
                     f"Venta {sale.sale_number} - Autoconsumo"
                     if is_autoconsumption
