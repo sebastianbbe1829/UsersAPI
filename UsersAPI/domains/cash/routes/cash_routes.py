@@ -9,6 +9,15 @@ from UsersAPI.domains.core.models import UserTenantDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
+from ..controllers import (
+    add_movement,
+    close_register,
+    current_register,
+    get_register,
+    list_registers,
+    open_register,
+    register_summary,
+)
 from ..schemas import (
     CashMovementCreate,
     CashRegisterClose,
@@ -16,15 +25,13 @@ from ..schemas import (
     CashRegisterRead,
     CashRegisterSummary,
 )
-from ..services import CashService
-
 
 cash_routes = APIRouter(prefix="/cash", tags=["Caja"])
 
 
 def _read_register(db: Session, tenant_id: int, register_id: int) -> CashRegisterRead:
-    register = CashService.get_register(db, tenant_id, register_id)
-    summary = CashService.summary(db, tenant_id, register_id)
+    register = get_register(db, tenant_id, register_id)
+    summary = register_summary(db, tenant_id, register_id)
     return CashRegisterRead.model_validate(
         {**register.__dict__, "movements": register.movements, "summary": summary}
     )
@@ -42,8 +49,9 @@ async def open_register_route(
     current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    register = CashService.open_register(data, db, cast(int, user_tenant.tenant_id), current_user)
-    return _read_register(db, cast(int, user_tenant.tenant_id), register.id)
+    tenant_id = cast(int, user_tenant.tenant_id)
+    register = open_register(data, db, tenant_id, current_user)
+    return _read_register(db, tenant_id, register.id)
 
 
 @cash_routes.get(
@@ -55,8 +63,9 @@ async def current_register_route(
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    register = CashService.get_current(db, cast(int, user_tenant.tenant_id))
-    return _read_register(db, cast(int, user_tenant.tenant_id), register.id)
+    tenant_id = cast(int, user_tenant.tenant_id)
+    register = current_register(db, tenant_id)
+    return _read_register(db, tenant_id, register.id)
 
 
 @cash_routes.get(
@@ -71,7 +80,7 @@ async def list_registers_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     tenant_id = cast(int, user_tenant.tenant_id)
-    registers = CashService.list_registers(db, tenant_id, limit=limit, offset=offset)
+    registers = list_registers(db, tenant_id, limit=limit, offset=offset)
     return [_read_register(db, tenant_id, register.id) for register in registers]
 
 
@@ -101,7 +110,7 @@ async def add_movement_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     tenant_id = cast(int, user_tenant.tenant_id)
-    CashService.add_movement(data, db, tenant_id, register_id, current_user)
+    add_movement(data, db, tenant_id, register_id, current_user)
     return _read_register(db, tenant_id, register_id)
 
 
@@ -118,7 +127,7 @@ async def close_register_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     tenant_id = cast(int, user_tenant.tenant_id)
-    CashService.close_register(data, db, tenant_id, register_id, current_user)
+    close_register(data, db, tenant_id, register_id, current_user)
     return _read_register(db, tenant_id, register_id)
 
 
@@ -132,4 +141,4 @@ async def register_summary_route(
     db: Session = Depends(get_db),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    return CashService.summary(db, cast(int, user_tenant.tenant_id), register_id)
+    return register_summary(db, cast(int, user_tenant.tenant_id), register_id)
