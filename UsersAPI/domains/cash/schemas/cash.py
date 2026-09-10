@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -50,6 +50,9 @@ class CashRegisterSummary(BaseModel):
 class CashRegisterRead(BaseModel):
     id: int
     tenant_id: int
+    branch_id: int | None
+    cash_box_id: int | None
+    business_date: date | None
     opened_at: datetime
     opened_by: str
     opening_amount: Decimal
