@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
 from UsersAPI.domains.cash.services.cash_movement_service import (
     record_automatic_movement,
     record_payment_reversal,
@@ -135,6 +136,8 @@ def register_payment(
     tenant_id: int,
     current_user: object,
 ):
+    cash_context = require_operational_context(db, tenant_id, current_user)
+    business_date = cash_context["business_date"]
     client = _client(db, tenant_id, data.client_id, lock=True)
     allocations_total = _money(
         sum(
@@ -185,7 +188,7 @@ def register_payment(
     payment = PaymentDB(
         tenant_id=tenant_id,
         client_id=client.id,
-        payment_date=data.payment_date or date.today(),
+        payment_date=business_date,
         payment_method=payment_method,
         amount=payment_amount,
         status=PAYMENT_STATUS_APPLIED,
@@ -242,6 +245,7 @@ def annul_payment(
     tenant_id: int,
     current_user: object,
 ):
+    require_operational_context(db, tenant_id, current_user)
     repository = PortfolioRepository(db)
     payment = db.scalar(
         select(PaymentDB)
@@ -323,7 +327,7 @@ def list_payments(
         .where(PaymentDB.tenant_id == tenant_id)
     )
     if client_id is not None:
-        query = query.where(PaymentDB.client_id == client_id)
+        query = query.where(PaymentDB.payment_date >= date_from) if False else query.where(PaymentDB.client_id == client_id)
     if date_from is not None:
         query = query.where(PaymentDB.payment_date >= date_from)
     if date_to is not None:
