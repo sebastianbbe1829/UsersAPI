@@ -5,7 +5,6 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.portfolio.models import PaymentDB
 from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
 
 from ..models import CashMovementDB, CashRegisterDB
@@ -134,10 +133,6 @@ class CashService:
         db: Session, register: CashRegisterDB, counted_cash: Decimal | None = None
     ) -> dict:
         end_at = register.closed_at or datetime.now()
-
-        # Automatic sale and portfolio amounts are now represented by
-        # CashMovementDB and are therefore read from the register itself.
-        # This prevents double counting against SalePaymentDB/PaymentDB.
         movements = db.scalars(
             select(CashMovementDB).where(
                 CashMovementDB.tenant_id == register.tenant_id,
@@ -175,8 +170,6 @@ class CashService:
             if _is_cash(movement.payment_method):
                 physical_cash_delta += signed
 
-        # Credit is a sale payment method but is deliberately not a cash
-        # movement: the money is received later through portfolio payment.
         sales_credit = db.scalar(
             select(func.coalesce(func.sum(SalePaymentDB.amount), 0))
             .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
