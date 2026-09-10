@@ -28,10 +28,15 @@ class CashRegisterDB(Base):
             ["tenant_id", "cash_box_id"],
             ["users_api.cash_boxes.tenant_id", "users_api.cash_boxes.id"],
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "cash_day_id"],
+            ["users_api.cash_days.tenant_id", "users_api.cash_days.id"],
+        ),
         UniqueConstraint("tenant_id", "id", name="uq_cash_registers_tenant_id"),
         Index("ix_cash_registers_tenant_id", "tenant_id"),
         Index("ix_cash_registers_branch_id", "branch_id"),
         Index("ix_cash_registers_cash_box_id", "cash_box_id"),
+        Index("ix_cash_registers_cash_day_id", "cash_day_id"),
         Index(
             "uq_cash_registers_open_box",
             "cash_box_id",
@@ -49,6 +54,7 @@ class CashRegisterDB(Base):
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
     tenant_id = Column(Integer, nullable=False)
+    cash_day_id = Column(Integer, nullable=True)
     branch_id = Column(Integer, nullable=True)
     cash_box_id = Column(Integer, nullable=True)
     business_date = Column(Date, nullable=True)
@@ -59,7 +65,7 @@ class CashRegisterDB(Base):
     opening_amount = Column(
         Numeric(18, 2), nullable=False, server_default=text("0")
     )
-    status = Column(String(20), nullable=False, server_default=text("'OPEN'"))
+    status = Column(String(20), nullable=False, server_default=text("OPEN"))
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(100), nullable=True)
     expected_cash = Column(Numeric(18, 2), nullable=True)
@@ -71,6 +77,7 @@ class CashRegisterDB(Base):
     )
     updated_at = Column(DateTime, nullable=True)
 
+    cash_day = relationship("CashDayDB", back_populates="registers")
     movements = relationship(
         "CashMovementDB",
         back_populates="cash_register",
