@@ -143,7 +143,10 @@ app = FastAPI(
             "name": "Cartera",
             "description": "Cupos, obligaciones, saldos y pagos por tenant",
         },
-        {"name": "Caja", "description": "Apertura, movimientos, arqueo y cierre de caja por tenant"},
+        {
+            "name": "Caja",
+            "description": "Apertura, movimientos, arqueo y cierre de caja por tenant",
+        },
     ],
 )
 
