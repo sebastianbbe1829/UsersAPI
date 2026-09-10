@@ -32,7 +32,7 @@ PERMISSIONS = [
     (
         "CONFIG_UI_UPDATE",
         "Actualizar configuración de UI",
-        "Permite actualizar configuración de UI",
+        "Permite actualizar la configuración de UI",
     ),
     (
         "EXTINGUISHER_READ",
@@ -95,4 +95,12 @@ PERMISSIONS = [
         "Registrar pagos de cartera",
         "Permite registrar pagos y aplicarlos a obligaciones",
     ),
+    ("CASH_READ", "Consultar caja", "Permite consultar cajas, movimientos y cierres"),
+    ("CASH_CREATE", "Abrir caja", "Permite abrir una caja"),
+    (
+        "CASH_MOVEMENT_CREATE",
+        "Registrar movimientos de caja",
+        "Permite registrar ingresos y egresos manuales de caja",
+    ),
+    ("CASH_CLOSE", "Cerrar caja", "Permite realizar el arqueo y cierre de caja"),
 ]
