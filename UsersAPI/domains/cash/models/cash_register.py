@@ -1,7 +1,4 @@
-from datetime import datetime
-from decimal import Decimal
-
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Integer, Numeric, String, text
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Integer, Numeric, String, UniqueConstraint, text
 
 from UsersAPI.domains.core.database import Base
 
@@ -10,6 +7,7 @@ class CashRegisterDB(Base):
     __tablename__ = "cash_registers"
     __table_args__ = (
         ForeignKeyConstraint(["tenant_id"], ["users_api.tenants.id"]),
+        UniqueConstraint("tenant_id", "id", name="uq_cash_registers_tenant_id"),
         {"schema": "users_api"},
     )
 
