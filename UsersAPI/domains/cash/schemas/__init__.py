@@ -17,7 +17,13 @@ from .cash_admin import (
     CashBoxUpdate,
 )
 from .cash_context import CashContextRead
-from .cash_day import CashDayBranchRead, CashDayClose, CashDayRead, CashDayRegisterRead
+from .cash_day import (
+    CashDayBranchRead,
+    CashDayClose,
+    CashDayRead,
+    CashDayRegisterRead,
+    CashDayStart,
+)
 
 __all__ = [
     "CashContextRead",
@@ -25,6 +31,7 @@ __all__ = [
     "CashDayBranchRead",
     "CashDayRegisterRead",
     "CashDayClose",
+    "CashDayStart",
     "CashMovementCreate",
     "CashMovementRead",
     "CashRegisterClose",
