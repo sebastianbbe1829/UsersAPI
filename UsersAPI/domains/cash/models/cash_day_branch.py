@@ -24,7 +24,7 @@ class CashDayBranchDB(Base):
         ),
         ForeignKeyConstraint(
             ["tenant_id", "branch_id"],
-            ["users_api.branches.tenant_id", "users_api.branches.id"],
+            ["users_api.branches.tenant_id", "branches.id"],
             ondelete="CASCADE",
         ),
         UniqueConstraint(
@@ -42,6 +42,7 @@ class CashDayBranchDB(Base):
     branch_id = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'OPEN'"))
     opened_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    opened_by = Column(String(100), nullable=False)
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(100), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
