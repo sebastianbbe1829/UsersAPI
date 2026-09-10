@@ -3,6 +3,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKeyConstraint,
     Identity,
+    Index,
     Integer,
     Numeric,
     String,
@@ -19,11 +20,18 @@ class CashRegisterDB(Base):
     __table_args__ = (
         ForeignKeyConstraint(["tenant_id"], ["users_api.tenants.id"]),
         UniqueConstraint("tenant_id", "id", name="uq_cash_registers_tenant_id"),
+        Index("ix_cash_registers_tenant_id", "tenant_id"),
+        Index(
+            "uq_cash_registers_open_tenant",
+            "tenant_id",
+            unique=True,
+            postgresql_where=text("status = 'OPEN'"),
+        ),
         {"schema": "users_api"},
     )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
-    tenant_id = Column(Integer, nullable=False, index=True)
+    tenant_id = Column(Integer, nullable=False)
     opened_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     opened_by = Column(String(100), nullable=False)
     opening_amount = Column(Numeric(18, 2), nullable=False, server_default=text("0"))
