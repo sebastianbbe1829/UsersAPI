@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -26,6 +26,7 @@ class InventoryMovementRead(BaseModel):
     id: UUID
     tenant_id: int
     product_id: int
+    business_date: date
     movement_type: str
     origin_type: str
     origin_id: UUID | None
