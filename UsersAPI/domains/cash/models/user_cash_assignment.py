@@ -6,6 +6,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import relationship
@@ -19,14 +20,17 @@ class UserCashAssignmentDB(Base):
         ForeignKeyConstraint(
             ["tenant_id", "user_tenant_id"],
             ["users_api.user_tenants.tenant_id", "users_api.user_tenants.id"],
+            ondelete="CASCADE",
         ),
         ForeignKeyConstraint(
             ["tenant_id", "branch_id"],
             ["users_api.branches.tenant_id", "users_api.branches.id"],
+            ondelete="CASCADE",
         ),
         ForeignKeyConstraint(
             ["tenant_id", "cash_box_id"],
             ["users_api.cash_boxes.tenant_id", "users_api.cash_boxes.id"],
+            ondelete="CASCADE",
         ),
         Index(
             "uq_user_cash_assignments_active_user",
