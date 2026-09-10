@@ -52,6 +52,7 @@ def test_sale_service_validation_and_helpers():
         ),
         patch.object(service, "_credit_available", return_value=Decimal("100")),
         patch.object(service, "create_inventory_movement"),
+        patch.object(service, "record_automatic_movement"),
     ):
         db.scalar.side_effect = [inventory, product, client]
         result = service.create_sale(mixed_credit, db, 1, user)
