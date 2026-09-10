@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
 from UsersAPI.domains.cash.services.cash_movement_service import record_automatic_movement
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.clients.services.compliance_override_service import (
@@ -102,6 +103,9 @@ def create_sale(
     current_user: object,
     is_autoconsumption: bool = False,
 ) -> SaleDB:
+    cash_context = require_operational_context(db, tenant_id, current_user)
+    business_date = cash_context["business_date"]
+
     product_ids = [item.product_id for item in data.items]
     if len(product_ids) != len(set(product_ids)):
         raise HTTPException(
@@ -155,6 +159,7 @@ def create_sale(
     sale = SaleDB(
         tenant_id=tenant_id,
         sale_number=repository.next_sale_number(tenant_id),
+        business_date=business_date,
         status="PENDING" if has_credit else "COMPLETED",
         is_autoconsumption=is_autoconsumption,
         subtotal=Decimal("0"),
@@ -322,9 +327,6 @@ def create_sale(
                 )
             )
 
-    # SalePaymentDB represents the payment method selected for the sale.
-    # CREDITO is persisted here, but it does not create a cash movement.
-    # Money received later is represented by PaymentDB.
     for payment, method in zip(data.payments, normalized_methods):
         sale.payments.append(
             SalePaymentDB(
@@ -339,6 +341,7 @@ def create_sale(
             tenant_id=tenant_id,
             client_id=data.customers[0].client_id,
             sale_id=sale.id,
+            business_date=business_date,
             initial_amount=credit_amount,
             balance=credit_amount,
             status="ACTIVE",
@@ -368,9 +371,6 @@ def create_sale(
             current_user,
         )
 
-    # Register every non-credit sale payment in the currently open cash
-    # register. A missing register aborts the whole transaction, keeping sale,
-    # inventory and cash atomic. Credit-only sales do not require an open box.
     for payment, method in zip(data.payments, normalized_methods):
         if method in CREDIT_METHODS or Decimal(payment.amount) == 0:
             continue
