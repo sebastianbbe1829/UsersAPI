@@ -58,6 +58,11 @@ class PaymentDB(Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def business_date(self):
+        """Payment date is the accounting/business date for legacy payments."""
+        return self.payment_date
+
 
 class PaymentAllocationDB(Base):
     __tablename__ = "payment_allocations"
