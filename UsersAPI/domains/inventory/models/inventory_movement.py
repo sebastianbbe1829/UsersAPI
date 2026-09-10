@@ -54,7 +54,7 @@ class InventoryMovementDB(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(Integer, nullable=False, index=True)
     product_id = Column(Integer, nullable=False, index=True)
-    business_date = Column(Date, nullable=False, index=True)
+    business_date = Column(Date, nullable=False)
     movement_type = Column(String(20), nullable=False)
     origin_type = Column(String(30), nullable=False)
     origin_id = Column(UUID(as_uuid=True), nullable=True)
