@@ -1,6 +1,7 @@
 from typing import cast
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.controllers import get_current_user
@@ -18,6 +19,7 @@ from ..controllers import (
     open_register,
     register_summary,
 )
+from ..models import BranchDB
 from ..schemas import (
     BranchCreate,
     BranchRead,
@@ -120,8 +122,15 @@ async def update_branch_route(
     branch = update_branch(
         branch_id, data, db, _tenant_id(user_tenant), current_user
     )
-    cash_boxes_count = len(branch.cash_boxes)
-    return {**branch.__dict__, "cash_boxes_count": cash_boxes_count}
+    cash_boxes_count = db.scalar(
+        select(__import__("sqlalchemy").func.count()).select_from(
+            __import__("UsersAPI.domains.cash.models", fromlist=["CashBoxDB"]).CashBoxDB
+        ).where(
+            __import__("UsersAPI.domains.cash.models", fromlist=["CashBoxDB"]).CashBoxDB.tenant_id == _tenant_id(user_tenant),
+            __import__("UsersAPI.domains.cash.models", fromlist=["CashBoxDB"]).CashBoxDB.branch_id == branch.id,
+        )
+    )
+    return {**branch.__dict__, "cash_boxes_count": int(cash_boxes_count or 0)}
 
 
 @cash_routes.get(
@@ -150,13 +159,12 @@ async def create_cash_box_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     cash_box = create_cash_box(data, db, _tenant_id(user_tenant), current_user)
-    branch = db.get(type(cash_box.branch), data.branch_id) if False else None
-    branch_name = db.execute(
-        __import__("sqlalchemy").select(__import__("UsersAPI.domains.cash.models", fromlist=["BranchDB"]).BranchDB.name).where(
-            __import__("UsersAPI.domains.cash.models", fromlist=["BranchDB"]).BranchDB.tenant_id == _tenant_id(user_tenant),
-            __import__("UsersAPI.domains.cash.models", fromlist=["BranchDB"]).BranchDB.id == data.branch_id,
+    branch_name = db.scalar(
+        select(BranchDB.name).where(
+            BranchDB.tenant_id == _tenant_id(user_tenant),
+            BranchDB.id == data.branch_id,
         )
-    ).scalar_one()
+    )
     return {**cash_box.__dict__, "branch_name": branch_name}
 
 
@@ -206,12 +214,11 @@ async def create_assignment_route(
     assignment = create_assignment(
         data, db, _tenant_id(user_tenant), current_user
     )
-    row = next(
+    return next(
         item
         for item in list_assignments(db, _tenant_id(user_tenant))
         if item["id"] == assignment.id
     )
-    return row
 
 
 @cash_routes.delete(
