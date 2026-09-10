@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -44,7 +45,7 @@ def test_automatic_movement_requires_open_register(monkeypatch):
 
 
 def test_automatic_movement_is_transactional_and_keeps_origin(monkeypatch):
-    register = SimpleNamespace(id=12)
+    register = SimpleNamespace(id=12, business_date=date(2026, 9, 10))
     db = MagicMock()
     monkeypatch.setattr(cash_movement_service.CashRepository, "get_open", lambda *_: register)
 
@@ -55,6 +56,7 @@ def test_automatic_movement_is_transactional_and_keeps_origin(monkeypatch):
     assert isinstance(movement, CashMovementDB)
     assert movement.tenant_id == 7
     assert movement.cash_register_id == 12
+    assert movement.business_date == date(2026, 9, 10)
     assert movement.movement_type == "INCOME"
     assert movement.payment_method == "TARJETA"
     assert movement.origin_type == "SALE"
@@ -64,7 +66,7 @@ def test_automatic_movement_is_transactional_and_keeps_origin(monkeypatch):
 
 
 def test_payment_reversal_is_expense_in_current_register(monkeypatch):
-    register = SimpleNamespace(id=15)
+    register = SimpleNamespace(id=15, business_date=date(2026, 9, 10))
     db = MagicMock()
     monkeypatch.setattr(cash_movement_service.CashRepository, "get_open", lambda *_: register)
     payment_id = uuid4()
@@ -74,6 +76,7 @@ def test_payment_reversal_is_expense_in_current_register(monkeypatch):
     )
 
     assert movement.cash_register_id == 15
+    assert movement.business_date == date(2026, 9, 10)
     assert movement.movement_type == "EXPENSE"
     assert movement.payment_method == "EFECTIVO"
     assert movement.origin_type == "PAYMENT_REVERSAL"
