@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.portfolio.models import PaymentDB
@@ -84,7 +84,9 @@ class CashService:
         return register
 
     @staticmethod
-    def list_registers(db: Session, tenant_id: int, limit: int, offset: int) -> list[CashRegisterDB]:
+    def list_registers(
+        db: Session, tenant_id: int, limit: int, offset: int
+    ) -> list[CashRegisterDB]:
         return CashRepository.list_all(db, tenant_id, limit=limit, offset=offset)
 
     @staticmethod
@@ -122,7 +124,9 @@ class CashService:
         return CashRepository.add_movement(db, movement)
 
     @staticmethod
-    def _summary(db: Session, register: CashRegisterDB, counted_cash: Decimal | None = None) -> dict:
+    def _summary(
+        db: Session, register: CashRegisterDB, counted_cash: Decimal | None = None
+    ) -> dict:
         end_at = register.closed_at or datetime.now()
 
         sales_rows = db.execute(
