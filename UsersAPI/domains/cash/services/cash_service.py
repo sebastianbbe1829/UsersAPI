@@ -14,6 +14,7 @@ from ..schemas import CashMovementCreate, CashRegisterClose, CashRegisterOpen
 
 
 ZERO = Decimal("0.00")
+CASH_METHODS = {"CASH", "EFECTIVO"}
 
 
 def _user_name(current_user) -> str:
@@ -25,7 +26,7 @@ def _user_name(current_user) -> str:
 
 
 def _is_cash(payment_method: str | None) -> bool:
-    return (payment_method or "").strip().upper() in {"CASH", "EFECTIVO"}
+    return (payment_method or "").strip().upper() in CASH_METHODS
 
 
 def _payment_bucket(payment_method: str | None) -> str:
@@ -39,6 +40,11 @@ def _payment_bucket(payment_method: str | None) -> str:
     if method in {"CREDIT", "CRÉDITO", "CREDITO"}:
         return "credit"
     return "other"
+
+
+def _signed_amount(movement: CashMovementDB) -> Decimal:
+    amount = Decimal(str(movement.amount or 0))
+    return amount if movement.movement_type == "INCOME" else -amount
 
 
 class CashService:
@@ -129,69 +135,68 @@ class CashService:
     ) -> dict:
         end_at = register.closed_at or datetime.now()
 
-        sales_rows = db.execute(
-            select(
-                SalePaymentDB.payment_method,
-                func.coalesce(func.sum(SalePaymentDB.amount), 0),
+        # Automatic sale and portfolio amounts are now represented by
+        # CashMovementDB and are therefore read from the register itself.
+        # This prevents double counting against SalePaymentDB/PaymentDB.
+        movements = db.scalars(
+            select(CashMovementDB).where(
+                CashMovementDB.tenant_id == register.tenant_id,
+                CashMovementDB.cash_register_id == register.id,
+                CashMovementDB.created_at >= register.opened_at,
+                CashMovementDB.created_at <= end_at,
             )
+        ).all()
+
+        sales = {"cash": ZERO, "transfer": ZERO, "card": ZERO}
+        portfolio_cash = ZERO
+        manual_income = ZERO
+        manual_expense = ZERO
+        physical_cash_delta = ZERO
+
+        for movement in movements:
+            signed = _signed_amount(movement)
+            method_bucket = _payment_bucket(movement.payment_method)
+
+            if movement.origin_type == "SALE":
+                if method_bucket in sales:
+                    sales[method_bucket] += signed
+            elif movement.origin_type == "PORTFOLIO_PAYMENT":
+                if _is_cash(movement.payment_method):
+                    portfolio_cash += signed
+            elif movement.origin_type == "PAYMENT_REVERSAL":
+                if _is_cash(movement.payment_method):
+                    portfolio_cash += signed
+            elif movement.origin_type == "MANUAL":
+                if movement.movement_type == "INCOME":
+                    manual_income += Decimal(str(movement.amount or 0))
+                else:
+                    manual_expense += Decimal(str(movement.amount or 0))
+
+            if _is_cash(movement.payment_method):
+                physical_cash_delta += signed
+
+        # Credit is a sale payment method but is deliberately not a cash
+        # movement: the money is received later through portfolio payment.
+        sales_credit = db.scalar(
+            select(func.coalesce(func.sum(SalePaymentDB.amount), 0))
             .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
             .where(
                 SalePaymentDB.tenant_id == register.tenant_id,
-                SaleDB.status == "COMPLETED",
+                SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
                 SaleDB.created_at >= register.opened_at,
                 SaleDB.created_at <= end_at,
             )
-            .group_by(SalePaymentDB.payment_method)
-        ).all()
-
-        sales = {"cash": ZERO, "transfer": ZERO, "card": ZERO, "credit": ZERO}
-        for method, amount in sales_rows:
-            bucket = _payment_bucket(method)
-            if bucket in sales:
-                sales[bucket] += Decimal(str(amount))
-
-        portfolio_cash = db.scalar(
-            select(func.coalesce(func.sum(PaymentDB.amount), 0)).where(
-                PaymentDB.tenant_id == register.tenant_id,
-                PaymentDB.status == "APLICADO",
-                PaymentDB.created_at >= register.opened_at,
-                PaymentDB.created_at <= end_at,
-                PaymentDB.payment_method.in_(["CASH", "EFECTIVO"]),
-            )
         )
-        portfolio_cash = Decimal(str(portfolio_cash or 0))
+        sales_credit = Decimal(str(sales_credit or 0))
 
-        manual_income = db.scalar(
-            select(func.coalesce(func.sum(CashMovementDB.amount), 0)).where(
-                CashMovementDB.tenant_id == register.tenant_id,
-                CashMovementDB.cash_register_id == register.id,
-                CashMovementDB.movement_type == "INCOME",
-            )
-        )
-        manual_expense = db.scalar(
-            select(func.coalesce(func.sum(CashMovementDB.amount), 0)).where(
-                CashMovementDB.tenant_id == register.tenant_id,
-                CashMovementDB.cash_register_id == register.id,
-                CashMovementDB.movement_type == "EXPENSE",
-            )
-        )
-        manual_income = Decimal(str(manual_income or 0))
-        manual_expense = Decimal(str(manual_expense or 0))
-
-        expected_cash = (
-            Decimal(str(register.opening_amount or 0))
-            + sales["cash"]
-            + portfolio_cash
-            + manual_income
-            - manual_expense
-        )
+        expected_cash = Decimal(str(register.opening_amount or 0)) + physical_cash_delta
         difference = None if counted_cash is None else counted_cash - expected_cash
 
         return {
             "sales_cash": sales["cash"],
             "sales_transfer": sales["transfer"],
             "sales_card": sales["card"],
-            "sales_credit": sales["credit"],
+            "sales_credit": sales_credit,
             "portfolio_cash": portfolio_cash,
             "manual_income": manual_income,
             "manual_expense": manual_expense,
