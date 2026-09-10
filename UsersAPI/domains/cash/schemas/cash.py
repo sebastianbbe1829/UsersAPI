@@ -22,6 +22,7 @@ class CashRegisterClose(BaseModel):
 class CashMovementRead(BaseModel):
     id: int
     cash_register_id: int
+    business_date: date
     movement_type: str
     amount: Decimal
     payment_method: str | None
