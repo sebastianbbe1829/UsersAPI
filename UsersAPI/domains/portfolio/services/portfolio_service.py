@@ -327,7 +327,7 @@ def list_payments(
         .where(PaymentDB.tenant_id == tenant_id)
     )
     if client_id is not None:
-        query = query.where(PaymentDB.payment_date >= date_from) if False else query.where(PaymentDB.client_id == client_id)
+        query = query.where(PaymentDB.client_id == client_id)
     if date_from is not None:
         query = query.where(PaymentDB.payment_date >= date_from)
     if date_to is not None:
