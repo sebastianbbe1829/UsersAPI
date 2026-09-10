@@ -1,7 +1,7 @@
 from typing import cast
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.controllers import get_current_user
@@ -19,7 +19,7 @@ from ..controllers import (
     open_register,
     register_summary,
 )
-from ..models import BranchDB
+from ..models import BranchDB, CashBoxDB
 from ..schemas import (
     BranchCreate,
     BranchRead,
@@ -123,11 +123,9 @@ async def update_branch_route(
         branch_id, data, db, _tenant_id(user_tenant), current_user
     )
     cash_boxes_count = db.scalar(
-        select(__import__("sqlalchemy").func.count()).select_from(
-            __import__("UsersAPI.domains.cash.models", fromlist=["CashBoxDB"]).CashBoxDB
-        ).where(
-            __import__("UsersAPI.domains.cash.models", fromlist=["CashBoxDB"]).CashBoxDB.tenant_id == _tenant_id(user_tenant),
-            __import__("UsersAPI.domains.cash.models", fromlist=["CashBoxDB"]).CashBoxDB.branch_id == branch.id,
+        select(func.count(CashBoxDB.id)).where(
+            CashBoxDB.tenant_id == _tenant_id(user_tenant),
+            CashBoxDB.branch_id == branch.id,
         )
     )
     return {**branch.__dict__, "cash_boxes_count": int(cash_boxes_count or 0)}
