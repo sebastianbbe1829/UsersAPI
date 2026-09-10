@@ -62,20 +62,21 @@ def _tenant_id(user_tenant: UserTenantDB) -> int:
     return cast(int, user_tenant.tenant_id)
 
 
-def _branch_response(branch: BranchDB, cash_boxes_count: int) -> dict:
+def _branch_response(branch, cash_boxes_count: int | None = None) -> dict:
+    values = branch if isinstance(branch, dict) else branch.__dict__
     return {
-        "id": branch.id,
-        "tenant_id": branch.tenant_id,
-        "code": branch.code,
-        "name": branch.name,
-        "address": branch.address,
-        "phone": branch.phone,
-        "status": branch.status,
-        "created_at": branch.created_at,
-        "created_by": branch.created_by,
-        "updated_at": getattr(branch, "updated_at", None),
-        "updated_by": getattr(branch, "updated_by", None),
-        "cash_boxes_count": cash_boxes_count,
+        "id": values.get("id"),
+        "tenant_id": values.get("tenant_id"),
+        "code": values.get("code"),
+        "name": values.get("name"),
+        "address": values.get("address"),
+        "phone": values.get("phone"),
+        "status": values.get("status"),
+        "created_at": values.get("created_at"),
+        "created_by": values.get("created_by"),
+        "updated_at": values.get("updated_at"),
+        "updated_by": values.get("updated_by"),
+        "cash_boxes_count": values.get("cash_boxes_count", cash_boxes_count if cash_boxes_count is not None else 0),
     }
 
 
@@ -86,7 +87,7 @@ async def my_cash_context_route(db: Session = Depends(get_db), current_user: Use
 
 @cash_routes.get("/config/branches", response_model=list[BranchRead], dependencies=[Depends(require_permission("CASH_READ"))])
 async def list_branches_route(db: Session = Depends(get_db), user_tenant: UserTenantDB = Depends(get_current_tenant)):
-    return list_branches(db, _tenant_id(user_tenant))
+    return [_branch_response(branch) for branch in list_branches(db, _tenant_id(user_tenant))]
 
 
 @cash_routes.post("/config/branches", response_model=BranchRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("CASH_CREATE"))])
