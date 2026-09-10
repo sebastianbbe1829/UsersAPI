@@ -23,13 +23,13 @@ class BranchRead(BaseModel):
     tenant_id: int
     code: str
     name: str
-    address: str | None
-    phone: str | None
+    address: str | None = None
+    phone: str | None = None
     status: int
     created_at: datetime
     created_by: str
-    updated_at: datetime | None
-    updated_by: str | None
+    updated_at: datetime | None = None
+    updated_by: str | None = None
     cash_boxes_count: int = 0
 
 
@@ -55,8 +55,8 @@ class CashBoxRead(BaseModel):
     status: int
     created_at: datetime
     created_by: str
-    updated_at: datetime | None
-    updated_by: str | None
+    updated_at: datetime | None = None
+    updated_by: str | None = None
 
 
 class CashAssignmentCreate(BaseModel):
