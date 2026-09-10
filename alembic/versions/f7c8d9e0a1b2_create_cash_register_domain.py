@@ -17,6 +17,18 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+CASH_PERMISSIONS = (
+    ("CASH_READ", "Consultar caja", "Permite consultar cajas, movimientos y cierres"),
+    ("CASH_CREATE", "Abrir caja", "Permite abrir una caja"),
+    (
+        "CASH_MOVEMENT_CREATE",
+        "Registrar movimientos de caja",
+        "Permite registrar ingresos y egresos manuales de caja",
+    ),
+    ("CASH_CLOSE", "Cerrar caja", "Permite realizar el arqueo y cierre de caja"),
+)
+
+
 def upgrade() -> None:
     op.create_table(
         "cash_registers",
@@ -107,8 +119,47 @@ def upgrade() -> None:
             """
         )
 
+    for code, name, description in CASH_PERMISSIONS:
+        op.execute(
+            sa.text(
+                """
+                INSERT INTO users_api.permissions (code, name, description, status, created_by)
+                VALUES (:code, :name, :description, 1, 'SYSTEM')
+                ON CONFLICT (code) DO NOTHING
+                """
+            ).bindparams(code=code, name=name, description=description)
+        )
+
+    op.execute(
+        sa.text(
+            """
+            INSERT INTO users_api.role_permissions (role_id, permission_id)
+            SELECT r.id, p.id
+            FROM users_api.roles r
+            CROSS JOIN users_api.permissions p
+            WHERE r.code = 'ADMIN'
+              AND p.code IN ('CASH_READ', 'CASH_CREATE', 'CASH_MOVEMENT_CREATE', 'CASH_CLOSE')
+            ON CONFLICT (role_id, permission_id) DO NOTHING
+            """
+        )
+    )
+
 
 def downgrade() -> None:
+    op.execute(
+        """
+        DELETE FROM users_api.role_permissions rp
+        USING users_api.permissions p
+        WHERE rp.permission_id = p.id
+          AND p.code IN ('CASH_READ', 'CASH_CREATE', 'CASH_MOVEMENT_CREATE', 'CASH_CLOSE')
+        """
+    )
+    op.execute(
+        """
+        DELETE FROM users_api.permissions
+        WHERE code IN ('CASH_READ', 'CASH_CREATE', 'CASH_MOVEMENT_CREATE', 'CASH_CLOSE')
+        """
+    )
     op.execute("DROP POLICY IF EXISTS cash_movements_isolation ON users_api.cash_movements")
     op.execute("DROP POLICY IF EXISTS cash_registers_isolation ON users_api.cash_registers")
     op.drop_index("ix_cash_movements_cash_register_id", table_name="cash_movements", schema="users_api")
