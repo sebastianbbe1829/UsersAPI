@@ -38,6 +38,7 @@ class CashDayRead(BaseModel):
     opened_by: str
     closed_at: datetime | None = None
     closed_by: str | None = None
+    closing_notes: str | None = None
     branches: list[CashDayBranchRead] = []
     registers: list[CashDayRegisterRead] = []
 
