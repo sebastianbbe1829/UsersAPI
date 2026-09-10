@@ -1,8 +1,6 @@
-from datetime import date
-
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
+from fastapi import HTTPException
 
 from ..models import (
     CashDayBranchDB,
@@ -70,10 +68,12 @@ def get_user_cash_context(db: Session, tenant_id: int, user_tenant_id: int) -> d
         return context
 
     day = db.scalar(
-        select(CashDayDB).where(
+        select(CashDayDB)
+        .where(
             CashDayDB.tenant_id == tenant_id,
-            CashDayDB.business_date == date.today(),
+            CashDayDB.status == "OPEN",
         )
+        .order_by(CashDayDB.business_date.desc(), CashDayDB.id.desc())
     )
     if day is None:
         context["blocked_reason"] = "CASH_DAY_NOT_STARTED"
@@ -86,9 +86,6 @@ def get_user_cash_context(db: Session, tenant_id: int, user_tenant_id: int) -> d
             "business_date": day.business_date,
         }
     )
-    if day.status != "OPEN":
-        context["blocked_reason"] = "CASH_DAY_CLOSED"
-        return context
 
     branch_day = db.scalar(
         select(CashDayBranchDB).where(
