@@ -69,6 +69,15 @@ def start_day(
     business_date: date,
     current_user: object,
 ) -> CashDayDB:
+    if business_date < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "CASH_DAY_PAST_DATE_NOT_ALLOWED",
+                "message": "La fecha de operación no puede ser anterior a la fecha actual.",
+            },
+        )
+
     open_day = db.scalar(
         select(CashDayDB.id).where(
             CashDayDB.tenant_id == tenant_id,
