@@ -1,3 +1,6 @@
+from datetime import date
+
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -67,17 +70,22 @@ def get_user_cash_context(db: Session, tenant_id: int, user_tenant_id: int) -> d
         return context
 
     day = db.scalar(
-        select(CashDayDB)
-        .where(
+        select(CashDayDB).where(
             CashDayDB.tenant_id == tenant_id,
-            CashDayDB.business_date == __import__("datetime").date.today(),
+            CashDayDB.business_date == date.today(),
         )
     )
     if day is None:
         context["blocked_reason"] = "CASH_DAY_NOT_STARTED"
         return context
 
-    context.update({"day_id": day.id, "day_status": day.status, "business_date": day.business_date})
+    context.update(
+        {
+            "day_id": day.id,
+            "day_status": day.status,
+            "business_date": day.business_date,
+        }
+    )
     if day.status != "OPEN":
         context["blocked_reason"] = "CASH_DAY_CLOSED"
         return context
@@ -135,8 +143,11 @@ def require_operational_context(db: Session, tenant_id: int, current_user: objec
             "CASH_REGISTER_NOT_STARTED": "La caja asignada no tiene sesión para el día operativo.",
             "CASH_REGISTER_CLOSED": "La caja asignada está cerrada.",
         }
-        raise __import__("fastapi").HTTPException(
+        raise HTTPException(
             status_code=409,
-            detail={"code": code, "message": messages.get(code, "La operación de caja no está habilitada.")},
+            detail={
+                "code": code,
+                "message": messages.get(code, "La operación de caja no está habilitada."),
+            },
         )
     return context
