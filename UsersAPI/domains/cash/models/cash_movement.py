@@ -1,4 +1,5 @@
 from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Integer, Numeric, String, text
+from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
 
@@ -6,7 +7,10 @@ from UsersAPI.domains.core.database import Base
 class CashMovementDB(Base):
     __tablename__ = "cash_movements"
     __table_args__ = (
-        ForeignKeyConstraint(["tenant_id", "cash_register_id"], ["users_api.cash_registers.tenant_id", "users_api.cash_registers.id"]),
+        ForeignKeyConstraint(
+            ["tenant_id", "cash_register_id"],
+            ["users_api.cash_registers.tenant_id", "users_api.cash_registers.id"],
+        ),
         {"schema": "users_api"},
     )
 
@@ -21,3 +25,5 @@ class CashMovementDB(Base):
     description = Column(String(500), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
+
+    cash_register = relationship("CashRegisterDB", back_populates="movements")
