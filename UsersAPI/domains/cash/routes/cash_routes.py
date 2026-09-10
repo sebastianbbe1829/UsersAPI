@@ -19,12 +19,14 @@ from ..controllers import (
     register_summary,
 )
 from ..schemas import (
+    CashContextRead,
     CashMovementCreate,
     CashRegisterClose,
     CashRegisterOpen,
     CashRegisterRead,
     CashRegisterSummary,
 )
+from ..services import get_user_cash_context
 
 cash_routes = APIRouter(prefix="/cash", tags=["Caja"])
 
@@ -35,6 +37,19 @@ def _read_register(db: Session, tenant_id: int, register_id: int) -> CashRegiste
     return CashRegisterRead.model_validate(
         {**register.__dict__, "movements": register.movements, "summary": summary}
     )
+
+
+@cash_routes.get(
+    "/my-context",
+    response_model=CashContextRead,
+    dependencies=[Depends(require_permission("CASH_READ"))],
+)
+async def my_cash_context_route(
+    db: Session = Depends(get_db),
+    current_user: UserTenantDB = Depends(get_current_user),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return get_user_cash_context(db, cast(int, user_tenant.tenant_id), cast(int, current_user.id))
 
 
 @cash_routes.post(
