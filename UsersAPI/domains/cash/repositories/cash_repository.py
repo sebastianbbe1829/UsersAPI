@@ -6,7 +6,9 @@ from ..models import CashMovementDB, CashRegisterDB
 
 class CashRepository:
     @staticmethod
-    def get_open(db: Session, tenant_id: int, cash_box_id: int | None = None) -> CashRegisterDB | None:
+    def get_open(
+        db: Session, tenant_id: int, cash_box_id: int | None = None
+    ) -> CashRegisterDB | None:
         query = select(CashRegisterDB).where(
             CashRegisterDB.tenant_id == tenant_id,
             CashRegisterDB.status == "OPEN",
@@ -19,12 +21,17 @@ class CashRepository:
     def get(db: Session, tenant_id: int, register_id: int) -> CashRegisterDB | None:
         return db.scalar(
             select(CashRegisterDB)
-            .where(CashRegisterDB.tenant_id == tenant_id, CashRegisterDB.id == register_id)
+            .where(
+                CashRegisterDB.tenant_id == tenant_id,
+                CashRegisterDB.id == register_id,
+            )
             .options(selectinload(CashRegisterDB.movements))
         )
 
     @staticmethod
-    def list_all(db: Session, tenant_id: int, limit: int, offset: int) -> list[CashRegisterDB]:
+    def list_all(
+        db: Session, tenant_id: int, limit: int, offset: int
+    ) -> list[CashRegisterDB]:
         return list(
             db.scalars(
                 select(CashRegisterDB)
