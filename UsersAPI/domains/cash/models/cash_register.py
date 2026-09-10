@@ -30,6 +30,8 @@ class CashRegisterDB(Base):
         ),
         UniqueConstraint("tenant_id", "id", name="uq_cash_registers_tenant_id"),
         Index("ix_cash_registers_tenant_id", "tenant_id"),
+        Index("ix_cash_registers_branch_id", "branch_id"),
+        Index("ix_cash_registers_cash_box_id", "cash_box_id"),
         Index(
             "uq_cash_registers_open_box",
             "cash_box_id",
