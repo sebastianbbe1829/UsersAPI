@@ -1,5 +1,6 @@
 from sqlalchemy import (
     Column,
+    Date,
     DateTime,
     ForeignKeyConstraint,
     Identity,
@@ -23,12 +24,14 @@ class CashMovementDB(Base):
         ),
         Index("ix_cash_movements_tenant_id", "tenant_id"),
         Index("ix_cash_movements_cash_register_id", "cash_register_id"),
+        Index("ix_cash_movements_business_date", "tenant_id", "business_date"),
         {"schema": "users_api"},
     )
 
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
     tenant_id = Column(Integer, nullable=False)
     cash_register_id = Column(Integer, nullable=False)
+    business_date = Column(Date, nullable=False, index=True)
     movement_type = Column(String(20), nullable=False)
     amount = Column(Numeric(18, 2), nullable=False)
     payment_method = Column(String(30), nullable=True)
