@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -20,10 +21,10 @@ class CashDayRegisterRead(BaseModel):
     cash_box_id: int | None
     cash_box_name: str | None
     status: str
-    opening_amount: float
-    expected_cash: float | None = None
-    counted_cash: float | None = None
-    difference: float | None = None
+    opening_amount: Decimal
+    expected_cash: Decimal | None = None
+    counted_cash: Decimal | None = None
+    difference: Decimal | None = None
     closed_at: datetime | None = None
     closed_by: str | None = None
 
