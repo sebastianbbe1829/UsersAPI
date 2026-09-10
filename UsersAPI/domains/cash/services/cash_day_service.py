@@ -69,15 +69,6 @@ def start_day(
     business_date: date,
     current_user: object,
 ) -> CashDayDB:
-    if business_date < date.today():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": "CASH_DAY_PAST_DATE_NOT_ALLOWED",
-                "message": "La fecha de operación no puede ser anterior a la fecha actual.",
-            },
-        )
-
     open_day = db.scalar(
         select(CashDayDB.id).where(
             CashDayDB.tenant_id == tenant_id,
@@ -90,6 +81,24 @@ def start_day(
             detail={
                 "code": "CASH_DAY_ALREADY_OPEN",
                 "message": "Ya existe un día operativo abierto para el tenant.",
+            },
+        )
+
+    last_day_date = db.scalar(
+        select(CashDayDB.business_date)
+        .where(CashDayDB.tenant_id == tenant_id)
+        .order_by(CashDayDB.business_date.desc(), CashDayDB.id.desc())
+        .limit(1)
+    )
+    if last_day_date is not None and business_date <= last_day_date:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CASH_DAY_DATE_MUST_ADVANCE",
+                "message": (
+                    f"La fecha de operación debe ser posterior al último día operativo "
+                    f"registrado ({last_day_date.isoformat()})."
+                ),
             },
         )
 
