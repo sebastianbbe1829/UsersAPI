@@ -1,7 +1,7 @@
-"""merge extinguisher and cash migration heads
+"""merge extinguisher migration heads
 
 Revision ID: c3f8a1d6b204
-Revises: f7a9c2e1b304, b4c6d8e2f901, a2b3c4d5e6f7
+Revises: f7a9c2e1b304, b4c6d8e2f901
 Create Date: 2026-09-01
 """
 
@@ -14,7 +14,6 @@ revision: str = "c3f8a1d6b204"
 down_revision: Union[str, Sequence[str], None] = (
     "f7a9c2e1b304",
     "b4c6d8e2f901",
-    "a2b3c4d5e6f7",
 )
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
