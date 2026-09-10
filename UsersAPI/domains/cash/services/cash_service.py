@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -10,6 +10,7 @@ from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
 from ..models import CashMovementDB, CashRegisterDB, UserCashAssignmentDB
 from ..repositories import CashRepository
 from ..schemas import CashMovementCreate, CashRegisterClose, CashRegisterOpen
+from .cash_context_service import require_operational_context
 
 ZERO = Decimal("0.00")
 CASH_METHODS = {"CASH", "EFECTIVO"}
@@ -69,40 +70,13 @@ class CashService:
     def open_register(
         data: CashRegisterOpen, db: Session, tenant_id: int, current_user
     ) -> CashRegisterDB:
-        assignment = _assignment(db, tenant_id, current_user)
-        if db.scalar(
-            select(CashRegisterDB).where(
-                CashRegisterDB.tenant_id == tenant_id,
-                CashRegisterDB.cash_box_id == assignment.cash_box_id,
-                CashRegisterDB.status == "OPEN",
-            )
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="La caja asignada ya está abierta.",
-            )
-        today = date.today()
-        if db.scalar(
-            select(CashRegisterDB).where(
-                CashRegisterDB.tenant_id == tenant_id,
-                CashRegisterDB.cash_box_id == assignment.cash_box_id,
-                CashRegisterDB.business_date == today,
-            )
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="La caja ya tiene una sesión registrada para la fecha de operación.",
-            )
-        register = CashRegisterDB(
-            tenant_id=tenant_id,
-            branch_id=assignment.branch_id,
-            cash_box_id=assignment.cash_box_id,
-            business_date=today,
-            opened_by=_user_name(current_user),
-            opening_amount=data.opening_amount,
-            status="OPEN",
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CASH_REGISTER_OPENING_DISABLED",
+                "message": "Las cajas se abren al iniciar el día operativo.",
+            },
         )
-        return CashRepository.add_register(db, register)
 
     @staticmethod
     def get_current(db: Session, tenant_id: int, current_user=None) -> CashRegisterDB:
@@ -139,13 +113,13 @@ class CashService:
         register_id: int,
         current_user,
     ) -> CashMovementDB:
-        assignment = _assignment(db, tenant_id, current_user)
-        register = CashService.get_register(db, tenant_id, register_id)
-        if register.cash_box_id != assignment.cash_box_id:
+        context = require_operational_context(db, tenant_id, current_user)
+        if context["register_id"] != register_id:
             raise HTTPException(
                 status_code=403,
                 detail="La caja indicada no corresponde a la caja asignada al usuario.",
             )
+        register = CashService.get_register(db, tenant_id, register_id)
         if register.status != "OPEN":
             raise HTTPException(
                 status_code=409,
@@ -160,6 +134,7 @@ class CashService:
         movement = CashMovementDB(
             tenant_id=tenant_id,
             cash_register_id=register_id,
+            business_date=context["business_date"],
             movement_type=movement_type,
             amount=data.amount,
             payment_method="EFECTIVO",
