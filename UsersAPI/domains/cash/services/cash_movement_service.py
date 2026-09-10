@@ -63,6 +63,7 @@ def record_automatic_movement(
     movement = CashMovementDB(
         tenant_id=tenant_id,
         cash_register_id=register.id,
+        business_date=register.business_date,
         movement_type="INCOME" if amount >= 0 else "EXPENSE",
         amount=abs(Decimal(amount)),
         payment_method=payment_method.strip().upper(),
@@ -88,6 +89,7 @@ def record_payment_reversal(
     movement = CashMovementDB(
         tenant_id=tenant_id,
         cash_register_id=register.id,
+        business_date=register.business_date,
         movement_type="EXPENSE",
         amount=abs(Decimal(amount)),
         payment_method=payment_method.strip().upper(),
