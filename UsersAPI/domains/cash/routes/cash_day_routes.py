@@ -58,14 +58,7 @@ async def close_day_register_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     tenant_id = _tenant_id(user_tenant)
-    close_register(
-        db,
-        tenant_id,
-        register_id,
-        data.counted_cash,
-        data.closing_notes,
-        current_user,
-    )
+    close_register(db, tenant_id, register_id, data.counted_cash, data.closing_notes, current_user)
     day = get_current_day(db, tenant_id)
     return serialize_day(db, day)
 
@@ -100,7 +93,6 @@ async def close_day_route(
 ):
     tenant_id = _tenant_id(user_tenant)
     day = close_day(db, tenant_id, current_user)
-    if data.closing_notes:
-        day.updated_at = day.closed_at
-        db.flush()
+    day.closing_notes = data.closing_notes
+    db.flush()
     return serialize_day(db, day)
