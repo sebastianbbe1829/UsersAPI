@@ -42,6 +42,7 @@ class CashDayDB(Base):
     opened_by = Column(String(100), nullable=False)
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(100), nullable=True)
+    closing_notes = Column(String(500), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     updated_at = Column(DateTime, nullable=True)
 
