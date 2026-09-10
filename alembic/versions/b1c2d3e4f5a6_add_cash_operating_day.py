@@ -46,6 +46,7 @@ def upgrade() -> None:
         sa.Column("opened_by", sa.String(100), nullable=False),
         sa.Column("closed_at", sa.DateTime(), nullable=True),
         sa.Column("closed_by", sa.String(100), nullable=True),
+        sa.Column("closing_notes", sa.String(500), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["tenant_id"], ["users_api.tenants.id"], ondelete="CASCADE"),
