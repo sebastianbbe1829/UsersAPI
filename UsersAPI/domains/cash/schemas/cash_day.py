@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CashDayBranchRead(BaseModel):
@@ -41,6 +41,10 @@ class CashDayRead(BaseModel):
     closing_notes: str | None = None
     branches: list[CashDayBranchRead] = []
     registers: list[CashDayRegisterRead] = []
+
+
+class CashDayStart(BaseModel):
+    business_date: date = Field(description="Fecha contable del día operativo; puede ser futura.")
 
 
 class CashDayClose(BaseModel):
