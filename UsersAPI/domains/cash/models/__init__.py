@@ -1,5 +1,7 @@
 from .branch import BranchDB
 from .cash_box import CashBoxDB
+from .cash_day import CashDayDB
+from .cash_day_branch import CashDayBranchDB
 from .cash_movement import CashMovementDB
 from .cash_register import CashRegisterDB
 from .user_cash_assignment import UserCashAssignmentDB
@@ -7,6 +9,8 @@ from .user_cash_assignment import UserCashAssignmentDB
 __all__ = [
     "BranchDB",
     "CashBoxDB",
+    "CashDayDB",
+    "CashDayBranchDB",
     "CashMovementDB",
     "CashRegisterDB",
     "UserCashAssignmentDB",
