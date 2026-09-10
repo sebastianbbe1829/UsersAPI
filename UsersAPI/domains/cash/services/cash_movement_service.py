@@ -4,8 +4,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import CashMovementDB, CashRegisterDB, UserCashAssignmentDB
+from ..models import CashMovementDB, CashRegisterDB
 from ..repositories import CashRepository
+from .cash_context_service import require_operational_context
 
 
 def _actor_name(current_user: object | None) -> str:
@@ -16,37 +17,16 @@ def _actor_name(current_user: object | None) -> str:
     )[:100]
 
 
-def _require_assignment(
-    db: Session, tenant_id: int, current_user: object
-) -> UserCashAssignmentDB:
-    assignment = db.scalar(
-        select(UserCashAssignmentDB).where(
-            UserCashAssignmentDB.tenant_id == tenant_id,
-            UserCashAssignmentDB.user_tenant_id == getattr(current_user, "id", None),
-            UserCashAssignmentDB.status == 1,
-        )
-    )
-    if assignment is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "USER_CASH_REGISTER_NOT_ASSIGNED",
-                "message": "El usuario no está asignado a ninguna sucursal y caja.",
-            },
-        )
-    return assignment
-
-
 def _require_open_register(
     db: Session, tenant_id: int, current_user: object
 ) -> CashRegisterDB:
-    assignment = _require_assignment(db, tenant_id, current_user)
-    register = CashRepository.get_open(db, tenant_id, assignment.cash_box_id)
-    if register is None:
+    context = require_operational_context(db, tenant_id, current_user)
+    register = CashRepository.get_open(db, tenant_id, context["cash_box_id"])
+    if register is None or register.id != context["register_id"]:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "code": "USER_CASH_REGISTER_CLOSED",
+                "code": "CASH_REGISTER_CLOSED",
                 "message": "La caja asignada al usuario está cerrada.",
             },
         )
@@ -63,6 +43,14 @@ def record_automatic_movement(
     description: str,
     current_user: object | None,
 ) -> CashMovementDB:
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CASH_CONTEXT_REQUIRED",
+                "message": "La operación requiere un usuario con contexto de caja.",
+            },
+        )
     register = _require_open_register(db, tenant_id, current_user)
     movement = CashMovementDB(
         tenant_id=tenant_id,
@@ -88,6 +76,14 @@ def record_payment_reversal(
     payment_id: object,
     current_user: object | None,
 ) -> CashMovementDB:
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CASH_CONTEXT_REQUIRED",
+                "message": "La operación requiere un usuario con contexto de caja.",
+            },
+        )
     register = _require_open_register(db, tenant_id, current_user)
     movement = CashMovementDB(
         tenant_id=tenant_id,
