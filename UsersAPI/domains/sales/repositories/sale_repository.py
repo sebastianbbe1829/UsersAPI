@@ -57,7 +57,7 @@ class SaleRepository:
                     joinedload(SaleDB.payments),
                 )
                 .where(SaleDB.tenant_id == tenant_id)
-                .order_by(SaleDB.created_at.desc())
+                .order_by(SaleDB.business_date.desc(), SaleDB.created_at.desc())
                 .offset(offset)
                 .limit(limit)
             ).unique()
