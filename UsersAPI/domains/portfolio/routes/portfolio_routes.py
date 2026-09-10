@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from UsersAPI.domains.cash.services.cash_dependencies import require_operational_cash_context
 from UsersAPI.domains.core.controllers import get_current_user
 from UsersAPI.domains.core.database import get_db
 from UsersAPI.domains.core.models import UserTenantDB
@@ -103,7 +104,10 @@ async def list_client_obligations_route(
     "/payments",
     response_model=PaymentRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("PORTFOLIO_PAYMENT_CREATE"))],
+    dependencies=[
+        Depends(require_permission("PORTFOLIO_PAYMENT_CREATE")),
+        Depends(require_operational_cash_context),
+    ],
 )
 async def create_payment_route(
     data: PaymentCreate,
@@ -117,7 +121,10 @@ async def create_payment_route(
 @portfolio_routes.post(
     "/payments/{payment_id}/annul",
     response_model=PaymentRead,
-    dependencies=[Depends(require_permission("PORTFOLIO_PAYMENT_CREATE"))],
+    dependencies=[
+        Depends(require_permission("PORTFOLIO_PAYMENT_CREATE")),
+        Depends(require_operational_cash_context),
+    ],
 )
 async def annul_payment_endpoint(
     payment_id: UUID,
