@@ -5,13 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from ..models import (
-    BranchDB,
-    CashBoxDB,
-    CashDayBranchDB,
-    CashDayDB,
-    CashRegisterDB,
-)
+from ..models import BranchDB, CashBoxDB, CashDayBranchDB, CashDayDB, CashRegisterDB
 
 
 def _actor_name(current_user: object | None) -> str:
@@ -20,15 +14,6 @@ def _actor_name(current_user: object | None) -> str:
         or getattr(current_user, "username", None)
         or getattr(current_user, "id", "system")
     )[:100]
-
-
-def _day_query(db: Session, tenant_id: int, day_id: int | None = None):
-    query = select(CashDayDB).where(CashDayDB.tenant_id == tenant_id)
-    if day_id is not None:
-        query = query.where(CashDayDB.id == day_id)
-    else:
-        query = query.where(CashDayDB.business_date == date.today())
-    return query
 
 
 def get_current_day(db: Session, tenant_id: int) -> CashDayDB | None:
@@ -50,40 +35,31 @@ def require_open_day(db: Session, tenant_id: int) -> CashDayDB:
     if day is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "CASH_DAY_NOT_STARTED",
-                "message": "El día operativo no ha sido iniciado.",
-            },
+            detail={"code": "CASH_DAY_NOT_STARTED", "message": "El día operativo no ha sido iniciado."},
         )
     if day.status != "OPEN":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "CASH_DAY_CLOSED",
-                "message": "El día operativo está cerrado.",
-            },
+            detail={"code": "CASH_DAY_CLOSED", "message": "El día operativo está cerrado."},
         )
     return day
 
 
 def start_day(db: Session, tenant_id: int, current_user: object) -> CashDayDB:
+    today = date.today()
     existing = db.scalar(
         select(CashDayDB).where(
             CashDayDB.tenant_id == tenant_id,
-            CashDayDB.business_date == date.today(),
+            CashDayDB.business_date == today,
         )
     )
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "CASH_DAY_ALREADY_STARTED",
-                "message": "El día operativo de hoy ya fue iniciado.",
-            },
+            detail={"code": "CASH_DAY_ALREADY_STARTED", "message": "El día operativo de hoy ya fue iniciado."},
         )
 
     actor = _actor_name(current_user)
-    today = date.today()
     active_branches = db.scalars(
         select(BranchDB)
         .where(BranchDB.tenant_id == tenant_id, BranchDB.status == 1)
@@ -97,24 +73,22 @@ def start_day(db: Session, tenant_id: int, current_user: object) -> CashDayDB:
         .with_for_update()
     ).all()
 
-    existing_register = db.scalar(
-        select(CashRegisterDB.id)
-        .where(
-            CashRegisterDB.tenant_id == tenant_id,
-            CashRegisterDB.business_date == today,
-            CashRegisterDB.cash_box_id.in_([box.id for box in active_boxes])
-            if active_boxes
-            else False,
+    if active_boxes:
+        existing_register = db.scalar(
+            select(CashRegisterDB.id).where(
+                CashRegisterDB.tenant_id == tenant_id,
+                CashRegisterDB.business_date == today,
+                CashRegisterDB.cash_box_id.in_([box.id for box in active_boxes]),
+            )
         )
-    )
-    if existing_register is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "CASH_DAY_BOX_ALREADY_REGISTERED",
-                "message": "Existe una caja con una sesión registrada para el día de hoy.",
-            },
-        )
+        if existing_register is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "CASH_DAY_BOX_ALREADY_REGISTERED",
+                    "message": "Existe una caja con una sesión registrada para el día de hoy.",
+                },
+            )
 
     day = CashDayDB(
         tenant_id=tenant_id,
@@ -132,12 +106,10 @@ def start_day(db: Session, tenant_id: int, current_user: object) -> CashDayDB:
                 cash_day_id=day.id,
                 branch_id=branch.id,
                 status="OPEN",
-                opened_by=None if False else None,
+                opened_by=actor,
             )
         )
 
-    # Every active physical box gets a daily register. Opening cash starts at
-    # zero; additional initial cash can be recorded as an income movement.
     for box in active_boxes:
         db.add(
             CashRegisterDB(
@@ -166,14 +138,12 @@ def close_register(
 ) -> CashRegisterDB:
     register = db.scalar(
         select(CashRegisterDB)
-        .where(
-            CashRegisterDB.tenant_id == tenant_id,
-            CashRegisterDB.id == register_id,
-        )
+        .where(CashRegisterDB.tenant_id == tenant_id, CashRegisterDB.id == register_id)
         .with_for_update()
     )
     if register is None:
         raise HTTPException(status_code=404, detail="Caja no encontrada.")
+
     day = require_open_day(db, tenant_id)
     if register.cash_day_id != day.id:
         raise HTTPException(
@@ -186,10 +156,7 @@ def close_register(
     if register.status != "OPEN":
         raise HTTPException(
             status_code=409,
-            detail={
-                "code": "CASH_REGISTER_ALREADY_CLOSED",
-                "message": "La caja ya está cerrada.",
-            },
+            detail={"code": "CASH_REGISTER_ALREADY_CLOSED", "message": "La caja ya está cerrada."},
         )
 
     from .cash_service import CashService
@@ -208,12 +175,7 @@ def close_register(
     return register
 
 
-def close_branch(
-    db: Session,
-    tenant_id: int,
-    branch_id: int,
-    current_user: object,
-) -> CashDayBranchDB:
+def close_branch(db: Session, tenant_id: int, branch_id: int, current_user: object) -> CashDayBranchDB:
     day = require_open_day(db, tenant_id)
     branch_day = db.scalar(
         select(CashDayBranchDB)
@@ -229,13 +191,10 @@ def close_branch(
     if branch_day.status != "OPEN":
         raise HTTPException(
             status_code=409,
-            detail={
-                "code": "CASH_BRANCH_ALREADY_CLOSED",
-                "message": "La sucursal ya está cerrada.",
-            },
+            detail={"code": "CASH_BRANCH_ALREADY_CLOSED", "message": "La sucursal ya está cerrada."},
         )
 
-    open_registers = db.scalar(
+    open_register_id = db.scalar(
         select(CashRegisterDB.id)
         .where(
             CashRegisterDB.tenant_id == tenant_id,
@@ -245,7 +204,7 @@ def close_branch(
         )
         .limit(1)
     )
-    if open_registers is not None:
+    if open_register_id is not None:
         raise HTTPException(
             status_code=409,
             detail={
@@ -263,13 +222,9 @@ def close_branch(
     return branch_day
 
 
-def close_day(
-    db: Session,
-    tenant_id: int,
-    current_user: object,
-) -> CashDayDB:
+def close_day(db: Session, tenant_id: int, current_user: object) -> CashDayDB:
     day = require_open_day(db, tenant_id)
-    open_branches = db.scalar(
+    open_branch_id = db.scalar(
         select(CashDayBranchDB.id)
         .where(
             CashDayBranchDB.tenant_id == tenant_id,
@@ -278,7 +233,7 @@ def close_day(
         )
         .limit(1)
     )
-    if open_branches is not None:
+    if open_branch_id is not None:
         raise HTTPException(
             status_code=409,
             detail={
@@ -287,7 +242,7 @@ def close_day(
             },
         )
 
-    open_registers = db.scalar(
+    open_register_id = db.scalar(
         select(CashRegisterDB.id)
         .where(
             CashRegisterDB.tenant_id == tenant_id,
@@ -296,7 +251,7 @@ def close_day(
         )
         .limit(1)
     )
-    if open_registers is not None:
+    if open_register_id is not None:
         raise HTTPException(
             status_code=409,
             detail={
@@ -317,33 +272,22 @@ def close_day(
 def serialize_day(db: Session, day: CashDayDB) -> dict:
     branch_rows = db.scalars(
         select(CashDayBranchDB)
-        .where(
-            CashDayBranchDB.tenant_id == day.tenant_id,
-            CashDayBranchDB.cash_day_id == day.id,
-        )
+        .where(CashDayBranchDB.tenant_id == day.tenant_id, CashDayBranchDB.cash_day_id == day.id)
         .options(joinedload(CashDayBranchDB.branch))
         .order_by(CashDayBranchDB.branch_id)
     ).all()
     registers = db.scalars(
         select(CashRegisterDB)
-        .where(
-            CashRegisterDB.tenant_id == day.tenant_id,
-            CashRegisterDB.cash_day_id == day.id,
-        )
-        .options(joinedload(CashRegisterDB.cash_day))
+        .where(CashRegisterDB.tenant_id == day.tenant_id, CashRegisterDB.cash_day_id == day.id)
         .order_by(CashRegisterDB.branch_id, CashRegisterDB.id)
     ).all()
     box_names = {
         box.id: box.name
-        for box in db.scalars(
-            select(CashBoxDB).where(CashBoxDB.tenant_id == day.tenant_id)
-        ).all()
+        for box in db.scalars(select(CashBoxDB).where(CashBoxDB.tenant_id == day.tenant_id)).all()
     }
     branch_names = {
         branch.id: branch.name
-        for branch in db.scalars(
-            select(BranchDB).where(BranchDB.tenant_id == day.tenant_id)
-        ).all()
+        for branch in db.scalars(select(BranchDB).where(BranchDB.tenant_id == day.tenant_id)).all()
     }
     return {
         "id": day.id,
@@ -354,6 +298,7 @@ def serialize_day(db: Session, day: CashDayDB) -> dict:
         "opened_by": day.opened_by,
         "closed_at": day.closed_at,
         "closed_by": day.closed_by,
+        "closing_notes": day.closing_notes,
         "branches": [
             {
                 "id": row.id,
