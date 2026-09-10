@@ -61,7 +61,7 @@ class CashRegisterDB(Base):
     opened_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     opened_by = Column(String(100), nullable=False)
     opening_amount = Column(Numeric(18, 2), nullable=False, server_default=text("0"))
-    status = Column(String(20), nullable=False, server_default=text("OPEN"))
+    status = Column(String(20), nullable=False, server_default=text("'OPEN'"))
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(100), nullable=True)
     expected_cash = Column(Numeric(18, 2), nullable=True)
