@@ -29,6 +29,53 @@ def reset_rate_limiter():
     rate_limiter.reset()
 
 
+@pytest.fixture(autouse=True)
+def mock_cash_context_for_unit_mocks(monkeypatch):
+    """Aísla pruebas unitarias de ventas/inventario/cartera del contexto real de Caja.
+
+    Las pruebas que usan una Session real siguen ejecutando la validación real de Caja.
+    Los servicios unitarios que usan MagicMock/SimpleNamespace reciben únicamente la
+    fecha operativa mínima que necesitan para probar su propia lógica.
+    """
+    from datetime import date
+
+    from UsersAPI.domains.inventory.services import inventory_movement_service
+    from UsersAPI.domains.portfolio.services import portfolio_service
+    from UsersAPI.domains.sales.services import sale_service
+
+    real_requirements = {
+        sale_service: sale_service.require_operational_context,
+        inventory_movement_service: inventory_movement_service.require_operational_context,
+        portfolio_service: portfolio_service.require_operational_context,
+    }
+
+    def isolated_context(service_module):
+        real_requirement = real_requirements[service_module]
+
+        def resolve(db, tenant_id, current_user):
+            if isinstance(db, Session):
+                return real_requirement(db, tenant_id, current_user)
+            return {"business_date": date(2026, 9, 10)}
+
+        return resolve
+
+    monkeypatch.setattr(
+        sale_service,
+        "require_operational_context",
+        isolated_context(sale_service),
+    )
+    monkeypatch.setattr(
+        inventory_movement_service,
+        "require_operational_context",
+        isolated_context(inventory_movement_service),
+    )
+    monkeypatch.setattr(
+        portfolio_service,
+        "require_operational_context",
+        isolated_context(portfolio_service),
+    )
+
+
 @pytest.fixture
 def db_session():
     """Sesión aislada por prueba; limpia también los datos confirmados por bootstrap."""
