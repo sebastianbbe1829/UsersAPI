@@ -24,7 +24,7 @@ class CashDayBranchDB(Base):
         ),
         ForeignKeyConstraint(
             ["tenant_id", "branch_id"],
-            ["users_api.branches.tenant_id", "branches.id"],
+            ["users_api.branches.tenant_id", "users_api.branches.id"],
             ondelete="CASCADE",
         ),
         UniqueConstraint(
