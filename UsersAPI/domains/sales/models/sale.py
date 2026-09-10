@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     Numeric,
     String,
@@ -24,6 +25,7 @@ class SaleDB(Base):
     __tablename__ = "sales"
     __table_args__ = (
         UniqueConstraint("tenant_id", "sale_number", name="uq_sales_tenant_number"),
+        Index("ix_sales_business_date", "tenant_id", "business_date"),
         CheckConstraint(
             "discount_percentage >= 0 AND discount_percentage <= 100",
             name="ck_sales_discount_percentage",
@@ -42,7 +44,7 @@ class SaleDB(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
     sale_number = Column(String(30), nullable=False)
-    business_date = Column(Date, nullable=False, index=True)
+    business_date = Column(Date, nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'COMPLETED'"))
     is_autoconsumption = Column(Boolean, nullable=False, server_default=text("false"))
     subtotal = Column(Numeric(18, 2), nullable=False)
