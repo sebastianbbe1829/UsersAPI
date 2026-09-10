@@ -1,4 +1,5 @@
 from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
 
@@ -25,3 +26,10 @@ class CashRegisterDB(Base):
     closing_notes = Column(String(500), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     updated_at = Column(DateTime, nullable=True)
+
+    movements = relationship(
+        "CashMovementDB",
+        back_populates="cash_register",
+        cascade="all, delete-orphan",
+        order_by="CashMovementDB.id",
+    )
