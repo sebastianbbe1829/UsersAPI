@@ -20,6 +20,7 @@ class CashBoxDB(Base):
         ForeignKeyConstraint(
             ["tenant_id", "branch_id"],
             ["users_api.branches.tenant_id", "users_api.branches.id"],
+            ondelete="CASCADE",
         ),
         UniqueConstraint("tenant_id", "id", name="uq_cash_boxes_tenant_id"),
         Index("uq_cash_boxes_branch_code", "branch_id", "code", unique=True),
