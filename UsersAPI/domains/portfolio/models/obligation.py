@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import (
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -52,6 +53,7 @@ class ObligationDB(Base):
         nullable=False,
         index=True,
     )
+    business_date = Column(Date, nullable=False, index=True)
     initial_amount = Column(Numeric(18, 2), nullable=False)
     balance = Column(Numeric(18, 2), nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'ACTIVE'"))
