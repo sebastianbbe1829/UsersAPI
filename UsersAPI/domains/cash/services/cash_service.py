@@ -23,15 +23,11 @@ def _user_name(current_user) -> str:
     )[:100]
 
 
-def _assignment(
-    db: Session, tenant_id: int, current_user
-) -> UserCashAssignmentDB:
+def _assignment(db: Session, tenant_id: int, current_user) -> UserCashAssignmentDB:
     assignment = db.scalar(
         select(UserCashAssignmentDB).where(
             UserCashAssignmentDB.tenant_id == tenant_id,
-            UserCashAssignmentDB.user_tenant_id == getattr(
-                current_user, "id", None
-            ),
+            UserCashAssignmentDB.user_tenant_id == getattr(current_user, "id", None),
             UserCashAssignmentDB.status == 1,
         )
     )
@@ -109,14 +105,10 @@ class CashService:
         return CashRepository.add_register(db, register)
 
     @staticmethod
-    def get_current(
-        db: Session, tenant_id: int, current_user=None
-    ) -> CashRegisterDB:
+    def get_current(db: Session, tenant_id: int, current_user=None) -> CashRegisterDB:
         if current_user is not None:
             assignment = _assignment(db, tenant_id, current_user)
-            register = CashRepository.get_open(
-                db, tenant_id, assignment.cash_box_id
-            )
+            register = CashRepository.get_open(db, tenant_id, assignment.cash_box_id)
         else:
             register = CashRepository.get_open(db, tenant_id)
         if not register:
@@ -127,9 +119,7 @@ class CashService:
         return register
 
     @staticmethod
-    def get_register(
-        db: Session, tenant_id: int, register_id: int
-    ) -> CashRegisterDB:
+    def get_register(db: Session, tenant_id: int, register_id: int) -> CashRegisterDB:
         register = CashRepository.get(db, tenant_id, register_id)
         if not register:
             raise HTTPException(status_code=404, detail="Caja no encontrada.")
@@ -139,9 +129,7 @@ class CashService:
     def list_registers(
         db: Session, tenant_id: int, limit: int, offset: int
     ) -> list[CashRegisterDB]:
-        return CashRepository.list_all(
-            db, tenant_id, limit=limit, offset=offset
-        )
+        return CashRepository.list_all(db, tenant_id, limit=limit, offset=offset)
 
     @staticmethod
     def add_movement(
@@ -223,16 +211,12 @@ class CashService:
             .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
             .where(
                 SalePaymentDB.tenant_id == register.tenant_id,
-                SalePaymentDB.payment_method.in_(
-                    ["CREDITO", "CREDIT", "CRÉDITO"]
-                ),
+                SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
                 SaleDB.created_at >= register.opened_at,
                 SaleDB.created_at <= end_at,
             )
         )
-        expected_cash = (
-            Decimal(str(register.opening_amount or 0)) + physical_cash_delta
-        )
+        expected_cash = Decimal(str(register.opening_amount or 0)) + physical_cash_delta
         return {
             "sales_cash": sales["cash"],
             "sales_transfer": sales["transfer"],
@@ -243,9 +227,7 @@ class CashService:
             "manual_expense": manual_expense,
             "expected_cash": expected_cash,
             "counted_cash": counted_cash,
-            "difference": (
-                None if counted_cash is None else counted_cash - expected_cash
-            ),
+            "difference": (None if counted_cash is None else counted_cash - expected_cash),
         }
 
     @staticmethod
@@ -281,8 +263,6 @@ class CashService:
         return register
 
     @staticmethod
-    def summary(
-        db: Session, tenant_id: int, register_id: int
-    ) -> dict:
+    def summary(db: Session, tenant_id: int, register_id: int) -> dict:
         register = CashService.get_register(db, tenant_id, register_id)
         return CashService._summary(db, register, register.counted_cash)

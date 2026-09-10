@@ -20,9 +20,7 @@ def _with_calculated_values(inventory: InventoryDB) -> InventoryDB:
     profit_percentage = Decimal(inventory.profit_percentage or 0)
     inventory.total_inventory = quantity * Decimal(purchase_price or 0)
     inventory.sale_price = (
-        _money(
-            Decimal(purchase_price) * (Decimal("1") + profit_percentage)
-        )
+        _money(Decimal(purchase_price) * (Decimal("1") + profit_percentage))
         if purchase_price is not None
         else None
     )

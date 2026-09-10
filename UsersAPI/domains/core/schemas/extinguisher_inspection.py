@@ -48,10 +48,7 @@ class ExtinguisherInspectionCreate(BaseModel):
             raise ValueError("La fecha de la próxima prueba hidrostática es obligatoria")
         if not self.hydrostatic_test_performed and self.hydrostatic_test_date is not None:
             raise ValueError("No se puede informar fecha de prueba hidrostática sin realizarla")
-        if (
-            not self.hydrostatic_test_performed
-            and self.next_hydrostatic_test_date is not None
-        ):
+        if not self.hydrostatic_test_performed and self.next_hydrostatic_test_date is not None:
             raise ValueError(
                 "No se puede informar próxima fecha de prueba hidrostática sin realizar la prueba"
             )

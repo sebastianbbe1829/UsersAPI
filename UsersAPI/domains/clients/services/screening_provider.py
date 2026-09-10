@@ -20,9 +20,7 @@ OFAC_SDN_CODE = "OFAC_SDN"
 OFAC_CONSOLIDATED_CODE = "OFAC_CONSOLIDATED"
 UN_CONSOLIDATED_CODE = "UN_CONSOLIDATED"
 
-OFAC_SDN_URL = (
-    "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
-)
+OFAC_SDN_URL = "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML"
 OFAC_CONSOLIDATED_URL = (
     "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/CONSOLIDATED.XML"
 )
@@ -108,8 +106,8 @@ def _parse_ofac(xml_content: bytes, source_code: str) -> list[dict]:
         last_name = (_text(fields.get("LASTNAME")) or [None])[0]
         entity_name = (_text(fields.get("ENTITYNAME")) or [None])[0]
         ship_name = (_text(fields.get("SHIPNAME")) or [None])[0]
-        name = entity_name or ship_name or " ".join(
-            part for part in (first_name, last_name) if part
+        name = (
+            entity_name or ship_name or " ".join(part for part in (first_name, last_name) if part)
         )
         if not external_id or not name:
             continue
@@ -123,9 +121,7 @@ def _parse_ofac(xml_content: bytes, source_code: str) -> list[dict]:
             if not aka_name:
                 aka_first = (_text(aka_fields.get("FIRSTNAME")) or [None])[0]
                 aka_last = (_text(aka_fields.get("LASTNAME")) or [None])[0]
-                aka_name = " ".join(
-                    part for part in (aka_first, aka_last) if part
-                )
+                aka_name = " ".join(part for part in (aka_first, aka_last) if part)
             if aka_name and aka_name not in aliases:
                 aliases.append(aka_name)
 
@@ -197,9 +193,7 @@ def _parse_un(xml_content: bytes) -> list[dict]:
         entries.append(
             {
                 "external_id": external_id,
-                "entry_type": (
-                    "INDIVIDUAL" if section_name == "INDIVIDUAL" else "ENTITY"
-                ),
+                "entry_type": ("INDIVIDUAL" if section_name == "INDIVIDUAL" else "ENTITY"),
                 "name": name,
                 "normalized_name": normalize_screening_text(name),
                 "aliases": aliases,
@@ -225,11 +219,7 @@ def _parse_source(source_code: str, xml_content: bytes) -> list[dict]:
 
 
 def _get_source(db: Session, source_code: str) -> ScreeningSourceDB:
-    source = (
-        db.query(ScreeningSourceDB)
-        .filter(ScreeningSourceDB.code == source_code)
-        .one_or_none()
-    )
+    source = db.query(ScreeningSourceDB).filter(ScreeningSourceDB.code == source_code).one_or_none()
     if source is None:
         raise RuntimeError(
             f"La fuente {source_code} no está configurada. "
@@ -325,8 +315,7 @@ def _sync_source(db: Session, source_code: str) -> dict[str, int | str]:
                 deactivated += 1
 
         logger.info(
-            "[SCREENING_SYNC] %s persistiendo: creados=%s actualizados=%s "
-            "desactivados=%s",
+            "[SCREENING_SYNC] %s persistiendo: creados=%s actualizados=%s desactivados=%s",
             source_code,
             created,
             updated,
@@ -399,8 +388,7 @@ def sync_all_screening_lists(db: Session) -> dict:
             results.append(provider(db))
         except Exception as exc:
             logger.error(
-                "[SCREENING_SYNC] Fuente %s terminó con ERROR; "
-                "continuando con las demás",
+                "[SCREENING_SYNC] Fuente %s terminó con ERROR; continuando con las demás",
                 code,
             )
             results.append(
@@ -417,9 +405,7 @@ def sync_all_screening_lists(db: Session) -> dict:
 
     successful = sum(1 for result in results if result["status"] == "SUCCESS")
     failed = len(results) - successful
-    final_status = (
-        "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR"
-    )
+    final_status = "SUCCESS" if failed == 0 else "PARTIAL_ERROR" if successful else "ERROR"
 
     result = {
         "status": final_status,
@@ -429,8 +415,7 @@ def sync_all_screening_lists(db: Session) -> dict:
         "failed_sources": failed,
     }
     logger.info(
-        "[SCREENING_SYNC] Sincronización finalizada: status=%s total=%s "
-        "exitosas=%s fallidas=%s",
+        "[SCREENING_SYNC] Sincronización finalizada: status=%s total=%s exitosas=%s fallidas=%s",
         final_status,
         len(results),
         successful,
@@ -443,11 +428,7 @@ class ScreeningProvider:
     code = "INTERNAL_OFFICIAL"
 
     def screen(self, client: ClientDB, db: Session) -> ScreeningResult:
-        sources = (
-            db.query(ScreeningSourceDB)
-            .filter(ScreeningSourceDB.active.is_(True))
-            .all()
-        )
+        sources = db.query(ScreeningSourceDB).filter(ScreeningSourceDB.active.is_(True)).all()
         if not sources:
             return ScreeningResult(
                 status="PENDING",
@@ -476,9 +457,7 @@ class ScreeningProvider:
 
         matches: list[dict] = []
         for entry in candidates:
-            document_match = document and document in (
-                entry.identification_numbers or []
-            )
+            document_match = document and document in (entry.identification_numbers or [])
             name_score = _similarity(name, entry.normalized_name)
             alias_score = max(
                 [

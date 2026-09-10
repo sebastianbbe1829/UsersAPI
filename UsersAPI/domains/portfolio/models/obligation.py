@@ -55,9 +55,7 @@ class ObligationDB(Base):
     initial_amount = Column(Numeric(18, 2), nullable=False)
     balance = Column(Numeric(18, 2), nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'ACTIVE'"))
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
     updated_at = Column(DateTime, nullable=True)
     updated_by = Column(String(100), nullable=True)

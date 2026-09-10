@@ -134,7 +134,9 @@ def require_operational_context(db: Session, tenant_id: int, current_user: objec
     if not context["operational"]:
         code = context["blocked_reason"] or "CASH_CONTEXT_BLOCKED"
         messages = {
-            "USER_CASH_REGISTER_NOT_ASSIGNED": "El usuario no está asignado a ninguna sucursal y caja.",
+            "USER_CASH_REGISTER_NOT_ASSIGNED": (
+                "El usuario no está asignado a ninguna sucursal y caja."
+            ),
             "CASH_BRANCH_INACTIVE": "La sucursal asignada está inactiva.",
             "CASH_BOX_INACTIVE": "La caja asignada está inactiva.",
             "CASH_DAY_NOT_STARTED": "El día operativo no ha sido iniciado.",

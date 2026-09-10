@@ -40,9 +40,10 @@ def test_create_client_sets_audit_and_consent_fields():
     repository.get_by_identification.return_value = None
     repository.add.side_effect = lambda client: client
 
-    with patch.object(
-        client_service, "ClientRepository", return_value=repository
-    ), patch.object(client_service, "_validate_identity_data"):
+    with (
+        patch.object(client_service, "ClientRepository", return_value=repository),
+        patch.object(client_service, "_validate_identity_data"),
+    ):
         result = client_service.create_client(
             data, db, 10, SimpleNamespace(email="user@example.com")
         )
@@ -80,9 +81,10 @@ def test_create_client_uses_system_as_audit_actor_when_user_has_no_identity():
     repository.get_by_identification.return_value = None
     repository.add.side_effect = lambda client: client
 
-    with patch.object(
-        client_service, "ClientRepository", return_value=repository
-    ), patch.object(client_service, "_validate_identity_data"):
+    with (
+        patch.object(client_service, "ClientRepository", return_value=repository),
+        patch.object(client_service, "_validate_identity_data"),
+    ):
         result = client_service.create_client(data, db, 10, SimpleNamespace())
 
     assert result.created_by == "system"
@@ -114,14 +116,14 @@ def test_update_client_regenerates_full_name_and_audit_fields():
     data = MagicMock()
     data.model_dump.return_value = {"first_name": "Juan", "last_name": "Pérez"}
 
-    with patch.object(
-        client_service, "get_client", return_value=target
-    ), patch.object(
-        client_service, "_validate_identity_data"
-    ), patch.object(
-        client_service.ClientRepository,
-        "update",
-        side_effect=lambda client: client,
+    with (
+        patch.object(client_service, "get_client", return_value=target),
+        patch.object(client_service, "_validate_identity_data"),
+        patch.object(
+            client_service.ClientRepository,
+            "update",
+            side_effect=lambda client: client,
+        ),
     ):
         result = client_service.update_client(
             client_id,
@@ -161,14 +163,14 @@ def test_update_client_clears_consent_timestamp_when_consent_revoked():
     )
     data = ClientUpdate(consent_given=False)
 
-    with patch.object(
-        client_service, "get_client", return_value=target
-    ), patch.object(
-        client_service, "_validate_identity_data"
-    ), patch.object(
-        client_service.ClientRepository,
-        "update",
-        side_effect=lambda client: client,
+    with (
+        patch.object(client_service, "get_client", return_value=target),
+        patch.object(client_service, "_validate_identity_data"),
+        patch.object(
+            client_service.ClientRepository,
+            "update",
+            side_effect=lambda client: client,
+        ),
     ):
         result = client_service.update_client(
             client_id,
@@ -247,13 +249,12 @@ def test_create_client_rejects_duplicate_identification():
     repository = MagicMock()
     repository.get_by_identification.return_value = object()
 
-    with patch.object(
-        client_service, "ClientRepository", return_value=repository
-    ), patch.object(client_service, "_validate_identity_data"):
+    with (
+        patch.object(client_service, "ClientRepository", return_value=repository),
+        patch.object(client_service, "_validate_identity_data"),
+    ):
         with pytest.raises(HTTPException) as exc:
-            client_service.create_client(
-                data, db, 10, SimpleNamespace(email="user@example.com")
-            )
+            client_service.create_client(data, db, 10, SimpleNamespace(email="user@example.com"))
 
     assert exc.value.status_code == 409
 
@@ -277,9 +278,7 @@ def test_list_and_delete_clients_delegate_to_repository():
     repository.get_all.return_value = [client]
 
     with patch.object(client_service, "ClientRepository", return_value=repository):
-        assert client_service.list_clients(
-            db, 10, limit=20, offset=5, search="juan"
-        ) == [client]
+        assert client_service.list_clients(db, 10, limit=20, offset=5, search="juan") == [client]
         with patch.object(client_service, "get_client", return_value=client):
             client_service.delete_client(client.id, db, 10)
 

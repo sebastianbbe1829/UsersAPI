@@ -9,12 +9,12 @@ from ..repositories.user_tenant_repository import UserTenantRepository
 # LISTAR TENANTS DE UN USUARIO DENTRO DEL CONTEXTO ACTUAL
 # ============================================================
 
+
 def list_user_tenants(
     user_id: int,
     current_tenant_id: int,
     db: Session,
 ):
-
     user_repository = UserRepository(db)
     user_tenant_repository = UserTenantRepository(db)
 

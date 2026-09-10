@@ -23,11 +23,7 @@ def seed_identification_types(db: Session) -> tuple[int, int, int]:
     created = updated = deactivated = 0
 
     for code, name, person_type in IDENTIFICATION_TYPES:
-        item = (
-            db.query(IdentificationTypeDB)
-            .filter(IdentificationTypeDB.code == code)
-            .first()
-        )
+        item = db.query(IdentificationTypeDB).filter(IdentificationTypeDB.code == code).first()
         if item is None:
             db.add(
                 IdentificationTypeDB(
@@ -40,11 +36,7 @@ def seed_identification_types(db: Session) -> tuple[int, int, int]:
             created += 1
             continue
 
-        changed = (
-            item.name != name
-            or item.person_type != person_type
-            or item.active is not True
-        )
+        changed = item.name != name or item.person_type != person_type or item.active is not True
         item.name = name
         item.person_type = person_type
         item.active = True

@@ -6,9 +6,7 @@ from UsersAPI.domains.clients.routes.catalog_routes import catalog_routes
 
 def _route(path: str, method: str = "GET"):
     return next(
-        route
-        for route in catalog_routes.routes
-        if route.path == path and method in route.methods
+        route for route in catalog_routes.routes if route.path == path and method in route.methods
     )
 
 
@@ -16,11 +14,7 @@ def _permission_code(route) -> str:
     dependency = route.dependencies[0]
     checker = dependency.dependency
     closure = checker.__closure__ or ()
-    return next(
-        cell.cell_contents
-        for cell in closure
-        if isinstance(cell.cell_contents, str)
-    )
+    return next(cell.cell_contents for cell in closure if isinstance(cell.cell_contents, str))
 
 
 def test_catalog_routes_are_registered_with_expected_crud_endpoints():
@@ -103,9 +97,7 @@ def test_departments_route_passes_country_filter():
         "UsersAPI.domains.clients.routes.catalog_routes.listar_departamentos",
         return_value=expected,
     ) as controller:
-        result = asyncio.run(
-            route.endpoint(country_id=5, db=db, include_inactive=True)
-        )
+        result = asyncio.run(route.endpoint(country_id=5, db=db, include_inactive=True))
 
     assert result == expected
     controller.assert_called_once_with(db, 5, True)
@@ -120,9 +112,7 @@ def test_cities_route_passes_department_filter():
         "UsersAPI.domains.clients.routes.catalog_routes.listar_ciudades",
         return_value=expected,
     ) as controller:
-        result = asyncio.run(
-            route.endpoint(department_id=7, db=db, include_inactive=True)
-        )
+        result = asyncio.run(route.endpoint(department_id=7, db=db, include_inactive=True))
 
     assert result == expected
     controller.assert_called_once_with(db, 7, True)

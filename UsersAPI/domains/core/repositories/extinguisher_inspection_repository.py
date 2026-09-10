@@ -74,13 +74,10 @@ class ExtinguisherInspectionRepository:
         )
         if extinguisher_id is not None:
             query = query.filter(ExtinguisherInspectionDB.extinguisher_id == extinguisher_id)
-        return (
-            query.order_by(
-                ExtinguisherInspectionDB.inspection_date.desc(),
-                ExtinguisherInspectionDB.id.desc(),
-            )
-            .all()
-        )
+        return query.order_by(
+            ExtinguisherInspectionDB.inspection_date.desc(),
+            ExtinguisherInspectionDB.id.desc(),
+        ).all()
 
     def add(self, inspection: ExtinguisherInspectionDB):
         self.db.add(inspection)

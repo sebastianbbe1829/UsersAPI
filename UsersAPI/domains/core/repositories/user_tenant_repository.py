@@ -4,7 +4,6 @@ from ..models import UserTenantDB
 
 
 class UserTenantRepository:
-
     def __init__(self, db: Session):
         self.db = db
 
@@ -16,7 +15,6 @@ class UserTenantRepository:
         self,
         user_tenant: UserTenantDB,
     ) -> UserTenantDB:
-
         self.db.add(user_tenant)
         self.db.flush()
 
@@ -27,7 +25,6 @@ class UserTenantRepository:
         self,
         user_tenant: UserTenantDB,
     ) -> UserTenantDB:
-
         self.db.add(user_tenant)
         self.db.flush()
 
@@ -43,7 +40,6 @@ class UserTenantRepository:
         self,
         user_tenant_id: int,
     ) -> UserTenantDB | None:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -61,7 +57,6 @@ class UserTenantRepository:
         self,
         user_tenant_id: int,
     ) -> UserTenantDB | None:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -81,7 +76,6 @@ class UserTenantRepository:
         user_id: int,
         tenant_id: int,
     ) -> UserTenantDB | None:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -105,7 +99,6 @@ class UserTenantRepository:
         user_id: int,
         tenant_id: int,
     ) -> UserTenantDB | None:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -123,7 +116,6 @@ class UserTenantRepository:
         self,
         token: str,
     ) -> UserTenantDB | None:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -140,7 +132,6 @@ class UserTenantRepository:
         self,
         user_id: int,
     ) -> list[UserTenantDB]:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -158,7 +149,6 @@ class UserTenantRepository:
         self,
         tenant_id: int,
     ) -> list[UserTenantDB]:
-
         return (
             self.db.query(UserTenantDB)
             .filter(
@@ -176,7 +166,6 @@ class UserTenantRepository:
         self,
         user_tenant: UserTenantDB,
     ) -> UserTenantDB:
-
         self.db.add(user_tenant)
         self.db.flush()
 
@@ -190,7 +179,6 @@ class UserTenantRepository:
         self,
         user_tenant: UserTenantDB,
     ) -> UserTenantDB:
-
         self.db.add(user_tenant)
         self.db.flush()
 
@@ -204,7 +192,6 @@ class UserTenantRepository:
         self,
         user_tenant: UserTenantDB,
     ) -> UserTenantDB:
-
         user_tenant.status = 3
 
         self.db.add(user_tenant)

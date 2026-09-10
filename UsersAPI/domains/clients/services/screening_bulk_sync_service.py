@@ -179,8 +179,7 @@ def sync_all_screening_lists_bulk(db: Session) -> dict:
             results.append(_sync_source_bulk(db, code))
         except Exception as exc:
             logger.error(
-                "[SCREENING_SYNC] Fuente %s terminó con ERROR; "
-                "continuando con las demás",
+                "[SCREENING_SYNC] Fuente %s terminó con ERROR; continuando con las demás",
                 code,
             )
             results.append({"source": code, "status": "ERROR", "error": str(exc)[:2000]})

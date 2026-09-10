@@ -18,13 +18,13 @@ from ..services.user_service import (
 # CREAR USUARIO
 # ============================================================
 
+
 def crear_usuario(
     user: UserCreate,
     db: Session,
     current_user: UserTenantDB | None = None,
     user_tenant: UserTenantDB | None = None,
 ):
-
     return create_user(
         user,
         db,
@@ -37,12 +37,12 @@ def crear_usuario(
 # LISTAR USUARIOS
 # ============================================================
 
+
 def listar_usuarios(
     db: Session,
     tenant_id: int,
     status_filter: int | None = None,
 ):
-
     return list_users(
         db=db,
         tenant_id=tenant_id,
@@ -54,12 +54,12 @@ def listar_usuarios(
 # OBTENER USUARIO
 # ============================================================
 
+
 def obtener_usuario(
     dni: str,
     db: Session,
     user_tenant: UserTenantDB,
 ):
-
     return get_user(
         dni=dni,
         tenant_id=user_tenant.tenant_id,
@@ -71,6 +71,7 @@ def obtener_usuario(
 # ACTUALIZAR USUARIO
 # ============================================================
 
+
 def actualizar_usuario(
     dni: str,
     datos: UserUpdate,
@@ -78,7 +79,6 @@ def actualizar_usuario(
     current_user: UserTenantDB,
     user_tenant: UserTenantDB,
 ):
-
     return update_user(
         dni,
         datos,
@@ -92,12 +92,12 @@ def actualizar_usuario(
 # ELIMINAR USUARIO
 # ============================================================
 
+
 def eliminar_usuario(
     dni: str,
     db: Session,
     user_tenant: UserTenantDB,
 ):
-
     return delete_user(
         dni,
         db,
@@ -109,21 +109,23 @@ def eliminar_usuario(
 # EXPORTAR USUARIOS
 # ============================================================
 
+
 def exportar_usuarios(
     db: Session,
     current_user: UserTenantDB,
     user_tenant: UserTenantDB,
 ):
-
     return export_users(
         db,
         current_user,
         user_tenant.tenant_id,
     )
 
+
 # ============================================================
 # ACTIVAR USUARIO
 # ============================================================
+
 
 def activar_usuario(
     dni: str,

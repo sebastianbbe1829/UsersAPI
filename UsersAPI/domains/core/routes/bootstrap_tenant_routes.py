@@ -61,4 +61,3 @@ def bootstrap_route(
         datos=datos,
         db=db,
     )
-

@@ -60,8 +60,7 @@ def list_branches(db: Session, tenant_id: int) -> list[dict]:
         )
         .outerjoin(
             CashBoxDB,
-            (CashBoxDB.tenant_id == BranchDB.tenant_id)
-            & (CashBoxDB.branch_id == BranchDB.id),
+            (CashBoxDB.tenant_id == BranchDB.tenant_id) & (CashBoxDB.branch_id == BranchDB.id),
         )
         .where(BranchDB.tenant_id == tenant_id)
         .group_by(BranchDB.id)
@@ -76,9 +75,7 @@ def list_branches(db: Session, tenant_id: int) -> list[dict]:
     ]
 
 
-def create_branch(
-    data: BranchCreate, db: Session, tenant_id: int, current_user
-) -> BranchDB:
+def create_branch(data: BranchCreate, db: Session, tenant_id: int, current_user) -> BranchDB:
     code = data.code.strip().upper()
     if db.scalar(
         select(BranchDB.id).where(
@@ -136,15 +133,12 @@ def update_branch(
     return branch
 
 
-def list_cash_boxes(
-    db: Session, tenant_id: int, branch_id: int | None = None
-) -> list[dict]:
+def list_cash_boxes(db: Session, tenant_id: int, branch_id: int | None = None) -> list[dict]:
     query = (
         select(CashBoxDB, BranchDB.name.label("branch_name"))
         .join(
             BranchDB,
-            (BranchDB.tenant_id == CashBoxDB.tenant_id)
-            & (BranchDB.id == CashBoxDB.branch_id),
+            (BranchDB.tenant_id == CashBoxDB.tenant_id) & (BranchDB.id == CashBoxDB.branch_id),
         )
         .where(CashBoxDB.tenant_id == tenant_id)
         .order_by(CashBoxDB.branch_id, CashBoxDB.id)
@@ -157,9 +151,7 @@ def list_cash_boxes(
     ]
 
 
-def create_cash_box(
-    data: CashBoxCreate, db: Session, tenant_id: int, current_user
-) -> CashBoxDB:
+def create_cash_box(data: CashBoxCreate, db: Session, tenant_id: int, current_user) -> CashBoxDB:
     branch = _branch(db, tenant_id, data.branch_id)
     if branch.status != 1:
         raise _conflict("No se puede crear una caja física en una sucursal inactiva.")

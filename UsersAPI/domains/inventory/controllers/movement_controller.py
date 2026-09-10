@@ -70,9 +70,7 @@ def list_movements(
             .group_by(InventoryMovementDB.reversal_of_id)
             .all()
         )
-        reversed_quantities = {
-            movement_id: Decimal(quantity) for movement_id, quantity in rows
-        }
+        reversed_quantities = {movement_id: Decimal(quantity) for movement_id, quantity in rows}
 
     for movement in movements:
         movement.reversed_quantity = reversed_quantities.get(

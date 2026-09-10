@@ -39,20 +39,12 @@ class PortfolioRepository:
         if client_id is not None:
             query = query.where(ObligationDB.client_id == client_id)
         if date_from is not None:
-            query = query.where(
-                ObligationDB.created_at >= datetime.combine(date_from, time.min)
-            )
+            query = query.where(ObligationDB.created_at >= datetime.combine(date_from, time.min))
         if date_to is not None:
             query = query.where(
-                ObligationDB.created_at < datetime.combine(
-                    date_to + timedelta(days=1), time.min
-                )
+                ObligationDB.created_at < datetime.combine(date_to + timedelta(days=1), time.min)
             )
-        return list(
-            self.db.scalars(
-                query.order_by(ObligationDB.created_at.desc())
-            )
-        )
+        return list(self.db.scalars(query.order_by(ObligationDB.created_at.desc())))
 
     def get_obligation(self, tenant_id: int, obligation_id: UUID, lock: bool = False):
         query = select(ObligationDB).where(

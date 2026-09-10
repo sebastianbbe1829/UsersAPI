@@ -20,7 +20,6 @@ def create_tenant(
     db: Session,
     current_user: UserTenantDB | None = None,
 ) -> TenantDB:
-
     repo = TenantRepository(db)
 
     name = name.strip()

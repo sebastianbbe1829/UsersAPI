@@ -107,9 +107,7 @@ def test_send_email_default_success_and_attachment(monkeypatch):
     response.json.return_value = {"messageId": "abc"}
     post = MagicMock(return_value=response)
     monkeypatch.setattr(email_utils.requests, "post", post)
-    result = email_utils.send_email(
-        "a@b", "s", "m", attachments=[{"name": "x", "content": "Y"}]
-    )
+    result = email_utils.send_email("a@b", "s", "m", attachments=[{"name": "x", "content": "Y"}])
     assert result == {"status": "sent", "message_id": "abc"}
     assert post.call_args.kwargs["json"]["attachment"]
     template.render.assert_called_once()
@@ -147,9 +145,7 @@ def test_send_email_configuration_and_http_errors(monkeypatch):
     _configure_email(monkeypatch)
     monkeypatch.setattr(email_utils, "FRONTEND_URL", "")
     with pytest.raises(RuntimeError, match="FRONTEND_URL"):
-        email_utils.send_email(
-            "a@b", "s", "m", template="updated", tenant_slug="x"
-        )
+        email_utils.send_email("a@b", "s", "m", template="updated", tenant_slug="x")
     _configure_email(monkeypatch)
     monkeypatch.setattr(email_utils.os.path, "isfile", lambda _: False)
     with pytest.raises(RuntimeError, match="template not found"):

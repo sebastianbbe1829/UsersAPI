@@ -4,7 +4,6 @@ from ..models import UserDB, UserTenantDB
 
 
 class UserRepository:
-
     def __init__(self, db: Session):
         self.db = db
 
@@ -35,11 +34,7 @@ class UserRepository:
     # ============================================================
 
     def get_all(self) -> list[UserDB]:
-
-        return (
-            self.db.query(UserDB)
-            .all()
-        )
+        return self.db.query(UserDB).all()
 
     # ============================================================
     # BUSCAR POR DNI
@@ -49,7 +44,6 @@ class UserRepository:
         self,
         dni: str,
     ) -> UserDB | None:
-
         return (
             self.db.query(UserDB)
             .filter(
@@ -66,7 +60,6 @@ class UserRepository:
         self,
         user_id: int,
     ) -> UserDB | None:
-
         return (
             self.db.query(UserDB)
             .filter(
@@ -84,7 +77,6 @@ class UserRepository:
         dni: str,
         tenant_id: int,
     ) -> UserDB | None:
-
         return (
             self.db.query(UserDB)
             .join(
@@ -108,7 +100,6 @@ class UserRepository:
         user_id: int,
         tenant_id: int,
     ) -> UserDB | None:
-
         return (
             self.db.query(UserDB)
             .join(
@@ -132,7 +123,6 @@ class UserRepository:
         tenant_id: int,
         status_filter: int | None = None,
     ) -> list[UserDB]:
-
         query = (
             self.db.query(UserDB)
             .join(
@@ -146,9 +136,7 @@ class UserRepository:
         )
 
         if status_filter is not None:
-            query = query.filter(
-                UserTenantDB.status == status_filter
-            )
+            query = query.filter(UserTenantDB.status == status_filter)
 
         return query.all()
 
@@ -160,7 +148,6 @@ class UserRepository:
         self,
         user_id: int,
     ) -> UserDB | None:
-
         return (
             self.db.query(UserDB)
             .filter(

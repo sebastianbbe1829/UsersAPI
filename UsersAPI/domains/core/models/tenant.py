@@ -14,7 +14,6 @@ from ..database import Base
 
 
 class TenantDB(Base):
-
     __tablename__ = "tenants"
 
     __table_args__ = (
@@ -22,9 +21,7 @@ class TenantDB(Base):
             "slug",
             name="uq_tenants_slug",
         ),
-        {
-            "schema": "users_api"
-        },
+        {"schema": "users_api"},
     )
 
     id = Column(

@@ -5,7 +5,6 @@ from ..database import Base
 
 
 class GlobalUserDB(Base):
-
     __tablename__ = "global_users"
 
     __table_args__ = (

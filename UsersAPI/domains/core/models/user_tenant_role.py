@@ -11,7 +11,6 @@ from ..database import Base
 
 
 class UserTenantRoleDB(Base):
-
     __tablename__ = "user_tenant_roles"
 
     __table_args__ = (
@@ -20,9 +19,7 @@ class UserTenantRoleDB(Base):
             "role_id",
             name="uq_user_tenant_roles_user_tenant_role",
         ),
-        {
-            "schema": "users_api"
-        },
+        {"schema": "users_api"},
     )
 
     id = Column(

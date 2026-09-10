@@ -107,9 +107,7 @@ def test_screen_client_updates_client_on_clear():
         response={"matches": []},
     )
 
-    with patch(
-        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
-    ) as provider:
+    with patch("UsersAPI.domains.clients.services.screening_service.ScreeningProvider") as provider:
         provider.return_value.screen.return_value = provider_result
         result = screen_client(client, db)
 
@@ -137,9 +135,7 @@ def test_screen_client_blocks_client_on_match():
         response={"matches": [{"external_id": "35784"}]},
     )
 
-    with patch(
-        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
-    ) as provider:
+    with patch("UsersAPI.domains.clients.services.screening_service.ScreeningProvider") as provider:
         provider.return_value.screen.return_value = provider_result
         result = screen_client(client, db)
 
@@ -161,9 +157,7 @@ def test_screen_client_records_error_without_raising():
         list_type=None,
     )
 
-    with patch(
-        "UsersAPI.domains.clients.services.screening_service.ScreeningProvider"
-    ) as provider:
+    with patch("UsersAPI.domains.clients.services.screening_service.ScreeningProvider") as provider:
         provider.return_value.screen.side_effect = RuntimeError("provider error")
         result = screen_client(client, db)
 

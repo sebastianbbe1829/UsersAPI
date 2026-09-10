@@ -245,11 +245,7 @@ def refresh_login_session(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    claims = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"exp", "iat"}
-    }
+    claims = {key: value for key, value in payload.items() if key not in {"exp", "iat"}}
     new_token = create_access_token(claims)
     session.last_activity_at = now
     if client_ip:
@@ -291,11 +287,7 @@ def close_login_session(
     if event_type is None:
         exp = payload.get("exp")
         now_epoch = int(datetime.now(timezone.utc).timestamp())
-        event_type = (
-            SESSION_EXPIRED
-            if exp is not None and int(exp) <= now_epoch
-            else LOGOUT
-        )
+        event_type = SESSION_EXPIRED if exp is not None and int(exp) <= now_epoch else LOGOUT
     if event_type not in {LOGOUT, SESSION_EXPIRED}:
         raise ValueError("Tipo de evento de cierre de sesión no válido")
 

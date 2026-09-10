@@ -28,9 +28,7 @@ def _money(value: Decimal) -> Decimal:
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -56,9 +54,7 @@ def _client(
 
 
 def _credit_read(credit_limit: CreditLimitDB, db: Session, tenant_id: int):
-    used = _money(
-        Decimal(PortfolioRepository(db).credit_used(tenant_id, credit_limit.client_id))
-    )
+    used = _money(Decimal(PortfolioRepository(db).credit_used(tenant_id, credit_limit.client_id)))
     approved = _money(Decimal(credit_limit.approved_limit))
     credit_limit.credit_used = used
     credit_limit.credit_available = max(Decimal("0.00"), approved - used)
@@ -282,10 +278,7 @@ def annul_payment(
         if obligation is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "Cannot annul payment because an allocated obligation "
-                    "was not found"
-                ),
+                detail=("Cannot annul payment because an allocated obligation was not found"),
             )
 
         new_balance = _money(Decimal(obligation.balance) + Decimal(allocation.amount))

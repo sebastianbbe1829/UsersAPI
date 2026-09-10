@@ -16,9 +16,7 @@ def _actor_name(current_user: object | None) -> str:
     )[:100]
 
 
-def _require_assignment(
-    db: Session, tenant_id: int, current_user: object
-) -> UserCashAssignmentDB:
+def _require_assignment(db: Session, tenant_id: int, current_user: object) -> UserCashAssignmentDB:
     assignment = db.scalar(
         select(UserCashAssignmentDB).where(
             UserCashAssignmentDB.tenant_id == tenant_id,
@@ -37,9 +35,7 @@ def _require_assignment(
     return assignment
 
 
-def _require_open_register(
-    db: Session, tenant_id: int, current_user: object
-) -> CashRegisterDB:
+def _require_open_register(db: Session, tenant_id: int, current_user: object) -> CashRegisterDB:
     assignment = _require_assignment(db, tenant_id, current_user)
     register = CashRepository.get_open(db, tenant_id, assignment.cash_box_id)
     if register is None:

@@ -42,6 +42,7 @@ tenant_routes = APIRouter(
 # cuyo usuario tiene BYPASSRLS.
 # ============================================================
 
+
 @tenant_routes.get(
     "/admin",
     response_model=List[TenantRead],
@@ -122,6 +123,7 @@ async def actualizar_tenant_super_route(
 # CREAR TENANT
 # ============================================================
 
+
 @tenant_routes.post(
     "",
     response_model=TenantRead,
@@ -147,6 +149,7 @@ async def crear_tenant_route(
 # LISTAR TENANTS
 # ============================================================
 
+
 @tenant_routes.get(
     "",
     response_model=List[TenantRead],
@@ -170,6 +173,7 @@ async def listar_tenants_route(
 # LISTAR MIS TENANTS
 # ============================================================
 
+
 @tenant_routes.get(
     "/my",
     response_model=List[TenantRead],
@@ -192,6 +196,7 @@ async def listar_mis_tenants_route(
 # ============================================================
 # OBTENER TENANT
 # ============================================================
+
 
 @tenant_routes.get(
     "/{tenant_id}",
@@ -221,6 +226,7 @@ async def obtener_tenant_route(
 # ACTUALIZAR TENANT
 # ============================================================
 
+
 @tenant_routes.patch(
     "/{tenant_id}",
     response_model=TenantRead,
@@ -249,6 +255,7 @@ async def actualizar_tenant_route(
 # ============================================================
 # ELIMINAR TENANT
 # ============================================================
+
 
 @tenant_routes.delete(
     "/{tenant_id}",

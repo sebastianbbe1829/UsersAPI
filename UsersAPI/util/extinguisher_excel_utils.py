@@ -37,10 +37,19 @@ def export_extinguishers_to_excel(data: list[dict], current_user: Any | None = N
     )
 
     columnas = [
-        "Código", "Tipo", "Capacidad", "Ubicación", "Estado", "Stock",
-        "Última recarga", "Próxima recarga", "Última revisión",
-        "Resultado última revisión", "Revisiones desde hidrostática",
-        "Última prueba hidrostática", "Próxima prueba hidrostática",
+        "Código",
+        "Tipo",
+        "Capacidad",
+        "Ubicación",
+        "Estado",
+        "Stock",
+        "Última recarga",
+        "Próxima recarga",
+        "Última revisión",
+        "Resultado última revisión",
+        "Revisiones desde hidrostática",
+        "Última prueba hidrostática",
+        "Próxima prueba hidrostática",
         "Hidrostática requerida",
     ]
 

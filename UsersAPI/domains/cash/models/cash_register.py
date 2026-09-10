@@ -58,13 +58,9 @@ class CashRegisterDB(Base):
     branch_id = Column(Integer, nullable=True)
     cash_box_id = Column(Integer, nullable=True)
     business_date = Column(Date, nullable=True)
-    opened_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    opened_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     opened_by = Column(String(100), nullable=False)
-    opening_amount = Column(
-        Numeric(18, 2), nullable=False, server_default=text("0")
-    )
+    opening_amount = Column(Numeric(18, 2), nullable=False, server_default=text("0"))
     status = Column(String(20), nullable=False, server_default=text("OPEN"))
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(100), nullable=True)
@@ -72,9 +68,7 @@ class CashRegisterDB(Base):
     counted_cash = Column(Numeric(18, 2), nullable=True)
     difference = Column(Numeric(18, 2), nullable=True)
     closing_notes = Column(String(500), nullable=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     updated_at = Column(DateTime, nullable=True)
 
     cash_day = relationship("CashDayDB", back_populates="registers")

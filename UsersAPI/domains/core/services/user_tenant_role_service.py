@@ -18,6 +18,7 @@ from ..repositories.user_tenant_role_repository import (
 # ASIGNAR ROL A USUARIO
 # ============================================================
 
+
 def assign_role_to_user(
     user_tenant_id: int,
     role_id: int,
@@ -25,7 +26,6 @@ def assign_role_to_user(
     db: Session,
     current_user: UserDB | None = None,
 ) -> UserTenantRoleDB:
-
     repo = UserTenantRoleRepository(db)
 
     # ============================================================
@@ -113,7 +113,6 @@ def assign_role_to_user(
     )
 
     try:
-
         creada = repo.add(nueva_asignacion)
 
         logger.info(
@@ -130,7 +129,6 @@ def assign_role_to_user(
         return creada
 
     except IntegrityError:
-
         db.rollback()
 
         raise HTTPException(
@@ -139,7 +137,6 @@ def assign_role_to_user(
         ) from None
 
     except Exception as exc:
-
         db.rollback()
 
         logger.error(
@@ -152,16 +149,17 @@ def assign_role_to_user(
             detail="Error interno al asignar rol",
         ) from exc
 
+
 # ============================================================
 # LISTAR ROLES DE UN USUARIO
 # ============================================================
+
 
 def list_user_roles(
     user_tenant_id: int,
     tenant_id: int,
     db: Session,
 ):
-
     # ============================================================
     # 1. VALIDAR RELACIÓN USUARIO-TENANT
     # ============================================================
@@ -215,12 +213,12 @@ def list_user_roles(
 # ELIMINAR ROL DE USUARIO
 # ============================================================
 
+
 def delete_user_role(
     user_tenant_role_id: int,
     tenant_id: int,
     db: Session,
 ):
-
     repo = UserTenantRoleRepository(db)
 
     # ============================================================

@@ -4,7 +4,6 @@ from ..models import RolePermissionDB
 
 
 class RolePermissionRepository:
-
     def __init__(self, db: Session):
         self.db = db
 
@@ -17,7 +16,6 @@ class RolePermissionRepository:
         role_id: int,
         permission_id: int,
     ) -> RolePermissionDB | None:
-
         return (
             self.db.query(RolePermissionDB)
             .filter(
@@ -35,7 +33,6 @@ class RolePermissionRepository:
         self,
         role_permission: RolePermissionDB,
     ) -> RolePermissionDB:
-
         self.db.add(role_permission)
         self.db.flush()
         self.db.refresh(role_permission)
@@ -50,7 +47,6 @@ class RolePermissionRepository:
         self,
         role_id: int,
     ) -> list[RolePermissionDB]:
-
         return (
             self.db.query(RolePermissionDB)
             .filter(
@@ -67,7 +63,6 @@ class RolePermissionRepository:
         self,
         role_permission_id: int,
     ) -> RolePermissionDB | None:
-
         return (
             self.db.query(RolePermissionDB)
             .filter(
@@ -84,6 +79,5 @@ class RolePermissionRepository:
         self,
         role_permission: RolePermissionDB,
     ) -> None:
-
         self.db.delete(role_permission)
         self.db.flush()

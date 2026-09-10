@@ -15,10 +15,14 @@ def _normalize_code(code: str) -> str:
 
 
 def _validate_type(type_id: int, db: Session) -> ExtinguisherTypeDB:
-    item = db.query(ExtinguisherTypeDB).filter(
-        ExtinguisherTypeDB.id == type_id,
-        ExtinguisherTypeDB.active.is_(True),
-    ).first()
+    item = (
+        db.query(ExtinguisherTypeDB)
+        .filter(
+            ExtinguisherTypeDB.id == type_id,
+            ExtinguisherTypeDB.active.is_(True),
+        )
+        .first()
+    )
     if item is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

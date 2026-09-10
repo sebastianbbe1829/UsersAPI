@@ -48,9 +48,7 @@ class UserCashAssignmentDB(Base):
     branch_id = Column(Integer, nullable=False)
     cash_box_id = Column(Integer, nullable=False)
     status = Column(Integer, nullable=False, server_default=text("1"))
-    assigned_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    assigned_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     assigned_by = Column(String(100), nullable=False)
     unassigned_at = Column(DateTime, nullable=True)
     unassigned_by = Column(String(100), nullable=True)

@@ -124,9 +124,7 @@ class ExtinguisherRechargeNotificationService:
                 target_date,
                 data["extinguishers"],
             )
-            overdue_count = sum(
-                1 for item in data["extinguishers"] if item["days_overdue"] > 0
-            )
+            overdue_count = sum(1 for item in data["extinguishers"] if item["days_overdue"] > 0)
             today_count = len(data["extinguishers"]) - overdue_count
             subject = (
                 f"Alerta: {len(data['extinguishers'])} extintor(es) vencido(s) "

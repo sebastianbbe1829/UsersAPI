@@ -24,9 +24,7 @@ COLOMBIA_TZ = ZoneInfo("America/Bogota")
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -45,10 +43,7 @@ def _validate_origin(
     if expected_movement_type and data.movement_type != expected_movement_type:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{origin_type} movements must be "
-                f"{expected_movement_type} movements"
-            ),
+            detail=(f"{origin_type} movements must be {expected_movement_type} movements"),
         )
     if origin_type == "SALE" and data.origin_id is None:
         raise HTTPException(
@@ -80,9 +75,9 @@ def _calculate_weighted_average_cost(
 ) -> Decimal:
     if current_quantity <= 0 or current_average_cost is None:
         return entry_unit_cost
-    return (
-        current_quantity * current_average_cost + entry_quantity * entry_unit_cost
-    ) / (current_quantity + entry_quantity)
+    return (current_quantity * current_average_cost + entry_quantity * entry_unit_cost) / (
+        current_quantity + entry_quantity
+    )
 
 
 def _calculate_reversed_average_cost(
@@ -97,8 +92,7 @@ def _calculate_reversed_average_cost(
     if current_average_cost is None or reversed_unit_cost is None:
         return current_average_cost
     remaining_value = (
-        current_quantity * current_average_cost
-        - reversed_quantity * reversed_unit_cost
+        current_quantity * current_average_cost - reversed_quantity * reversed_unit_cost
     )
     if remaining_value < 0:
         raise HTTPException(
@@ -304,9 +298,7 @@ def list_inventory_movements(
         else None
     )
     to_datetime = (
-        datetime.combine(to_date, time.max, tzinfo=COLOMBIA_TZ)
-        .astimezone(UTC)
-        .replace(tzinfo=None)
+        datetime.combine(to_date, time.max, tzinfo=COLOMBIA_TZ).astimezone(UTC).replace(tzinfo=None)
         if to_date
         else None
     )

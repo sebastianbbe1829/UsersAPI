@@ -35,6 +35,7 @@ role_routes = APIRouter(
 # Permiso requerido: ROLE_CREATE
 # ============================================================
 
+
 @role_routes.post(
     "",
     response_model=RoleRead,
@@ -63,6 +64,7 @@ async def crear_rol_route(
 # GET /roles
 # Permiso requerido: ROLE_READ
 # ============================================================
+
 
 @role_routes.get(
     "",
@@ -95,6 +97,7 @@ async def listar_roles_route(
 # Permiso requerido: ROLE_READ
 # ============================================================
 
+
 @role_routes.get(
     "/{role_id}",
     response_model=RoleRead,
@@ -126,6 +129,7 @@ async def obtener_rol_route(
 # Permiso requerido: ROLE_UPDATE
 # ============================================================
 
+
 @role_routes.patch(
     "/{role_id}",
     response_model=RoleRead,
@@ -156,6 +160,7 @@ async def actualizar_rol_route(
 # DELETE /roles/{role_id}
 # Permiso requerido: ROLE_DELETE
 # ============================================================
+
 
 @role_routes.delete(
     "/{role_id}",

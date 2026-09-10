@@ -13,10 +13,10 @@ from ..services.permission_service import (
 # LISTAR PERMISOS
 # ============================================================
 
+
 def listar_permisos(
     db: Session,
 ):
-
     return list_permission(
         db=db,
     )
@@ -26,11 +26,11 @@ def listar_permisos(
 # OBTENER PERMISO
 # ============================================================
 
+
 def obtener_permiso(
     code: str,
     db: Session,
 ):
-
     return get_permission(
         code=code,
         db=db,
@@ -41,12 +41,12 @@ def obtener_permiso(
 # CREAR PERMISO
 # ============================================================
 
+
 def crear_permiso(
     datos: PermissionCreate,
     current_user,
     db: Session,
 ):
-
     return create_permission(
         datos=datos,
         current_user=current_user,

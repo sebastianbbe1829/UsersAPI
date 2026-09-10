@@ -30,7 +30,10 @@ sales_routes = APIRouter(prefix="/sales", tags=["Ventas"])
     "",
     response_model=SaleRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("SALES_CREATE")), Depends(require_operational_cash_context)],
+    dependencies=[
+        Depends(require_permission("SALES_CREATE")),
+        Depends(require_operational_cash_context),
+    ],
 )
 async def create_sale_route(
     data: SaleCreate,
@@ -45,7 +48,10 @@ async def create_sale_route(
     "/autoconsumption",
     response_model=SaleRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("SALES_AUTOCONSUME")), Depends(require_operational_cash_context)],
+    dependencies=[
+        Depends(require_permission("SALES_AUTOCONSUME")),
+        Depends(require_operational_cash_context),
+    ],
 )
 async def create_autoconsumption_sale_route(
     data: SaleCreate,

@@ -111,9 +111,7 @@ def test_run_skips_tenant_without_admin_email():
         last_recharge_date=date(2025, 9, 3),
         next_recharge_date=date(2026, 9, 2),
     )
-    db.execute.return_value.all.return_value = [
-        (extinguisher, "ABC", "Tenant", "tenant")
-    ]
+    db.execute.return_value.all.return_value = [(extinguisher, "ABC", "Tenant", "tenant")]
     svc = service.ExtinguisherRechargeNotificationService(db)
     svc._get_admin_recipients = MagicMock(return_value=[])
     result = svc.run(date(2026, 9, 3))
@@ -133,9 +131,7 @@ def test_run_sends_email_and_marks_sent(monkeypatch):
         last_recharge_date=date(2025, 9, 3),
         next_recharge_date=date(2026, 9, 3),
     )
-    db.execute.return_value.all.return_value = [
-        (extinguisher, "ABC", "Tenant", "tenant")
-    ]
+    db.execute.return_value.all.return_value = [(extinguisher, "ABC", "Tenant", "tenant")]
     svc = service.ExtinguisherRechargeNotificationService(db)
     svc._get_admin_recipients = MagicMock(return_value=[" admin@example.com "])
     svc._already_sent = MagicMock(return_value=False)
@@ -162,9 +158,7 @@ def test_run_does_not_resend_already_sent(monkeypatch):
         last_recharge_date=date(2025, 9, 3),
         next_recharge_date=date(2026, 9, 3),
     )
-    db.execute.return_value.all.return_value = [
-        (extinguisher, "ABC", "Tenant", "tenant")
-    ]
+    db.execute.return_value.all.return_value = [(extinguisher, "ABC", "Tenant", "tenant")]
     svc = service.ExtinguisherRechargeNotificationService(db)
     svc._get_admin_recipients = MagicMock(return_value=["admin@example.com"])
     svc._already_sent = MagicMock(return_value=True)
@@ -187,9 +181,7 @@ def test_run_clears_pending_when_email_fails(monkeypatch):
         last_recharge_date=date(2025, 9, 3),
         next_recharge_date=date(2026, 9, 3),
     )
-    db.execute.return_value.all.return_value = [
-        (extinguisher, "ABC", "Tenant", "tenant")
-    ]
+    db.execute.return_value.all.return_value = [(extinguisher, "ABC", "Tenant", "tenant")]
     svc = service.ExtinguisherRechargeNotificationService(db)
     svc._get_admin_recipients = MagicMock(return_value=["admin@example.com"])
     svc._already_sent = MagicMock(return_value=False)

@@ -16,7 +16,6 @@ def get_current_tenant(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> UserTenantDB:
-
     if current_user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -36,7 +35,6 @@ def get_current_tenant(
     # ========================================================
 
     if isinstance(current_user, GlobalUserDB):
-
         try:
             payload = jwt.decode(
                 token,

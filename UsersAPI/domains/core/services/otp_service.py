@@ -48,7 +48,7 @@ def generate_otp(
         previous.consumed_at = now
         repository.update(previous)
 
-    code = f"{secrets.randbelow(10 ** settings.otp_length):0{settings.otp_length}d}"
+    code = f"{secrets.randbelow(10**settings.otp_length):0{settings.otp_length}d}"
     expires_at = now + timedelta(minutes=settings.otp_expire_minutes)
 
     otp = OTPCodeDB(

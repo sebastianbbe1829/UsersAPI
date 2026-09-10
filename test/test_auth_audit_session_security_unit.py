@@ -26,8 +26,9 @@ def test_create_login_session_persists_session_and_login_audit():
         "sub": "9999999999",
     }
 
-    with patch.object(auth_audit_service, "set_rls_tenant") as set_rls, patch.object(
-        auth_audit_service, "_now", return_value=occurred_at
+    with (
+        patch.object(auth_audit_service, "set_rls_tenant") as set_rls,
+        patch.object(auth_audit_service, "_now", return_value=occurred_at),
     ):
         session = auth_audit_service.create_login_session(
             db,
@@ -61,8 +62,9 @@ def test_create_login_session_generates_session_id_when_missing():
     db = MagicMock()
     payload = {"tenant_id": 2, "user_tenant_id": 8, "sub": "user-8"}
 
-    with patch.object(auth_audit_service, "set_rls_tenant"), patch.object(
-        auth_audit_service, "_now", return_value=datetime(2026, 9, 3, 22, 0, 0)
+    with (
+        patch.object(auth_audit_service, "set_rls_tenant"),
+        patch.object(auth_audit_service, "_now", return_value=datetime(2026, 9, 3, 22, 0, 0)),
     ):
         session = auth_audit_service.create_login_session(db, "token-2", payload)
 
@@ -94,8 +96,9 @@ def test_close_login_session_closes_session_records_duration_and_logout_audit():
     db.query.return_value = query
 
     token = _token(payload)
-    with patch.object(auth_audit_service, "set_rls_tenant"), patch.object(
-        auth_audit_service, "_now", return_value=logout_at
+    with (
+        patch.object(auth_audit_service, "set_rls_tenant"),
+        patch.object(auth_audit_service, "_now", return_value=logout_at),
     ):
         result = auth_audit_service.close_login_session(
             db,

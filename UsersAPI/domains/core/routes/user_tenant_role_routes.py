@@ -36,6 +36,7 @@ user_tenant_role_routes = APIRouter(
 #
 # ============================================================
 
+
 @user_tenant_role_routes.post(
     "",
     response_model=UserTenantRoleRead,
@@ -69,6 +70,7 @@ async def asignar_rol_usuario_route(
 #   ROLE_READ
 #
 # ============================================================
+
 
 @user_tenant_role_routes.get(
     "/user/{user_tenant_id}",
@@ -104,6 +106,7 @@ async def listar_roles_usuario_route(
 #   ROLE_UPDATE
 #
 # ============================================================
+
 
 @user_tenant_role_routes.delete(
     "/{user_tenant_role_id}",

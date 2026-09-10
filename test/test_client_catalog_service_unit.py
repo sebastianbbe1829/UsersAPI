@@ -111,9 +111,7 @@ def test_list_cities_filters_by_department():
 
 def test_update_identification_type_allows_code_change_when_not_referenced():
     db = MagicMock()
-    item = IdentificationTypeDB(
-        id=1, code="OLD", name="Antiguo", person_type="NATURAL"
-    )
+    item = IdentificationTypeDB(id=1, code="OLD", name="Antiguo", person_type="NATURAL")
     db.get.return_value = item
     query = _query_mock(None)
     db.query.return_value = query
@@ -130,9 +128,7 @@ def test_update_identification_type_allows_code_change_when_not_referenced():
 
 def test_update_identification_type_rejects_code_change_when_referenced_by_client():
     db = MagicMock()
-    item = IdentificationTypeDB(
-        id=1, code="CC", name="Cédula", person_type="NATURAL"
-    )
+    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL")
     db.get.return_value = item
     db.query.return_value = _query_mock((1,))
 
@@ -150,9 +146,7 @@ def test_update_identification_type_rejects_code_change_when_referenced_by_clien
 
 def test_update_identification_type_does_not_query_clients_when_code_is_unchanged():
     db = MagicMock()
-    item = IdentificationTypeDB(
-        id=1, code="CC", name="Cédula", person_type="NATURAL"
-    )
+    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL")
     db.get.return_value = item
 
     result = update_identification_type(
@@ -185,9 +179,7 @@ def test_delete_identification_type_soft_deletes_catalog_row():
 
 def test_update_identification_type_uses_client_fk_reference_check():
     db = MagicMock()
-    item = IdentificationTypeDB(
-        id=1, code="CC", name="Cédula", person_type="NATURAL"
-    )
+    item = IdentificationTypeDB(id=1, code="CC", name="Cédula", person_type="NATURAL")
     db.get.return_value = item
     query = _query_mock(None)
     db.query.return_value = query

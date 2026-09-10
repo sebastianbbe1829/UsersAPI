@@ -87,9 +87,7 @@ def test_token_belongs_to_another_user(monkeypatch):
         (1, 409, "El usuario ya se encuentra activo"),
     ],
 )
-def test_activation_rejects_terminal_status(
-    monkeypatch, link_status, expected_status, detail
-):
+def test_activation_rejects_terminal_status(monkeypatch, link_status, expected_status, detail):
     db, _, _, user_repo, tenant_repo = context(link_status=link_status)
     patch_repositories(monkeypatch, user_repo, tenant_repo)
     with pytest.raises(HTTPException) as exc:

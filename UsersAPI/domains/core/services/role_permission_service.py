@@ -16,7 +16,6 @@ def assign_permission_to_role(
     db: Session,
     current_user=None,
 ) -> RolePermissionDB:
-
     repo = RolePermissionRepository(db)
 
     # ============================================================
@@ -83,7 +82,6 @@ def assign_permission_to_role(
     )
 
     try:
-
         creado = repo.add(nueva_relacion)
 
         logger.info(
@@ -94,18 +92,13 @@ def assign_permission_to_role(
                 "permission_id": permission_id,
                 "permission_code": permission.code,
                 "tenant_id": tenant_id,
-                "created_by": (
-                    current_user.email
-                    if current_user
-                    else "bootstrap"
-                ),
+                "created_by": (current_user.email if current_user else "bootstrap"),
             },
         )
 
         return creado
 
     except IntegrityError:
-
         db.rollback()
 
         logger.warning(
@@ -123,7 +116,6 @@ def assign_permission_to_role(
         ) from None
 
     except Exception as exc:
-
         db.rollback()
 
         logger.error(
@@ -142,7 +134,6 @@ def list_role_permissions(
     tenant_id: int,
     db: Session,
 ):
-
     role = (
         db.query(RoleDB)
         .filter(
@@ -171,7 +162,6 @@ def remove_permission_from_role(
     tenant_id: int,
     db: Session,
 ):
-
     repo = RolePermissionRepository(db)
 
     role_permission = repo.get_by_id(

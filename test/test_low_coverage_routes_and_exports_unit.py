@@ -40,9 +40,7 @@ def test_otp_generate_route_delegates_and_rate_limits(monkeypatch):
     create.assert_called_once_with(datos, db)
     assert check.call_count == 2
     assert check.call_args_list[0].args[0] == "otp:generate:ip:10.0.0.5"
-    assert check.call_args_list[1].args[0] == (
-        "otp:generate:destination:login:user@example.com"
-    )
+    assert check.call_args_list[1].args[0] == ("otp:generate:destination:login:user@example.com")
 
 
 def test_otp_validate_route_delegates_and_uses_normalized_values(monkeypatch):
@@ -70,9 +68,7 @@ def test_otp_validate_route_delegates_and_uses_normalized_values(monkeypatch):
     validate.assert_called_once_with("key")
     verify.assert_called_once_with(datos, db)
     assert check.call_args_list[0].args[0] == "otp:validate:ip:127.0.0.1"
-    assert check.call_args_list[1].args[0] == (
-        "otp:validate:destination:mfa:+57 300"
-    )
+    assert check.call_args_list[1].args[0] == ("otp:validate:destination:mfa:+57 300")
 
 
 def test_global_auth_routes_cover_bootstrap_mfa_and_login_without_otp(monkeypatch):
@@ -109,12 +105,12 @@ def test_global_auth_routes_cover_bootstrap_mfa_and_login_without_otp(monkeypatc
     )
     check = MagicMock()
     monkeypatch.setattr(global_auth_routes.rate_limiter, "check", check)
-    assert global_auth_routes.bootstrap_super_user(
-        SimpleNamespace(), request, "secret", db
-    ) == "boot"
-    assert global_auth_routes.verify_bootstrap_mfa(
-        SimpleNamespace(), request, "secret", db
-    ) == "mfa"
+    assert (
+        global_auth_routes.bootstrap_super_user(SimpleNamespace(), request, "secret", db) == "boot"
+    )
+    assert (
+        global_auth_routes.verify_bootstrap_mfa(SimpleNamespace(), request, "secret", db) == "mfa"
+    )
     assert global_auth_routes.login_super_user(datos, request, db) == "login"
     bootstrap.assert_called_once()
     mfa.assert_called_once()
@@ -143,9 +139,7 @@ def test_global_auth_login_route_checks_mfa_when_otp_is_present(monkeypatch):
         "login_super_user",
         login,
     )
-    assert global_auth_routes.login_super_user(
-        datos, request, MagicMock()
-    ) == "ok"
+    assert global_auth_routes.login_super_user(datos, request, MagicMock()) == "ok"
     assert check.call_args_list[2].args[0] == "super:mfa:admin@example.com"
 
 
@@ -320,9 +314,7 @@ def test_user_export_service_builds_rows_and_delegates(monkeypatch):
         MagicMock(return_value=link_repo),
     )
     monkeypatch.setattr(user_export_service, "export_to_excel", export)
-    assert user_export_service.export_users(
-        MagicMock(), SimpleNamespace(id=99), 7
-    ) == "xlsx"
+    assert user_export_service.export_users(MagicMock(), SimpleNamespace(id=99), 7) == "xlsx"
     payload = export.call_args.kwargs["data"]
     assert payload == [
         {
@@ -389,9 +381,7 @@ def test_extinguisher_export_service_builds_active_and_inactive_rows(monkeypatch
     query.first.side_effect = [inspection, None]
     db = MagicMock()
     db.query.return_value = query
-    assert extinguisher_export_service.export_extinguishers(
-        db, SimpleNamespace(id=99), 7
-    ) == "xlsx"
+    assert extinguisher_export_service.export_extinguishers(db, SimpleNamespace(id=99), 7) == "xlsx"
     data = export.call_args.args[0]
     assert len(data) == 2
     assert data[0]["Estado"] == "Activo"

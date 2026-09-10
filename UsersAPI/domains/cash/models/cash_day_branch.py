@@ -28,7 +28,9 @@ class CashDayBranchDB(Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint(
-            "tenant_id", "cash_day_id", "branch_id",
+            "tenant_id",
+            "cash_day_id",
+            "branch_id",
             name="uq_cash_day_branches_day_branch",
         ),
         Index("ix_cash_day_branches_tenant_id", "tenant_id"),

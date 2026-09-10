@@ -14,7 +14,6 @@ from ..database import Base
 
 
 class TenantConfigDB(Base):
-
     __tablename__ = "tenant_configs"
 
     __table_args__ = (

@@ -39,10 +39,7 @@ def db_session():
     cleanup_db = BootstrapSessionLocal()
     try:
         existing_tenant_ids = {
-            row[0]
-            for row in cleanup_db.execute(
-                text("SELECT id FROM users_api.tenants")
-            ).all()
+            row[0] for row in cleanup_db.execute(text("SELECT id FROM users_api.tenants")).all()
         }
     finally:
         cleanup_db.close()
@@ -58,9 +55,7 @@ def db_session():
         try:
             current_created_tenant_ids = {
                 row[0]
-                for row in cleanup_db.execute(
-                    text("SELECT id FROM users_api.tenants")
-                ).all()
+                for row in cleanup_db.execute(text("SELECT id FROM users_api.tenants")).all()
                 if row[0] not in existing_tenant_ids
             }
 
@@ -91,10 +86,9 @@ def db_session():
                 )
 
                 cleanup_db.execute(
-                    text(
-                        "DELETE FROM users_api.roles "
-                        "WHERE tenant_id IN :tenant_ids"
-                    ).bindparams(bind("tenant_ids", expanding=True)),
+                    text("DELETE FROM users_api.roles WHERE tenant_id IN :tenant_ids").bindparams(
+                        bind("tenant_ids", expanding=True)
+                    ),
                     {"tenant_ids": tenant_ids},
                 )
 
@@ -112,8 +106,7 @@ def db_session():
 
                 cleanup_db.execute(
                     text(
-                        "DELETE FROM users_api.user_tenants "
-                        "WHERE tenant_id IN :tenant_ids"
+                        "DELETE FROM users_api.user_tenants WHERE tenant_id IN :tenant_ids"
                     ).bindparams(bind("tenant_ids", expanding=True)),
                     {"tenant_ids": tenant_ids},
                 )
@@ -133,10 +126,9 @@ def db_session():
                     )
 
                 cleanup_db.execute(
-                    text(
-                        "DELETE FROM users_api.tenants "
-                        "WHERE id IN :tenant_ids"
-                    ).bindparams(bind("tenant_ids", expanding=True)),
+                    text("DELETE FROM users_api.tenants WHERE id IN :tenant_ids").bindparams(
+                        bind("tenant_ids", expanding=True)
+                    ),
                     {"tenant_ids": tenant_ids},
                 )
 

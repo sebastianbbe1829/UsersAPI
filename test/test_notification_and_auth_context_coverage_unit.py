@@ -21,17 +21,13 @@ def test_user_notifications_activation_and_whatsapp(monkeypatch):
         phone="300",
     )
 
-    user_notification_service.send_user_notifications(
-        user, link, "Acme", "acme", False
-    )
+    user_notification_service.send_user_notifications(user, link, "Acme", "acme", False)
     assert send_email.call_args.kwargs["template"] == "activation"
     send_whatsapp.assert_called_once()
 
     send_email.reset_mock()
     send_whatsapp.reset_mock()
-    user_notification_service.send_user_notifications(
-        user, link, "Acme", "acme", True
-    )
+    user_notification_service.send_user_notifications(user, link, "Acme", "acme", True)
     assert send_email.call_args.kwargs["template"] == "reactivation"
     assert "reactivada" in send_email.call_args.kwargs["subject"]
 
@@ -51,9 +47,7 @@ def test_user_notifications_handles_email_failure_and_no_phone(monkeypatch):
         tenant_id=7,
         phone=None,
     )
-    user_notification_service.send_user_notifications(
-        user, link, "Acme", "acme", False
-    )
+    user_notification_service.send_user_notifications(user, link, "Acme", "acme", False)
     whatsapp.assert_not_called()
 
 
@@ -68,17 +62,13 @@ def test_user_notifications_handles_whatsapp_failure_and_empty_response(monkeypa
         tenant_id=7,
         phone="300",
     )
-    user_notification_service.send_user_notifications(
-        user, link, "Acme", "acme", False
-    )
+    user_notification_service.send_user_notifications(user, link, "Acme", "acme", False)
     whatsapp.assert_called_once()
 
     whatsapp.reset_mock()
     whatsapp.side_effect = None
     whatsapp.return_value = None
-    user_notification_service.send_user_notifications(
-        user, link, "Acme", "acme", False
-    )
+    user_notification_service.send_user_notifications(user, link, "Acme", "acme", False)
     assert whatsapp.call_count == 1
 
 

@@ -72,9 +72,7 @@ def _validate_identification_type(
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -184,8 +182,7 @@ def update_client(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
-                    "A blocked client can only be reactivated through the "
-                    "compliance override flow"
+                    "A blocked client can only be reactivated through the compliance override flow"
                 ),
             )
         if requested_status == "ACTIVE" and (
@@ -251,8 +248,7 @@ def update_client(
         client.consent_at = None
     client = repository.update(client)
     if identity_changed and any(
-        original_values[field] != getattr(client, field)
-        for field in identity_fields
+        original_values[field] != getattr(client, field) for field in identity_fields
     ):
         screen_client(client, db)
     return client

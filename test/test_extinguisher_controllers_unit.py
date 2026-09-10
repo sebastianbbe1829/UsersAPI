@@ -18,9 +18,7 @@ def test_diagnostics_controller_authorization_and_delegation(monkeypatch):
         service,
     )
     current = GlobalUserDB()
-    assert diagnostics_controller.get_client_ip_diagnostic(request, current) == {
-        "ip": "1.2.3.4"
-    }
+    assert diagnostics_controller.get_client_ip_diagnostic(request, current) == {"ip": "1.2.3.4"}
     service.assert_called_once_with(request)
 
 

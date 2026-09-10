@@ -35,7 +35,10 @@ def require_open_day(db: Session, tenant_id: int) -> CashDayDB:
     if day is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "CASH_DAY_NOT_STARTED", "message": "El día operativo no ha sido iniciado."},
+            detail={
+                "code": "CASH_DAY_NOT_STARTED",
+                "message": "El día operativo no ha sido iniciado.",
+            },
         )
     if day.status != "OPEN":
         raise HTTPException(
@@ -56,7 +59,10 @@ def start_day(db: Session, tenant_id: int, current_user: object) -> CashDayDB:
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"code": "CASH_DAY_ALREADY_STARTED", "message": "El día operativo de hoy ya fue iniciado."},
+            detail={
+                "code": "CASH_DAY_ALREADY_STARTED",
+                "message": "El día operativo de hoy ya fue iniciado.",
+            },
         )
 
     actor = _actor_name(current_user)
@@ -175,7 +181,9 @@ def close_register(
     return register
 
 
-def close_branch(db: Session, tenant_id: int, branch_id: int, current_user: object) -> CashDayBranchDB:
+def close_branch(
+    db: Session, tenant_id: int, branch_id: int, current_user: object
+) -> CashDayBranchDB:
     day = require_open_day(db, tenant_id)
     branch_day = db.scalar(
         select(CashDayBranchDB)
@@ -191,7 +199,10 @@ def close_branch(db: Session, tenant_id: int, branch_id: int, current_user: obje
     if branch_day.status != "OPEN":
         raise HTTPException(
             status_code=409,
-            detail={"code": "CASH_BRANCH_ALREADY_CLOSED", "message": "La sucursal ya está cerrada."},
+            detail={
+                "code": "CASH_BRANCH_ALREADY_CLOSED",
+                "message": "La sucursal ya está cerrada.",
+            },
         )
 
     open_register_id = db.scalar(

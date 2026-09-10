@@ -40,9 +40,7 @@ def _fernet() -> Fernet:
     try:
         return Fernet(key.encode("ascii"))
     except Exception as exc:
-        raise RuntimeError(
-            "SUPER_MFA_ENCRYPTION_KEY no contiene una clave Fernet válida"
-        ) from exc
+        raise RuntimeError("SUPER_MFA_ENCRYPTION_KEY no contiene una clave Fernet válida") from exc
 
 
 def _encrypt_mfa_secret(secret: str) -> str:
@@ -92,11 +90,7 @@ def bootstrap_super_user(
     db: Session,
 ) -> SuperBootstrapResponse:
     _validate_bootstrap_secret(bootstrap_secret)
-    existing = (
-        db.query(GlobalUserDB)
-        .filter(GlobalUserDB.is_superuser.is_(True))
-        .first()
-    )
+    existing = db.query(GlobalUserDB).filter(GlobalUserDB.is_superuser.is_(True)).first()
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -322,12 +316,7 @@ def get_current_super_user(token: str, db: Session) -> GlobalUserDB:
     session_id = payload.get("session_id")
     tenant_id = payload.get("tenant_id")
     tenant_slug = payload.get("tenant_slug")
-    if (
-        global_user_id is None
-        or session_id is None
-        or tenant_id is None
-        or tenant_slug is None
-    ):
+    if global_user_id is None or session_id is None or tenant_id is None or tenant_slug is None:
         raise credentials_exception
     user = (
         db.query(GlobalUserDB)
@@ -348,10 +337,7 @@ def get_current_super_user(token: str, db: Session) -> GlobalUserDB:
         text("SELECT users_api.resolve_tenant_id(:tenant_slug)"),
         {"tenant_slug": tenant_slug},
     ).scalar()
-    if (
-        resolved_tenant_id is None
-        or int(resolved_tenant_id) != int(tenant_id)
-    ):
+    if resolved_tenant_id is None or int(resolved_tenant_id) != int(tenant_id):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="El tenant asociado a la sesión SUPER ya no es válido",

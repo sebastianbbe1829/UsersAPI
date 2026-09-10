@@ -26,9 +26,7 @@ def test_app_role_has_rls_enabled_on_user_tenants(app_conn):
 
 def test_app_role_does_not_bypass_rls(app_conn):
     with app_conn.cursor() as cur:
-        cur.execute(
-            "SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user"
-        )
+        cur.execute("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
         assert cur.fetchone()[0] is False
 
 
@@ -57,9 +55,7 @@ def test_cross_tenant_insert_is_blocked(app_conn, bootstrap_conn, tenant_ids):
     tenant_a, tenant_b = tenant_ids
 
     with bootstrap_conn.cursor() as cur:
-        cur.execute(
-            "SELECT id FROM users_api.app_users ORDER BY id LIMIT 1"
-        )
+        cur.execute("SELECT id FROM users_api.app_users ORDER BY id LIMIT 1")
         row = cur.fetchone()
 
     if row is None:

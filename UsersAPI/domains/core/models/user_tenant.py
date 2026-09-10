@@ -47,15 +47,11 @@ class UserTenantDB(Base):
     phone = Column(String(20), nullable=True)
     activation_token = Column(String(200), nullable=True, unique=True, index=True)
     status = Column(Integer, nullable=False, default=1, server_default=text("1"))
-    failed_login_attempts = Column(
-        Integer, nullable=False, default=0, server_default=text("0")
-    )
+    failed_login_attempts = Column(Integer, nullable=False, default=0, server_default=text("0"))
     last_failed_login_at = Column(DateTime, nullable=True)
     locked_at = Column(DateTime, nullable=True)
     locked_ip = Column(String(45), nullable=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
     created_by_bd = Column(String(100), nullable=True, server_default=text("USER"))
     updated_at = Column(DateTime, nullable=True)

@@ -7,8 +7,8 @@ from pydantic import BaseModel, ConfigDict
 # CREAR PERMISO
 # ============================================================
 
-class PermissionCreate(BaseModel):
 
+class PermissionCreate(BaseModel):
     code: str
     name: str
     description: str | None = None
@@ -18,8 +18,8 @@ class PermissionCreate(BaseModel):
 # RESPUESTA COMPLETA
 # ============================================================
 
-class PermissionRead(BaseModel):
 
+class PermissionRead(BaseModel):
     id: int
     code: str
     name: str
@@ -28,17 +28,15 @@ class PermissionRead(BaseModel):
     created_at: datetime
     created_by: str
 
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================
 # RESPUESTA PARA CONSULTAS
 # ============================================================
 
-class PermissionResponse(BaseModel):
 
+class PermissionResponse(BaseModel):
     id: int
     code: str
     name: str

@@ -31,9 +31,7 @@ def _money(value: Decimal) -> Decimal:
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -123,9 +121,7 @@ def create_sale(
             Decimal("0"),
         )
     )
-    normalized_methods = [
-        payment.payment_method.strip().upper() for payment in data.payments
-    ]
+    normalized_methods = [payment.payment_method.strip().upper() for payment in data.payments]
     credit_amount = _money(
         sum(
             (
@@ -205,9 +201,7 @@ def create_sale(
             )
 
         inventory_costs[item.product_id] = Decimal(inventory.purchase_price or 0)
-        inventory_profits[item.product_id] = Decimal(
-            inventory.profit_percentage or 0
-        )
+        inventory_profits[item.product_id] = Decimal(inventory.profit_percentage or 0)
         unit_price = _sale_price(inventory, at_cost=is_autoconsumption)
         line_total = _money(Decimal(item.quantity) * unit_price)
         subtotal += line_total
@@ -224,9 +218,7 @@ def create_sale(
         )
 
     subtotal = _money(subtotal)
-    discount_amount = _money(
-        subtotal * Decimal(data.discount_percentage) / Decimal("100")
-    )
+    discount_amount = _money(subtotal * Decimal(data.discount_percentage) / Decimal("100"))
     total = _money(subtotal - discount_amount)
     if payment_total != total:
         raise HTTPException(
@@ -255,10 +247,7 @@ def create_sale(
         )
     else:
         percentage_total = sum(
-            (
-                Decimal(customer.allocation_percentage)
-                for customer in data.customers
-            ),
+            (Decimal(customer.allocation_percentage) for customer in data.customers),
             Decimal("0"),
         )
         if percentage_total != Decimal("100"):
@@ -310,8 +299,7 @@ def create_sale(
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
                             detail=(
-                                "Insufficient available credit. "
-                                f"Available credit: {available}"
+                                f"Insufficient available credit. Available credit: {available}"
                             ),
                         )
                 customer_name = client.full_name
@@ -320,9 +308,7 @@ def create_sale(
                 allocation_amount = _money(total - allocation_total)
             else:
                 allocation_amount = _money(
-                    total
-                    * Decimal(customer.allocation_percentage)
-                    / Decimal("100")
+                    total * Decimal(customer.allocation_percentage) / Decimal("100")
                 )
             allocation_total += allocation_amount
             sale.customers.append(
@@ -370,9 +356,7 @@ def create_sale(
                 origin_id=sale.id,
                 quantity=item.quantity,
                 unit_purchase_price=inventory_costs[item.product_id],
-                profit_percentage=0
-                if is_autoconsumption
-                else inventory_profits[item.product_id],
+                profit_percentage=0 if is_autoconsumption else inventory_profits[item.product_id],
                 notes=(
                     f"Venta {sale.sale_number} - Autoconsumo"
                     if is_autoconsumption

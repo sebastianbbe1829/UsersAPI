@@ -49,9 +49,7 @@ class PaymentDB(Base):
     )
     reference = Column(String(100), nullable=True)
     notes = Column(String(500), nullable=True)
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
 
     allocations = relationship(

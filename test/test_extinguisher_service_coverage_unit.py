@@ -50,23 +50,17 @@ def test_extinguisher_service_validation_and_create(monkeypatch):
 
     type_query.first.return_value = None
     with pytest.raises(HTTPException) as exc:
-        extinguisher_service.create_extinguisher(
-            _datos(code="E-02"), db, user_tenant
-        )
+        extinguisher_service.create_extinguisher(_datos(code="E-02"), db, user_tenant)
     assert exc.value.status_code == 400
 
     repo.get_by_code_and_tenant.return_value = SimpleNamespace(id=99)
     with pytest.raises(HTTPException) as exc:
-        extinguisher_service.create_extinguisher(
-            _datos(code="E-03"), db, user_tenant
-        )
+        extinguisher_service.create_extinguisher(_datos(code="E-03"), db, user_tenant)
     assert exc.value.status_code == 409
 
     repo.get_by_code_and_tenant.return_value = None
     with pytest.raises(HTTPException) as exc:
-        extinguisher_service.create_extinguisher(
-            _datos(code="   "), db, user_tenant
-        )
+        extinguisher_service.create_extinguisher(_datos(code="   "), db, user_tenant)
     assert exc.value.status_code == 400
 
 
@@ -85,9 +79,7 @@ def test_extinguisher_service_integrity_error_and_simple_queries(monkeypatch):
         MagicMock(return_value=repo),
     )
     with pytest.raises(HTTPException) as exc:
-        extinguisher_service.create_extinguisher(
-            _datos(), db, SimpleNamespace(tenant_id=7)
-        )
+        extinguisher_service.create_extinguisher(_datos(), db, SimpleNamespace(tenant_id=7))
     assert exc.value.status_code == 409
     db.rollback.assert_called_once()
 
@@ -128,9 +120,7 @@ def test_extinguisher_service_get_update_and_delete(monkeypatch):
         }
     )
     assert (
-        extinguisher_service.update_extinguisher(
-            4, datos, db, SimpleNamespace(tenant_id=7)
-        )
+        extinguisher_service.update_extinguisher(4, datos, db, SimpleNamespace(tenant_id=7))
         is extinguisher
     )
     assert extinguisher.code == "NEW"
@@ -143,16 +133,12 @@ def test_extinguisher_service_get_update_and_delete(monkeypatch):
         extinguisher_service.get_extinguisher(4, db, 7)
     assert exc.value.status_code == 404
     with pytest.raises(HTTPException) as exc:
-        extinguisher_service.update_extinguisher(
-            4, datos, db, SimpleNamespace(tenant_id=7)
-        )
+        extinguisher_service.update_extinguisher(4, datos, db, SimpleNamespace(tenant_id=7))
     assert exc.value.status_code == 404
 
     repo.get_by_id_and_tenant.return_value = extinguisher
     repo.get_by_code_and_tenant.return_value = SimpleNamespace(id=99)
-    duplicate_data = SimpleNamespace(
-        model_dump=lambda exclude_unset: {"code": "DUP"}
-    )
+    duplicate_data = SimpleNamespace(model_dump=lambda exclude_unset: {"code": "DUP"})
     with pytest.raises(HTTPException) as exc:
         extinguisher_service.update_extinguisher(
             4,
@@ -163,17 +149,10 @@ def test_extinguisher_service_get_update_and_delete(monkeypatch):
     assert exc.value.status_code == 409
 
     repo.get_by_code_and_tenant.return_value = None
-    assert (
-        extinguisher_service.delete_extinguisher(
-            4, db, SimpleNamespace(tenant_id=7)
-        )["id"]
-        == 4
-    )
+    assert extinguisher_service.delete_extinguisher(4, db, SimpleNamespace(tenant_id=7))["id"] == 4
     assert extinguisher.active is False
 
     repo.get_by_id_and_tenant.return_value = None
     with pytest.raises(HTTPException) as exc:
-        extinguisher_service.delete_extinguisher(
-            4, db, SimpleNamespace(tenant_id=7)
-        )
+        extinguisher_service.delete_extinguisher(4, db, SimpleNamespace(tenant_id=7))
     assert exc.value.status_code == 404

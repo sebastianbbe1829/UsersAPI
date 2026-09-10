@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict
 # ASIGNAR PERMISO A ROL
 # ============================================================
 
-class RolePermissionCreate(BaseModel):
 
+class RolePermissionCreate(BaseModel):
     role_id: int
     permission_id: int
 
@@ -15,8 +15,8 @@ class RolePermissionCreate(BaseModel):
 # RESPUESTA
 # ============================================================
 
-class RolePermissionRead(BaseModel):
 
+class RolePermissionRead(BaseModel):
     id: int
     role_id: int
     permission_id: int
@@ -30,8 +30,8 @@ class RolePermissionRead(BaseModel):
 # ELIMINAR PERMISO DEL ROL
 # ============================================================
 
-class RolePermissionDeleteResponse(BaseModel):
 
+class RolePermissionDeleteResponse(BaseModel):
     id: int
     role_id: int
     permission_id: int

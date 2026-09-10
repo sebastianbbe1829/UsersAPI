@@ -418,7 +418,12 @@ def test_inventory_catalog_controllers_delegate(monkeypatch):
     assert catalog_controller.list_product_items(db, 7, False) is sentinel
     assert catalog_controller.update_product_item(2, data, db, 7, current_user) is sentinel
     assert [call[0] for call in service_calls] == [
-        "create_type", "list_types", "update_type", "create_product", "list_products", "update_product"
+        "create_type",
+        "list_types",
+        "update_type",
+        "create_product",
+        "list_products",
+        "update_product",
     ]
 
 
@@ -435,7 +440,9 @@ def test_inventory_and_movement_controllers_delegate(monkeypatch):
     assert inventory_controller.get_inventory_item(1, db, 7) is sentinel
 
     monkeypatch.setattr(movement_controller, "create_inventory_movement", lambda *args: sentinel)
-    monkeypatch.setattr(movement_controller, "list_inventory_movements", lambda *args, **kwargs: sentinel)
+    monkeypatch.setattr(
+        movement_controller, "list_inventory_movements", lambda *args, **kwargs: sentinel
+    )
     monkeypatch.setattr(movement_controller, "get_inventory_movement", lambda *args: sentinel)
     assert movement_controller.create_movement(data, db, 7, current_user) is sentinel
     assert movement_controller.list_movements(1, db, 7, limit=20, offset=5) is sentinel
@@ -466,13 +473,17 @@ def test_inventory_routes_delegate(monkeypatch):
         return [
             await inventory_routes.list_inventory_types_route(True, db, user_tenant),
             await inventory_routes.create_inventory_type_route(data, db, current_user, user_tenant),
-            await inventory_routes.update_inventory_type_route(1, data, db, current_user, user_tenant),
+            await inventory_routes.update_inventory_type_route(
+                1, data, db, current_user, user_tenant
+            ),
             await inventory_routes.list_products_route(False, db, user_tenant),
             await inventory_routes.create_product_route(data, db, current_user, user_tenant),
             await inventory_routes.update_product_route(2, data, db, current_user, user_tenant),
             await inventory_routes.list_inventory_route(db, user_tenant),
             await inventory_routes.get_inventory_route(3, db, user_tenant),
-            await inventory_routes.create_inventory_movement_route(data, db, current_user, user_tenant),
+            await inventory_routes.create_inventory_movement_route(
+                data, db, current_user, user_tenant
+            ),
             await inventory_routes.list_inventory_movements_route(4, 25, 5, db, user_tenant),
             await inventory_routes.get_inventory_movement_route(movement_id, db, user_tenant),
         ]

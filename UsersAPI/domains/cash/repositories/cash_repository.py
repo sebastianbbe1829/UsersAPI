@@ -29,9 +29,7 @@ class CashRepository:
         )
 
     @staticmethod
-    def list_all(
-        db: Session, tenant_id: int, limit: int, offset: int
-    ) -> list[CashRegisterDB]:
+    def list_all(db: Session, tenant_id: int, limit: int, offset: int) -> list[CashRegisterDB]:
         return list(
             db.scalars(
                 select(CashRegisterDB)

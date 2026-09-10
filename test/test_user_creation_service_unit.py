@@ -80,9 +80,7 @@ def test_reactivate_user_updates_both_entities(monkeypatch):
     user_repo = MagicMock()
     tenant_repo = MagicMock()
     monkeypatch.setattr(service, "get_password_hash", lambda value: f"hash:{value}")
-    result = service.reactivate_user(
-        user, usuario, link, 5, "actor", user_repo, tenant_repo
-    )
+    result = service.reactivate_user(user, usuario, link, 5, "actor", user_repo, tenant_repo)
     assert result is link
     assert usuario.name == "Test User"
     assert link.email == "test@example.com"
@@ -175,14 +173,12 @@ def test_create_user_requires_existing_tenant(monkeypatch):
 def test_create_user_rejects_existing_active_link(monkeypatch):
     db = MagicMock()
     tenant_repo = MagicMock()
-    tenant_repo.get_by_id.return_value = SimpleNamespace(
-        id=5, slug="tenant", name="Tenant"
-    )
+    tenant_repo.get_by_id.return_value = SimpleNamespace(id=5, slug="tenant", name="Tenant")
     user_repo = MagicMock()
     user_repo.get_by_dni.return_value = SimpleNamespace(id=10, dni="12345678")
     tenant_link_repo = MagicMock()
-    tenant_link_repo.get_by_user_and_tenant_including_deleted.return_value = (
-        SimpleNamespace(status=1)
+    tenant_link_repo.get_by_user_and_tenant_including_deleted.return_value = SimpleNamespace(
+        status=1
     )
     monkeypatch.setattr(service, "TenantRepository", lambda db: tenant_repo)
     monkeypatch.setattr(service, "UserRepository", lambda db: user_repo)

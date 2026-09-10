@@ -8,7 +8,14 @@ from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
 from ..schemas import CashDayClose, CashDayRead, CashRegisterClose
-from ..services import close_branch, close_day, close_register, get_current_day, serialize_day, start_day
+from ..services import (
+    close_branch,
+    close_day,
+    close_register,
+    get_current_day,
+    serialize_day,
+    start_day,
+)
 
 cash_day_routes = APIRouter(prefix="/days", tags=["Caja - Día operativo"])
 

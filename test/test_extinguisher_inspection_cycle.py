@@ -58,10 +58,7 @@ def make_payload(hydrostatic=False):
         hydrostatic_test_performed=hydrostatic,
         hydrostatic_test_date=date(2026, 9, 1) if hydrostatic else None,
         next_hydrostatic_test_date=date(2031, 9, 1) if hydrostatic else None,
-        items=[
-            {"inspection_item_id": item_id, "result": "GOOD"}
-            for item_id in range(1, 8)
-        ],
+        items=[{"inspection_item_id": item_id, "result": "GOOD"} for item_id in range(1, 8)],
     )
 
 
@@ -134,9 +131,7 @@ def test_fifth_inspection_without_hydrostatic_is_rejected_and_counter_stays_at_f
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            extinguisher_inspection_service.create_inspection(
-                10, make_payload(), db, user_tenant
-            )
+            extinguisher_inspection_service.create_inspection(10, make_payload(), db, user_tenant)
 
     assert exc_info.value.status_code == 409
     assert (

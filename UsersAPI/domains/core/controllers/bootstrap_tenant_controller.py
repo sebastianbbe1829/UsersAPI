@@ -9,9 +9,7 @@ def bootstrap_tenant_application(
     datos: BootstrapTenantRequest,
     db: Session,
 ) -> BootstrapTenantResponse:
-
     try:
-
         result = bootstrapTenant(
             db=db,
             tenant_name=datos.tenant_name,
@@ -24,7 +22,6 @@ def bootstrap_tenant_application(
         )
 
     except ValueError as exc:
-
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
@@ -34,7 +31,6 @@ def bootstrap_tenant_application(
         raise
 
     except Exception as exc:
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno durante el bootstrap.",
@@ -60,17 +56,13 @@ def bootstrap_tenant_application(
         tenant_id=tenant.id,
         tenant_name=tenant.name,
         tenant_slug=tenant.slug,
-
         user_id=user.id,
         user_dni=user.dni,
         user_name=user.name,
-
         user_tenant_id=user_tenant.id,
         user_email=user_tenant.email,
-
         role_id=role.id,
         role_code=role.code,
         role_name=role.name,
-
         message="Bootstrap realizado correctamente.",
     )

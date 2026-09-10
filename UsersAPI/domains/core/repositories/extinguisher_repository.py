@@ -5,7 +5,6 @@ from ..models import ExtinguisherDB, ExtinguisherTypeDB
 
 
 class ExtinguisherRepository:
-
     def __init__(self, db: Session):
         self.db = db
 
@@ -19,10 +18,7 @@ class ExtinguisherRepository:
         tenant_id: int,
         include_inactive: bool = False,
     ) -> list[ExtinguisherDB]:
-        query = (
-            self.db.query(ExtinguisherDB)
-            .filter(ExtinguisherDB.tenant_id == tenant_id)
-        )
+        query = self.db.query(ExtinguisherDB).filter(ExtinguisherDB.tenant_id == tenant_id)
         if not include_inactive:
             query = query.filter(ExtinguisherDB.active.is_(True))
         return query.order_by(
@@ -52,15 +48,17 @@ class ExtinguisherRepository:
                     ExtinguisherDB.code.ilike(patron),
                     ExtinguisherDB.location.ilike(patron),
                     ExtinguisherDB.capacity.ilike(patron),
-                    ExtinguisherDB.extinguisher_type.has(
-                        ExtinguisherTypeDB.name.ilike(patron)
-                    ),
+                    ExtinguisherDB.extinguisher_type.has(ExtinguisherTypeDB.name.ilike(patron)),
                 )
             )
-        return query.order_by(
-            ExtinguisherDB.code.asc(),
-            ExtinguisherDB.id.asc(),
-        ).limit(limit).all()
+        return (
+            query.order_by(
+                ExtinguisherDB.code.asc(),
+                ExtinguisherDB.id.asc(),
+            )
+            .limit(limit)
+            .all()
+        )
 
     def get_by_id_and_tenant(
         self,
@@ -68,12 +66,9 @@ class ExtinguisherRepository:
         tenant_id: int,
         include_inactive: bool = False,
     ) -> ExtinguisherDB | None:
-        query = (
-            self.db.query(ExtinguisherDB)
-            .filter(
-                ExtinguisherDB.id == extinguisher_id,
-                ExtinguisherDB.tenant_id == tenant_id,
-            )
+        query = self.db.query(ExtinguisherDB).filter(
+            ExtinguisherDB.id == extinguisher_id,
+            ExtinguisherDB.tenant_id == tenant_id,
         )
         if not include_inactive:
             query = query.filter(ExtinguisherDB.active.is_(True))
@@ -85,12 +80,9 @@ class ExtinguisherRepository:
         tenant_id: int,
         include_inactive: bool = False,
     ) -> ExtinguisherDB | None:
-        query = (
-            self.db.query(ExtinguisherDB)
-            .filter(
-                ExtinguisherDB.code == code,
-                ExtinguisherDB.tenant_id == tenant_id,
-            )
+        query = self.db.query(ExtinguisherDB).filter(
+            ExtinguisherDB.code == code,
+            ExtinguisherDB.tenant_id == tenant_id,
         )
         if not include_inactive:
             query = query.filter(ExtinguisherDB.active.is_(True))

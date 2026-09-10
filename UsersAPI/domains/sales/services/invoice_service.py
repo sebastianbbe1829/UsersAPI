@@ -112,16 +112,18 @@ def _invoice_pdf(sale: SaleDB) -> bytes:
     story.append(summary_table)
     story.append(Spacer(1, 7 * mm))
 
-    customers = "<br/>".join(
-        (
-            f"{customer.customer_name} — {customer.allocation_percentage}% — "
-            f"{_money(customer.allocation_amount)}"
+    customers = (
+        "<br/>".join(
+            (
+                f"{customer.customer_name} — {customer.allocation_percentage}% — "
+                f"{_money(customer.allocation_amount)}"
+            )
+            for customer in sale.customers
         )
-        for customer in sale.customers
-    ) or "Consumidor final"
+        or "Consumidor final"
+    )
     payments = "<br/>".join(
-        f"{payment.payment_method} — {_money(payment.amount)}"
-        for payment in sale.payments
+        f"{payment.payment_method} — {_money(payment.amount)}" for payment in sale.payments
     )
     details = Table(
         [
@@ -165,9 +167,7 @@ def _invoice_pdf(sale: SaleDB) -> bytes:
 def send_invoice_email(sale_id, db: Session, tenant_id: int) -> list[str]:
     sale = get_sale(sale_id, db, tenant_id)
     recipient_ids = {
-        customer.client_id
-        for customer in sale.customers
-        if customer.client_id is not None
+        customer.client_id for customer in sale.customers if customer.client_id is not None
     }
     if not recipient_ids:
         raise HTTPException(

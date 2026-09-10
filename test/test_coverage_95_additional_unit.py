@@ -58,9 +58,7 @@ def test_sale_service_validation_and_helpers():
         result = service.create_sale(mixed_credit, db, 1, user)
 
     created_sale = next(
-        obj
-        for call in db.add.call_args_list
-        if hasattr((obj := call.args[0]), "payments")
+        obj for call in db.add.call_args_list if hasattr((obj := call.args[0]), "payments")
     )
     assert result.total == Decimal("10")
     assert [(p.payment_method, p.amount) for p in created_sale.payments] == [

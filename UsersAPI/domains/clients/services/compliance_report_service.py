@@ -48,11 +48,7 @@ def list_restricted_clients_report(db: Session, tenant_id: int):
             and client.status == "ACTIVE"
         )
         report_status = (
-            "LEVANTADA"
-            if lifted
-            else "BLOQUEADO"
-            if client.status == "BLOCKED"
-            else client.status
+            "LEVANTADA" if lifted else "BLOQUEADO" if client.status == "BLOCKED" else client.status
         )
 
         result.append(
@@ -69,20 +65,12 @@ def list_restricted_clients_report(db: Session, tenant_id: int):
                 "client_created_at": client.created_at,
                 "client_created_by": client.created_by,
                 "screening_id": screening.id if screening else None,
-                "screening_requested_at": (
-                    screening.requested_at if screening else None
-                ),
-                "screening_completed_at": (
-                    screening.completed_at if screening else None
-                ),
+                "screening_requested_at": (screening.requested_at if screening else None),
+                "screening_completed_at": (screening.completed_at if screening else None),
                 "screening_status": screening.status if screening else None,
-                "screening_risk_level": (
-                    screening.risk_level if screening else None
-                ),
+                "screening_risk_level": (screening.risk_level if screening else None),
                 "screening_matched": screening.matched if screening else None,
-                "screening_error": (
-                    screening.error_message if screening else None
-                ),
+                "screening_error": (screening.error_message if screening else None),
             }
         )
     return result

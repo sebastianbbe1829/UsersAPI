@@ -71,9 +71,7 @@ def test_bootstrap_existing_super_and_duplicate_email(monkeypatch):
     db, _ = _db(existing)
     with pytest.raises(HTTPException) as exc:
         service.bootstrap_super_user(
-            SimpleNamespace(
-                dni="1", name="Existing", phone="3000000000", email="x", password="p"
-            ),
+            SimpleNamespace(dni="1", name="Existing", phone="3000000000", email="x", password="p"),
             "secret",
             db,
         )
@@ -175,15 +173,11 @@ def test_verify_bootstrap_mfa_branches(monkeypatch):
     )
     db, query = _db(user)
     monkeypatch.setattr(service, "_decrypt_mfa_secret", lambda _: "SECRET")
-    monkeypatch.setattr(
-        service.pyotp.TOTP, "verify", lambda self, otp, valid_window: False
-    )
+    monkeypatch.setattr(service.pyotp.TOTP, "verify", lambda self, otp, valid_window: False)
     with pytest.raises(HTTPException) as exc:
         service.verify_bootstrap_mfa(data, "secret", db)
     assert exc.value.status_code == 401
-    monkeypatch.setattr(
-        service.pyotp.TOTP, "verify", lambda self, otp, valid_window: True
-    )
+    monkeypatch.setattr(service.pyotp.TOTP, "verify", lambda self, otp, valid_window: True)
     result = service.verify_bootstrap_mfa(data, "secret", db)
     assert result.id == 1
     assert result.email == "x@test.com"
@@ -191,9 +185,7 @@ def test_verify_bootstrap_mfa_branches(monkeypatch):
 
 
 def test_login_super_tenant_and_credentials_branches(monkeypatch):
-    data = SimpleNamespace(
-        email=" X@TEST.COM ", tenant=" ACME ", password="bad", otp=None
-    )
+    data = SimpleNamespace(email=" X@TEST.COM ", tenant=" ACME ", password="bad", otp=None)
     db, query = _db(None, None)
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
@@ -250,18 +242,14 @@ def test_login_super_mfa_branches(monkeypatch):
 
     data.otp = "123"
     monkeypatch.setattr(service, "_decrypt_mfa_secret", lambda _: "SECRET")
-    monkeypatch.setattr(
-        service.pyotp.TOTP, "verify", lambda *args, **kwargs: False
-    )
+    monkeypatch.setattr(service.pyotp.TOTP, "verify", lambda *args, **kwargs: False)
     db, query = _db(None, 5)
     query.first.side_effect = [tenant, user]
     with pytest.raises(HTTPException) as exc:
         service.login_super_user(data, db)
     assert exc.value.status_code == 401
 
-    monkeypatch.setattr(
-        service.pyotp.TOTP, "verify", lambda *args, **kwargs: True
-    )
+    monkeypatch.setattr(service.pyotp.TOTP, "verify", lambda *args, **kwargs: True)
     monkeypatch.setattr(service, "_create_super_token", lambda *_: "token")
     db, query = _db(None, 5)
     query.first.side_effect = [tenant, user]

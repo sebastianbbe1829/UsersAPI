@@ -33,26 +33,56 @@ class _QueryMock:
 def test_restricted_report_marks_blocked_and_lifted_clients():
     now = datetime.now(UTC)
     blocked = SimpleNamespace(
-        id=uuid4(), tenant_id=10, identification_number="111", full_name="BLOCKED",
-        person_type="NATURAL", status="BLOCKED", compliance_status="MATCH",
-        list_type="OFAC", is_listed=True, created_at=now, created_by="admin",
+        id=uuid4(),
+        tenant_id=10,
+        identification_number="111",
+        full_name="BLOCKED",
+        person_type="NATURAL",
+        status="BLOCKED",
+        compliance_status="MATCH",
+        list_type="OFAC",
+        is_listed=True,
+        created_at=now,
+        created_by="admin",
     )
     lifted = SimpleNamespace(
-        id=uuid4(), tenant_id=10, identification_number="222", full_name="LIFTED",
-        person_type="NATURAL", status="ACTIVE", compliance_status="MATCH",
-        list_type="OFAC", is_listed=True, created_at=now, created_by="admin",
+        id=uuid4(),
+        tenant_id=10,
+        identification_number="222",
+        full_name="LIFTED",
+        person_type="NATURAL",
+        status="ACTIVE",
+        compliance_status="MATCH",
+        list_type="OFAC",
+        is_listed=True,
+        created_at=now,
+        created_by="admin",
     )
     screening_blocked = SimpleNamespace(
-        id=uuid4(), requested_at=now, completed_at=now, status="MATCH",
-        risk_level="HIGH", matched=True, error_message=None,
+        id=uuid4(),
+        requested_at=now,
+        completed_at=now,
+        status="MATCH",
+        risk_level="HIGH",
+        matched=True,
+        error_message=None,
     )
     screening_lifted = SimpleNamespace(
-        id=uuid4(), requested_at=now, completed_at=now, status="MATCH",
-        risk_level="HIGH", matched=True, error_message=None,
+        id=uuid4(),
+        requested_at=now,
+        completed_at=now,
+        status="MATCH",
+        risk_level="HIGH",
+        matched=True,
+        error_message=None,
     )
     override = SimpleNamespace(
-        id=uuid4(), created_at=now, requested_by=1, requested_by_email="admin@test.com",
-        reason="Validación documental", screening_id=screening_lifted.id,
+        id=uuid4(),
+        created_at=now,
+        requested_by=1,
+        requested_by_email="admin@test.com",
+        reason="Validación documental",
+        screening_id=screening_lifted.id,
     )
     db = MagicMock()
     db.query.side_effect = [
@@ -72,12 +102,14 @@ def test_restricted_report_marks_blocked_and_lifted_clients():
 
 
 def test_compliance_override_history_returns_joined_rows():
-    client = SimpleNamespace(
-        identification_number="123", full_name="CLIENTE TEST"
-    )
+    client = SimpleNamespace(identification_number="123", full_name="CLIENTE TEST")
     override = SimpleNamespace(
-        id=uuid4(), client_id=uuid4(), screening_id=uuid4(), requested_by=5,
-        requested_by_email="user@test.com", reason="Revisión completada",
+        id=uuid4(),
+        client_id=uuid4(),
+        screening_id=uuid4(),
+        requested_by=5,
+        requested_by_email="user@test.com",
+        reason="Revisión completada",
         created_at=datetime.now(UTC),
     )
     query = _QueryMock(all_result=[(override, client)])
