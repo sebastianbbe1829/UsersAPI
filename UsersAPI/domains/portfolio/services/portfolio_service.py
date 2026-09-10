@@ -6,6 +6,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from UsersAPI.domains.cash.services.cash_movement_service import (
+    record_automatic_movement,
+    record_payment_reversal,
+)
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.sales.models import SaleDB
 
@@ -181,11 +185,12 @@ def register_payment(
         locked_obligations.append(obligation)
 
     actor = _actor_name(current_user)
+    payment_method = data.payment_method.strip().upper()
     payment = PaymentDB(
         tenant_id=tenant_id,
         client_id=client.id,
         payment_date=data.payment_date or date.today(),
-        payment_method=data.payment_method.strip().upper(),
+        payment_method=payment_method,
         amount=payment_amount,
         status=PAYMENT_STATUS_APPLIED,
         reference=data.reference.strip() if data.reference else None,
@@ -220,6 +225,17 @@ def register_payment(
             )
         )
 
+    db.flush()
+    record_automatic_movement(
+        db=db,
+        tenant_id=tenant_id,
+        amount=payment_amount,
+        payment_method=payment_method,
+        origin_type="PORTFOLIO_PAYMENT",
+        origin_id=payment.id,
+        description=f"Pago de cartera {payment.id}",
+        current_user=current_user,
+    )
     db.flush()
     return repository.get_payment(tenant_id, payment.id) or payment
 
@@ -287,6 +303,14 @@ def annul_payment(
         obligation.updated_at = datetime.now(UTC)
         obligation.updated_by = actor
 
+    record_payment_reversal(
+        db=db,
+        tenant_id=tenant_id,
+        amount=payment.amount,
+        payment_method=payment.payment_method,
+        payment_id=payment.id,
+        current_user=current_user,
+    )
     payment.status = PAYMENT_STATUS_CANCELLED
     db.flush()
     return repository.get_payment(tenant_id, payment.id) or payment
