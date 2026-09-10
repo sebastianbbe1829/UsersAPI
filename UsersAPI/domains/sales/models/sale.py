@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -41,6 +42,7 @@ class SaleDB(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
     sale_number = Column(String(30), nullable=False)
+    business_date = Column(Date, nullable=False, index=True)
     status = Column(String(20), nullable=False, server_default=text("'COMPLETED'"))
     is_autoconsumption = Column(Boolean, nullable=False, server_default=text("false"))
     subtotal = Column(Numeric(18, 2), nullable=False)
