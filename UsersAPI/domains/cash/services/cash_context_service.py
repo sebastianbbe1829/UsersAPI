@@ -1,6 +1,6 @@
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
-from fastapi import HTTPException
 
 from ..models import (
     CashDayBranchDB,
@@ -76,7 +76,22 @@ def get_user_cash_context(db: Session, tenant_id: int, user_tenant_id: int) -> d
         .order_by(CashDayDB.business_date.desc(), CashDayDB.id.desc())
     )
     if day is None:
-        context["blocked_reason"] = "CASH_DAY_NOT_STARTED"
+        latest_day = db.scalar(
+            select(CashDayDB)
+            .where(CashDayDB.tenant_id == tenant_id)
+            .order_by(CashDayDB.business_date.desc(), CashDayDB.id.desc())
+        )
+        if latest_day is not None and latest_day.status == "CLOSED":
+            context.update(
+                {
+                    "day_id": latest_day.id,
+                    "day_status": latest_day.status,
+                    "business_date": latest_day.business_date,
+                    "blocked_reason": "CASH_DAY_CLOSED",
+                }
+            )
+        else:
+            context["blocked_reason"] = "CASH_DAY_NOT_STARTED"
         return context
 
     context.update(
