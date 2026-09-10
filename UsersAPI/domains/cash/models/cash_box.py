@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Index, Integer, String, text
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
@@ -8,6 +8,7 @@ class CashBoxDB(Base):
     __tablename__ = "cash_boxes"
     __table_args__ = (
         ForeignKeyConstraint(["tenant_id", "branch_id"], ["users_api.branches.tenant_id", "users_api.branches.id"]),
+        UniqueConstraint("tenant_id", "id", name="uq_cash_boxes_tenant_id"),
         Index("uq_cash_boxes_branch_code", "branch_id", "code", unique=True),
         Index("ix_cash_boxes_tenant_id", "tenant_id"),
         {"schema": "users_api"},
