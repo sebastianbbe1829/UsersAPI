@@ -6,6 +6,7 @@ from UsersAPI.domains.core.models import UserTenantDB
 from ..schemas import CashMovementCreate, CashRegisterClose, CashRegisterOpen
 from ..services import CashService
 from ..services.cash_context_service import require_operational_context
+from ..services.cash_day_service import close_register as close_day_register
 
 
 def open_register(
@@ -53,7 +54,14 @@ def close_register(
     register_id: int,
     current_user: UserTenantDB,
 ):
-    return CashService.close_register(data, db, tenant_id, register_id, current_user)
+    return close_day_register(
+        db,
+        tenant_id,
+        register_id,
+        data.counted_cash,
+        data.closing_notes,
+        current_user,
+    )
 
 
 def register_summary(db: Session, tenant_id: int, register_id: int):
