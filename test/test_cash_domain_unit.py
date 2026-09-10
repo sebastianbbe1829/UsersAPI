@@ -39,7 +39,8 @@ def test_automatic_movement_requires_open_register(monkeypatch):
         )
 
     assert error.value.status_code == 409
-    assert "caja abierta" in error.value.detail
+    assert error.value.detail["code"] == "USER_CASH_REGISTER_CLOSED"
+    assert "caja" in error.value.detail["message"].lower()
 
 
 def test_automatic_movement_is_transactional_and_keeps_origin(monkeypatch):
