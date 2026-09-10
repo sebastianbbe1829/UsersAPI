@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["tenant_id"], ["users_api.tenants.id"]),
+        sa.UniqueConstraint("tenant_id", "id", name="uq_cash_registers_tenant_id"),
         sa.CheckConstraint("opening_amount >= 0", name="ck_cash_registers_opening_amount"),
         sa.CheckConstraint("status IN ('OPEN', 'CLOSED')", name="ck_cash_registers_status"),
         schema="users_api",
