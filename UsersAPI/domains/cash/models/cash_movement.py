@@ -31,7 +31,7 @@ class CashMovementDB(Base):
     id = Column(Integer, Identity(start=1, increment=1), primary_key=True)
     tenant_id = Column(Integer, nullable=False)
     cash_register_id = Column(Integer, nullable=False)
-    business_date = Column(Date, nullable=False, index=True)
+    business_date = Column(Date, nullable=False)
     movement_type = Column(String(20), nullable=False)
     amount = Column(Numeric(18, 2), nullable=False)
     payment_method = Column(String(30), nullable=True)
