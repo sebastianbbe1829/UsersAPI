@@ -9,7 +9,13 @@ from UsersAPI.domains.core.models import UserTenantDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
-from ..schemas import CashMovementCreate, CashRegisterClose, CashRegisterOpen, CashRegisterRead, CashRegisterSummary
+from ..schemas import (
+    CashMovementCreate,
+    CashRegisterClose,
+    CashRegisterOpen,
+    CashRegisterRead,
+    CashRegisterSummary,
+)
 from ..services import CashService
 
 
@@ -19,7 +25,9 @@ cash_routes = APIRouter(prefix="/cash", tags=["Caja"])
 def _read_register(db: Session, tenant_id: int, register_id: int) -> CashRegisterRead:
     register = CashService.get_register(db, tenant_id, register_id)
     summary = CashService.summary(db, tenant_id, register_id)
-    return CashRegisterRead.model_validate({**register.__dict__, "movements": register.movements, "summary": summary})
+    return CashRegisterRead.model_validate(
+        {**register.__dict__, "movements": register.movements, "summary": summary}
+    )
 
 
 @cash_routes.post(
