@@ -7,7 +7,7 @@ from UsersAPI.domains.core.models import UserTenantDB
 from UsersAPI.security.dependencies import get_current_tenant
 from UsersAPI.security.permissions import require_permission
 
-from ..schemas import CashDayClose, CashDayRead, CashRegisterClose
+from ..schemas import CashDayClose, CashDayRead, CashDayStart, CashRegisterClose
 from ..services import (
     close_branch,
     close_day,
@@ -31,11 +31,12 @@ def _tenant_id(user_tenant: UserTenantDB) -> int:
     dependencies=[Depends(require_permission("CASH_DAY_START"))],
 )
 async def start_day_route(
+    data: CashDayStart,
     db: Session = Depends(get_db),
     current_user: UserTenantDB = Depends(get_current_user),
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
-    day = start_day(db, _tenant_id(user_tenant), current_user)
+    day = start_day(db, _tenant_id(user_tenant), data.business_date, current_user)
     return serialize_day(db, day)
 
 
