@@ -80,8 +80,12 @@ def _branch_response(branch, cash_boxes_count: int | None = None) -> dict:
     }
 
 
-@cash_routes.get("/my-context", response_model=CashContextRead, dependencies=[Depends(require_permission("CASH_READ"))])
-async def my_cash_context_route(db: Session = Depends(get_db), current_user: UserTenantDB = Depends(get_current_user), user_tenant: UserTenantDB = Depends(get_current_tenant)):
+@cash_routes.get("/my-context", response_model=CashContextRead)
+async def my_cash_context_route(
+    db: Session = Depends(get_db),
+    current_user: UserTenantDB = Depends(get_current_user),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
     return get_user_cash_context(db, _tenant_id(user_tenant), cast(int, current_user.id))
 
 
