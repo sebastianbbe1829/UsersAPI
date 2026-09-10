@@ -53,21 +53,8 @@ def upgrade() -> None:
         sa.CheckConstraint("status IN ('OPEN', 'CLOSED')", name="ck_cash_days_status"),
         schema="users_api",
     )
-    op.create_index(
-        "uq_cash_days_tenant_date",
-        "cash_days",
-        ["tenant_id", "business_date"],
-        unique=True,
-        schema="users_api",
-    )
-    op.create_index(
-        "uq_cash_days_open_tenant",
-        "cash_days",
-        ["tenant_id"],
-        unique=True,
-        postgresql_where=sa.text("status = 'OPEN'"),
-        schema="users_api",
-    )
+    op.create_index("uq_cash_days_tenant_date", "cash_days", ["tenant_id", "business_date"], unique=True, schema="users_api")
+    op.create_index("uq_cash_days_open_tenant", "cash_days", ["tenant_id"], unique=True, postgresql_where=sa.text("status = 'OPEN'"), schema="users_api")
     op.create_index("ix_cash_days_tenant_id", "cash_days", ["tenant_id"], schema="users_api")
 
     op.create_table(
@@ -78,45 +65,21 @@ def upgrade() -> None:
         sa.Column("branch_id", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'OPEN'")),
         sa.Column("opened_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column("opened_by", sa.String(100), nullable=False),
         sa.Column("closed_at", sa.DateTime(), nullable=True),
         sa.Column("closed_by", sa.String(100), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["tenant_id", "cash_day_id"],
-            ["users_api.cash_days.tenant_id", "users_api.cash_days.id"],
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["tenant_id", "branch_id"],
-            ["users_api.branches.tenant_id", "users_api.branches.id"],
-            ondelete="CASCADE",
-        ),
-        sa.UniqueConstraint(
-            "tenant_id", "cash_day_id", "branch_id",
-            name="uq_cash_day_branches_day_branch",
-        ),
+        sa.ForeignKeyConstraint(["tenant_id", "cash_day_id"], ["users_api.cash_days.tenant_id", "users_api.cash_days.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["tenant_id", "branch_id"], ["users_api.branches.tenant_id", "users_api.branches.id"], ondelete="CASCADE"),
+        sa.UniqueConstraint("tenant_id", "cash_day_id", "branch_id", name="uq_cash_day_branches_day_branch"),
         sa.CheckConstraint("status IN ('OPEN', 'CLOSED')", name="ck_cash_day_branches_status"),
         schema="users_api",
     )
-    op.create_index(
-        "ix_cash_day_branches_tenant_id",
-        "cash_day_branches",
-        ["tenant_id"],
-        schema="users_api",
-    )
-    op.create_index(
-        "ix_cash_day_branches_cash_day_id",
-        "cash_day_branches",
-        ["cash_day_id"],
-        schema="users_api",
-    )
+    op.create_index("ix_cash_day_branches_tenant_id", "cash_day_branches", ["tenant_id"], schema="users_api")
+    op.create_index("ix_cash_day_branches_cash_day_id", "cash_day_branches", ["cash_day_id"], schema="users_api")
 
-    op.add_column(
-        "cash_registers",
-        sa.Column("cash_day_id", sa.Integer(), nullable=True),
-        schema="users_api",
-    )
+    op.add_column("cash_registers", sa.Column("cash_day_id", sa.Integer(), nullable=True), schema="users_api")
     op.create_foreign_key(
         "fk_cash_registers_cash_day",
         "cash_registers",
@@ -126,17 +89,9 @@ def upgrade() -> None:
         source_schema="users_api",
         referent_schema="users_api",
     )
-    op.create_index(
-        "ix_cash_registers_cash_day_id",
-        "cash_registers",
-        ["cash_day_id"],
-        schema="users_api",
-    )
+    op.create_index("ix_cash_registers_cash_day_id", "cash_registers", ["cash_day_id"], schema="users_api")
 
-    for table, policy in (
-        ("cash_days", "cash_days_isolation"),
-        ("cash_day_branches", "cash_day_branches_isolation"),
-    ):
+    for table, policy in (("cash_days", "cash_days_isolation"), ("cash_day_branches", "cash_day_branches_isolation")):
         op.execute(f"ALTER TABLE users_api.{table} ENABLE ROW LEVEL SECURITY")
         op.execute(
             f"CREATE POLICY {policy} ON users_api.{table} "
@@ -179,12 +134,7 @@ def downgrade() -> None:
           AND p.code IN ('CASH_DAY_START', 'CASH_BRANCH_CLOSE', 'CASH_DAY_CLOSE')
         """
     )
-    op.execute(
-        """
-        DELETE FROM users_api.permissions
-        WHERE code IN ('CASH_DAY_START', 'CASH_BRANCH_CLOSE', 'CASH_DAY_CLOSE')
-        """
-    )
+    op.execute("DELETE FROM users_api.permissions WHERE code IN ('CASH_DAY_START', 'CASH_BRANCH_CLOSE', 'CASH_DAY_CLOSE')")
     op.execute("DROP POLICY IF EXISTS cash_day_branches_isolation ON users_api.cash_day_branches")
     op.execute("DROP POLICY IF EXISTS cash_days_isolation ON users_api.cash_days")
     op.drop_index("ix_cash_registers_cash_day_id", table_name="cash_registers", schema="users_api")
