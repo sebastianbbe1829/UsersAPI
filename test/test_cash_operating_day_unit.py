@@ -10,7 +10,7 @@ from UsersAPI.domains.cash.services import cash_context_service, cash_day_servic
 
 def test_require_open_day_rejects_missing_day(monkeypatch):
     db = MagicMock()
-    monkeypatch.setattr(cash_day_service, "get_current_day", lambda *_: None)
+    db.scalar.return_value = None
 
     with pytest.raises(HTTPException) as error:
         cash_day_service.require_open_day(db, 7)
