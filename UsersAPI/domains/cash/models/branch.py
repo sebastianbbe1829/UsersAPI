@@ -19,6 +19,7 @@ class BranchDB(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_branches_tenant_id"),
         Index("uq_branches_tenant_code", "tenant_id", "code", unique=True),
+        Index("ix_branches_tenant_id", "tenant_id"),
         {"schema": "users_api"},
     )
 
@@ -27,7 +28,6 @@ class BranchDB(Base):
         Integer,
         ForeignKey("users_api.tenants.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     code = Column(String(30), nullable=False)
     name = Column(String(150), nullable=False)
