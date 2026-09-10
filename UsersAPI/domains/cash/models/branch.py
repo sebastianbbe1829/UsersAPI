@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Identity, Index, Integer, String, text
+from sqlalchemy import Column, DateTime, ForeignKey, Identity, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
@@ -7,6 +7,7 @@ from UsersAPI.domains.core.database import Base
 class BranchDB(Base):
     __tablename__ = "branches"
     __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_branches_tenant_id"),
         Index("uq_branches_tenant_code", "tenant_id", "code", unique=True),
         {"schema": "users_api"},
     )
