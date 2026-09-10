@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from UsersAPI.domains.cash.services.cash_movement_service import record_automatic_movement
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.clients.services.compliance_override_service import (
     has_compliance_override,
@@ -336,8 +337,8 @@ def create_sale(
             )
 
     # SalePaymentDB represents the payment method selected for the sale.
-    # CREDITO is a valid sale payment method and must be persisted here.
-    # Actual money received later is represented separately by PaymentDB.
+    # CREDITO is persisted here, but it does not create a cash movement.
+    # Money received later is represented by PaymentDB.
     for payment, method in zip(data.payments, normalized_methods):
         sale.payments.append(
             SalePaymentDB(
@@ -381,6 +382,23 @@ def create_sale(
             db,
             tenant_id,
             current_user,
+        )
+
+    # Register every non-credit sale payment in the currently open cash
+    # register. A missing register aborts the whole transaction, keeping sale,
+    # inventory and cash atomic. Credit-only sales do not require an open box.
+    for payment, method in zip(data.payments, normalized_methods):
+        if method in CREDIT_METHODS or Decimal(payment.amount) == 0:
+            continue
+        record_automatic_movement(
+            db=db,
+            tenant_id=tenant_id,
+            amount=_money(Decimal(payment.amount)),
+            payment_method=method,
+            origin_type="SALE",
+            origin_id=sale.id,
+            description=f"Venta {sale.sale_number}",
+            current_user=current_user,
         )
 
     db.flush()
