@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Index, Integer, text
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Identity, Index, Integer, String, text
 from sqlalchemy.orm import relationship
 
 from UsersAPI.domains.core.database import Base
