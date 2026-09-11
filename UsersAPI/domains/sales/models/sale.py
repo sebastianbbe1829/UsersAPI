@@ -26,6 +26,7 @@ class SaleDB(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "sale_number", name="uq_sales_tenant_number"),
         Index("ix_sales_business_date", "tenant_id", "business_date"),
+        Index("ix_sales_cash_register", "tenant_id", "cash_register_id"),
         CheckConstraint(
             "discount_percentage >= 0 AND discount_percentage <= 100",
             name="ck_sales_discount_percentage",
@@ -43,6 +44,12 @@ class SaleDB(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(Integer, ForeignKey("users_api.tenants.id"), nullable=False, index=True)
+    cash_register_id = Column(
+        Integer,
+        ForeignKey("users_api.cash_registers.id"),
+        nullable=True,
+        index=True,
+    )
     sale_number = Column(String(30), nullable=False)
     business_date = Column(Date, nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'COMPLETED'"))
@@ -129,6 +136,7 @@ class SalePaymentDB(Base):
     __tablename__ = "sale_payments"
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_sale_payments_amount"),
+        Index("ix_sale_payments_cash_register", "tenant_id", "cash_register_id"),
         {"schema": "users_api"},
     )
 
@@ -140,6 +148,12 @@ class SalePaymentDB(Base):
         index=True,
     )
     tenant_id = Column(Integer, nullable=False, index=True)
+    cash_register_id = Column(
+        Integer,
+        ForeignKey("users_api.cash_registers.id"),
+        nullable=True,
+        index=True,
+    )
     payment_method = Column(String(30), nullable=False)
     amount = Column(Numeric(18, 2), nullable=False)
 
