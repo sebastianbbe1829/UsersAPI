@@ -136,10 +136,16 @@ def require_operational_context(db: Session, tenant_id: int, current_user: objec
             ),
             "CASH_BRANCH_INACTIVE": "La sucursal asignada está inactiva.",
             "CASH_BOX_INACTIVE": "La caja asignada está inactiva.",
-            "CASH_DAY_NOT_STARTED": "No existe una caja abierta. No es posible realizar ventas ni pagos.",
-            "CASH_DAY_CLOSED": "No existe una caja abierta. No es posible realizar ventas ni pagos.",
+            "CASH_DAY_NOT_STARTED": (
+                "No existe una caja abierta. No es posible realizar ventas ni pagos."
+            ),
+            "CASH_DAY_CLOSED": (
+                "No existe una caja abierta. No es posible realizar ventas ni pagos."
+            ),
             "CASH_BRANCH_CLOSED": "La sucursal asignada está cerrada.",
-            "CASH_REGISTER_NOT_STARTED": "La caja asignada no tiene sesión para el día operativo.",
+            "CASH_REGISTER_NOT_STARTED": (
+                "La caja asignada no tiene sesión para el día operativo."
+            ),
             "CASH_REGISTER_CLOSED": "La caja asignada está cerrada.",
         }
         raise HTTPException(
