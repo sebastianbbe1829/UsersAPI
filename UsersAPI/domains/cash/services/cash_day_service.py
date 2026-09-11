@@ -159,6 +159,22 @@ def start_day(
         active_boxes_query.order_by(CashBoxDB.id).with_for_update()
     ).all()
 
+    boxes_without_base = [box for box in active_boxes if box.base_amount is None]
+    if boxes_without_base:
+        box_names = ", ".join(
+            f"{box.name} (ID {box.id})" for box in boxes_without_base
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "CASH_BOX_BASE_REQUIRED",
+                "message": (
+                    "No se puede abrir el día porque todas las cajas activas deben tener "
+                    f"una base parametrizada, incluso si es 0. Cajas sin base: {box_names}."
+                ),
+            },
+        )
+
     day = CashDayDB(
         tenant_id=tenant_id,
         business_date=business_date,
@@ -180,7 +196,7 @@ def start_day(
         )
 
     for box in active_boxes:
-        base_amount = Decimal(str(box.base_amount or 0))
+        base_amount = Decimal(str(box.base_amount))
         db.add(
             CashRegisterDB(
                 tenant_id=tenant_id,
