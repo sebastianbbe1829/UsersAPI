@@ -8,7 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from UsersAPI.domains.cash.models import CashMovementDB
-from UsersAPI.domains.cash.services import cash_movement_service
+from UsersAPI.domains.cash.services import cash_context_service, cash_movement_service
 from UsersAPI.domains.cash.services.cash_service import _payment_bucket, _signed_amount
 
 
@@ -81,3 +81,43 @@ def test_payment_reversal_is_expense_in_current_register(monkeypatch):
     assert movement.payment_method == "EFECTIVO"
     assert movement.origin_type == "PAYMENT_REVERSAL"
     assert movement.origin_id == str(payment_id)
+
+
+def test_cash_context_does_not_expose_closed_day_when_no_day_is_open():
+    assignment = SimpleNamespace(
+        branch_id=3,
+        cash_box_id=5,
+        branch=SimpleNamespace(id=3, name="Sucursal", status=1),
+        cash_box=SimpleNamespace(id=5, name="Caja 1", status=1),
+    )
+    db = MagicMock()
+    db.scalar.side_effect = [assignment, None]
+
+    context = cash_context_service.get_user_cash_context(db, 7, 11)
+
+    assert context["assigned"] is True
+    assert context["business_date"] is None
+    assert context["day_id"] is None
+    assert context["day_status"] is None
+    assert context["operational"] is False
+    assert context["blocked_reason"] == "CASH_DAY_NOT_STARTED"
+
+
+def test_require_operational_context_blocks_when_no_cash_day_is_open():
+    assignment = SimpleNamespace(
+        branch_id=3,
+        cash_box_id=5,
+        branch=SimpleNamespace(id=3, name="Sucursal", status=1),
+        cash_box=SimpleNamespace(id=5, name="Caja 1", status=1),
+    )
+    db = MagicMock()
+    db.scalar.side_effect = [assignment, None]
+
+    with pytest.raises(HTTPException) as error:
+        cash_context_service.require_operational_context(db, 7, SimpleNamespace(id=11))
+
+    assert error.value.status_code == 409
+    assert error.value.detail["code"] == "CASH_DAY_NOT_STARTED"
+    assert error.value.detail["message"] == (
+        "No existe una caja abierta. No es posible realizar ventas ni pagos."
+    )
