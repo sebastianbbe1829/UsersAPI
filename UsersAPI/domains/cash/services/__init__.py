@@ -15,6 +15,7 @@ from .cash_day_service import (
     close_day,
     close_register,
     get_current_day,
+    get_day_by_date,
     serialize_day,
     start_day,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "CashService",
     "get_user_cash_context",
     "get_current_day",
+    "get_day_by_date",
     "start_day",
     "close_register",
     "close_branch",
