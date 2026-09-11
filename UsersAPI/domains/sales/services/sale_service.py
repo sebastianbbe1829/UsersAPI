@@ -105,6 +105,7 @@ def create_sale(
 ) -> SaleDB:
     cash_context = require_operational_context(db, tenant_id, current_user)
     business_date = cash_context["business_date"]
+    cash_register_id = cash_context["register_id"]
 
     product_ids = [item.product_id for item in data.items]
     if len(product_ids) != len(set(product_ids)):
@@ -158,6 +159,7 @@ def create_sale(
     repository = SaleRepository(db)
     sale = SaleDB(
         tenant_id=tenant_id,
+        cash_register_id=cash_register_id,
         sale_number=repository.next_sale_number(tenant_id),
         business_date=business_date,
         status="PENDING" if has_credit else "COMPLETED",
@@ -331,6 +333,7 @@ def create_sale(
         sale.payments.append(
             SalePaymentDB(
                 tenant_id=tenant_id,
+                cash_register_id=cash_register_id,
                 payment_method=method,
                 amount=_money(Decimal(payment.amount)),
             )
@@ -339,6 +342,7 @@ def create_sale(
     if has_credit:
         obligation = ObligationDB(
             tenant_id=tenant_id,
+            cash_register_id=cash_register_id,
             client_id=data.customers[0].client_id,
             sale_id=sale.id,
             business_date=business_date,
