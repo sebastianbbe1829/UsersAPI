@@ -1,6 +1,8 @@
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
+from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
@@ -20,6 +22,7 @@ from ..models import BranchDB, CashBoxDB, CashDayDB, CashMovementDB, CashRegiste
 ZERO = Decimal("0.00")
 CASH = {"CASH", "EFECTIVO"}
 PREFERRED_METHODS = ["Efectivo", "Transferencias", "PSE", "Tarjeta", "Crédito"]
+COLOMBIA_TZ = ZoneInfo("America/Bogota")
 
 
 def _money(value):
@@ -48,7 +51,15 @@ def _ordered_methods(sales_day, payments_day):
     return ordered + extras
 
 
-def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
+def build_day_report(
+    db: Session,
+    tenant_id: int,
+    day_id: int,
+    *,
+    tenant_name: str | None = None,
+    generated_by: str | None = None,
+    generated_at: datetime | None = None,
+) -> dict:
     day = db.scalar(select(CashDayDB).where(CashDayDB.tenant_id == tenant_id, CashDayDB.id == day_id))
     if day is None:
         raise ValueError("Día operativo no encontrado.")
@@ -70,6 +81,7 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
 
     sales_by_box = defaultdict(lambda: defaultdict(lambda: ZERO))
     payments_by_box = defaultdict(lambda: defaultdict(lambda: ZERO))
+    cash_delta_by_register = defaultdict(lambda: ZERO)
     cash_sales = ZERO
     cash_payments = ZERO
     cash_sales_reversals = ZERO
@@ -78,6 +90,8 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
         amount = _money(movement.amount)
         signed = amount if movement.movement_type == "INCOME" else -amount
         method = _method(movement.payment_method)
+        if method == "Efectivo":
+            cash_delta_by_register[movement.cash_register_id] += signed
         if movement.origin_type == "SALE":
             sales_by_box[movement.cash_register_id][method] += signed
             if method == "Efectivo":
@@ -125,7 +139,9 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
     closed_mismatch = []
     pending = []
     for register in registers:
-        expected = _money(register.expected_cash)
+        base_amount = _money(register.opening_amount)
+        expected_calculated = base_amount + cash_delta_by_register[register.id]
+        expected = expected_calculated if register.status == "OPEN" or register.expected_cash is None else _money(register.expected_cash)
         counted = _money(register.counted_cash) if register.counted_cash is not None else None
         difference = _money(register.difference) if register.difference is not None else None
         total_expected += expected
@@ -137,6 +153,10 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
             "branch": branches.get(register.branch_id, "—"),
             "box": boxes.get(register.cash_box_id, f"Caja #{register.id}"),
             "status": register.status,
+            "base_amount": base_amount,
+            "opening_amount": base_amount,
+            "opened_at": register.opened_at,
+            "closed_at": register.closed_at,
             "expected": expected,
             "counted": counted,
             "difference": difference,
@@ -150,14 +170,26 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
             pending.append(row)
 
     methods = _ordered_methods(sales_day, payments_day)
+    generated_at = generated_at or datetime.now(COLOMBIA_TZ)
     return {
-        "day": day, "registers": register_rows, "methods": methods,
-        "sales_day": dict(sales_day), "payments_day": dict(payments_day),
-        "closed_ok": closed_ok, "closed_mismatch": closed_mismatch, "pending": pending,
-        "total_expected": total_expected, "total_counted": total_counted,
-        "total_difference": total_difference, "cash_sales": cash_sales,
-        "cash_payments": cash_payments, "cash_sales_reversals": cash_sales_reversals,
+        "day": day,
+        "registers": register_rows,
+        "methods": methods,
+        "sales_day": dict(sales_day),
+        "payments_day": dict(payments_day),
+        "closed_ok": closed_ok,
+        "closed_mismatch": closed_mismatch,
+        "pending": pending,
+        "total_expected": total_expected,
+        "total_counted": total_counted,
+        "total_difference": total_difference,
+        "cash_sales": cash_sales,
+        "cash_payments": cash_payments,
+        "cash_sales_reversals": cash_sales_reversals,
         "cash_payment_reversals": cash_payment_reversals,
+        "tenant_name": tenant_name or "—",
+        "generated_by": generated_by or "—",
+        "generated_at": generated_at,
     }
 
 
@@ -170,8 +202,13 @@ def excel_report(report) -> tuple[bytes, str]:
     ws = wb.active
     ws.title = "Resumen"
     ws.append(["RESUMEN CIERRE DE CAJA", None])
+    ws.append(["Tenant", report["tenant_name"]])
     ws.append(["Fecha operativa", report["day"].business_date.isoformat()])
     ws.append(["Estado", report["day"].status])
+    ws.append(["Generado por", report["generated_by"]])
+    ws.append(["Fecha/hora generación", report["generated_at"].strftime("%d/%m/%Y %H:%M:%S")])
+    ws.append(["Apertura del día", report["day"].opened_at.strftime("%d/%m/%Y %H:%M:%S") if report["day"].opened_at else "—"])
+    ws.append(["Cierre del día", report["day"].closed_at.strftime("%d/%m/%Y %H:%M:%S") if report["day"].closed_at else "Pendiente"])
     ws.append([])
     ws.append(["Concepto", "Valor"])
     ws.append(["Total esperado cajas", float(report["total_expected"])])
@@ -179,6 +216,8 @@ def excel_report(report) -> tuple[bytes, str]:
     ws.append(["Total diferencia", float(report["total_difference"])])
     ws.append(["Efectivo ventas", float(report["cash_sales"])])
     ws.append(["Efectivo pagos de cartera", float(report["cash_payments"])])
+    ws.append(["Reversiones efectivo ventas", float(report["cash_sales_reversals"])])
+    ws.append(["Reversiones efectivo pagos", float(report["cash_payment_reversals"])])
     ws.append([])
     ws.append(["VENTAS DEL DÍA POR MEDIO DE PAGO"])
     ws.append(["Medio", "Total"])
@@ -199,10 +238,16 @@ def excel_report(report) -> tuple[bytes, str]:
         values = [row["payments"].get(method, ZERO) for method in report["methods"]]
         wpc.append([row["branch"], row["box"], row["status"], *map(float, values), float(sum(values, ZERO))])
     wa = wb.create_sheet("Arqueos")
-    wa.append(["Sucursal", "Caja", "Estado", "Esperado", "Contado", "Diferencia", "Resultado"])
+    wa.append(["Sucursal", "Caja", "Estado", "Base", "Apertura", "Hora apertura", "Hora cierre", "Esperado", "Contado", "Diferencia", "Resultado"])
     for row in report["registers"]:
         result = "OK" if row["difference"] == ZERO else "DESCUADRADA" if row["difference"] is not None else "PENDIENTE"
-        wa.append([row["branch"], row["box"], row["status"], float(row["expected"]), None if row["counted"] is None else float(row["counted"]), None if row["difference"] is None else float(row["difference"]), result])
+        wa.append([
+            row["branch"], row["box"], row["status"], float(row["base_amount"]), float(row["opening_amount"]),
+            row["opened_at"].strftime("%d/%m/%Y %H:%M:%S") if row["opened_at"] else "—",
+            row["closed_at"].strftime("%d/%m/%Y %H:%M:%S") if row["closed_at"] else "Pendiente",
+            float(row["expected"]), None if row["counted"] is None else float(row["counted"]),
+            None if row["difference"] is None else float(row["difference"]), result,
+        ])
     wm = wb.create_sheet("Movimientos efectivo")
     wm.append(["Concepto", "Total"])
     wm.append(["Efectivo a caja por ventas", float(report["cash_sales"])])
@@ -239,7 +284,15 @@ def pdf_report(report) -> tuple[bytes, str]:
     doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=10 * mm, leftMargin=10 * mm, topMargin=10 * mm, bottomMargin=10 * mm)
     styles = getSampleStyleSheet()
     day = report["day"]
-    story = [Paragraph("Resumen de cierre de Caja", styles["Title"]), Paragraph(f"Fecha operativa: {day.business_date} · Estado: {day.status}", styles["Normal"]), Spacer(1, 6 * mm)]
+    generated_at = report["generated_at"].astimezone(COLOMBIA_TZ) if report["generated_at"].tzinfo else report["generated_at"]
+    story = [
+        Paragraph("Resumen de cierre de Caja", styles["Title"]),
+        Paragraph(f"Tenant: {report['tenant_name']}", styles["Normal"]),
+        Paragraph(f"Fecha operativa: {day.business_date} · Estado: {day.status}", styles["Normal"]),
+        Paragraph(f"Generado por: {report['generated_by']} · Generado: {generated_at.strftime('%d/%m/%Y %H:%M:%S')}", styles["Normal"]),
+        Paragraph(f"Apertura del día: {day.opened_at.strftime('%d/%m/%Y %H:%M:%S') if day.opened_at else '—'} · Cierre del día: {day.closed_at.strftime('%d/%m/%Y %H:%M:%S') if day.closed_at else 'Pendiente'}", styles["Normal"]),
+        Spacer(1, 5 * mm),
+    ]
     summary = [
         ["Total esperado", "Total contado", "Total diferencia", "Efectivo ventas", "Efectivo pagos"],
         [f"${report['total_expected']:,.0f}", f"${report['total_counted']:,.0f}", f"${report['total_difference']:,.0f}", f"${report['cash_sales']:,.0f}", f"${report['cash_payments']:,.0f}"],
@@ -263,10 +316,16 @@ def pdf_report(report) -> tuple[bytes, str]:
         values = [row["payments"].get(method, ZERO) for method in methods]
         payment_table.append([row["box"], row["status"], *[f"${value:,.0f}" for value in values], f"${sum(values, ZERO):,.0f}"])
     story.extend([Paragraph("Pagos de cartera por caja", styles["Heading2"]), _pdf_table(payment_table), Spacer(1, 5 * mm)])
-    reconciliation = [["Caja", "Sucursal", "Esperado", "Contado", "Diferencia", "Resultado"]]
+    reconciliation = [["Caja", "Sucursal", "Base", "Apertura", "Hora apertura", "Hora cierre", "Esperado", "Contado", "Diferencia", "Resultado"]]
     for row in report["registers"]:
         result = "OK" if row["difference"] == ZERO else "DESCUADRADA" if row["difference"] is not None else "PENDIENTE"
-        reconciliation.append([row["box"], row["branch"], f"${row['expected']:,.0f}", "—" if row["counted"] is None else f"${row['counted']:,.0f}", "—" if row["difference"] is None else f"${row['difference']:,.0f}", result])
+        reconciliation.append([
+            row["box"], row["branch"], f"${row['base_amount']:,.0f}", f"${row['opening_amount']:,.0f}",
+            row["opened_at"].strftime("%d/%m/%Y %H:%M:%S") if row["opened_at"] else "—",
+            row["closed_at"].strftime("%d/%m/%Y %H:%M:%S") if row["closed_at"] else "Pendiente",
+            f"${row['expected']:,.0f}", "—" if row["counted"] is None else f"${row['counted']:,.0f}",
+            "—" if row["difference"] is None else f"${row['difference']:,.0f}", result,
+        ])
     story.extend([Paragraph("Arqueos y diferencias", styles["Heading2"]), _pdf_table(reconciliation), Spacer(1, 4 * mm)])
     if report["pending"]:
         story.append(Paragraph(f"Cajas pendientes de arqueo: {len(report['pending'])}", styles["Normal"]))
