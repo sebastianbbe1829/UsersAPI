@@ -3,7 +3,11 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.clients.services.client_service import list_clients
-from UsersAPI.domains.inventory.services import list_inventory, list_products, list_top_selling_products
+from UsersAPI.domains.inventory.services import (
+    list_inventory,
+    list_products,
+    list_top_selling_products,
+)
 from UsersAPI.domains.portfolio.services import get_client_credit
 
 
