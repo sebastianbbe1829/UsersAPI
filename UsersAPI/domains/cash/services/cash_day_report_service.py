@@ -28,6 +28,12 @@ PREFERRED_METHODS = [
     "Tarjeta",
     "Crédito",
 ]
+PORTFOLIO_PAYMENT_METHODS = [
+    "Efectivo",
+    "Transferencias",
+    "PSE",
+    "Tarjeta",
+]
 COLOMBIA_TZ = ZoneInfo("America/Bogota")
 
 
@@ -54,6 +60,13 @@ def _ordered_methods(sales_day, payments_day):
     available = set(sales_day) | set(payments_day)
     ordered = [method for method in PREFERRED_METHODS if method in available]
     extras = sorted(available - set(PREFERRED_METHODS))
+    return ordered + extras
+
+
+def _ordered_payment_methods(payments_day):
+    available = set(payments_day)
+    ordered = [method for method in PORTFOLIO_PAYMENT_METHODS if method in available]
+    extras = sorted(available - set(PORTFOLIO_PAYMENT_METHODS) - {"Crédito"})
     return ordered + extras
 
 
@@ -230,8 +243,11 @@ def build_day_report(
     ).all()
     payments_day = defaultdict(lambda: ZERO)
     for method, amount, status in payment_rows:
+        normalized_method = _method(method)
+        if normalized_method == "Crédito":
+            continue
         value = _money(amount)
-        payments_day[_method(method)] += value if status == "APLICADO" else -value
+        payments_day[normalized_method] += value if status == "APLICADO" else -value
 
     register_rows = []
     total_expected = ZERO
@@ -278,8 +294,9 @@ def build_day_report(
         )
 
     methods = _ordered_methods(sales_day, payments_day)
+    payment_methods = _ordered_payment_methods(payments_day)
     sales_by_box_totals = _sum_method_rows(register_rows, "sales", methods)
-    payments_by_box_totals = _sum_method_rows(register_rows, "payments", methods)
+    payments_by_box_totals = _sum_method_rows(register_rows, "payments", payment_methods)
     cash_movement_totals = _cash_movement_totals(register_rows)
 
     closed_ok = []
@@ -304,6 +321,7 @@ def build_day_report(
         "day": day,
         "registers": register_rows,
         "methods": methods,
+        "payment_methods": payment_methods,
         "sales_day": dict(sales_day),
         "payments_day": dict(payments_day),
         "sales_by_box_totals": sales_by_box_totals,
@@ -372,7 +390,7 @@ def excel_report(report) -> tuple[bytes, str]:
 
     wp = wb.create_sheet("Pagos del día")
     wp.append(["MEDIO", "TOTAL PAGOS"])
-    for method in report["methods"]:
+    for method in report["payment_methods"]:
         wp.append([method, float(report["payments_day"].get(method, ZERO))])
     wp.append(["TOTAL", float(sum(report["payments_day"].values(), ZERO))])
 
@@ -391,16 +409,16 @@ def excel_report(report) -> tuple[bytes, str]:
     ])
 
     wpc = wb.create_sheet("Pagos por caja")
-    wpc.append(["Sucursal", "Caja", "Estado", *report["methods"], "Total pagos"])
+    wpc.append(["Sucursal", "Caja", "Estado", *report["payment_methods"], "Total pagos"])
     for row in report["registers"]:
-        values = [row["payments"].get(method, ZERO) for method in report["methods"]]
+        values = [row["payments"].get(method, ZERO) for method in report["payment_methods"]]
         wpc.append([
             row["branch"], row["box"], row["status"], *map(float, values),
             float(sum(values, ZERO)),
         ])
     wpc.append([
         "TOTAL", "", "",
-        *[float(report["payments_by_box_totals"].get(method, ZERO)) for method in report["methods"]],
+        *[float(report["payments_by_box_totals"].get(method, ZERO)) for method in report["payment_methods"]],
         float(sum(report["payments_by_box_totals"].values(), ZERO)),
     ])
 
@@ -479,8 +497,9 @@ def _pdf_table(rows, align_from=2):
 def _pdf_method_totals_row(label, methods, totals):
     return [
         label,
+        "",
         *[_money_text(totals.get(method, ZERO)) for method in methods],
-        _money_text(sum(totals.values(), ZERO)),
+        _money_text(sum((totals.get(method, ZERO) for method in methods), ZERO)),
     ]
 
 
@@ -552,8 +571,9 @@ def pdf_report(report) -> tuple[bytes, str]:
         Spacer(1, 5 * mm),
     ])
 
+    payment_methods = report["payment_methods"]
     payments_day_table = [["Medio", "Total"]]
-    for method in methods:
+    for method in payment_methods:
         payments_day_table.append([
             method,
             _money_text(report["payments_day"].get(method, ZERO)),
@@ -582,15 +602,15 @@ def pdf_report(report) -> tuple[bytes, str]:
         Spacer(1, 5 * mm),
     ])
 
-    payment_table = [["Caja", "Estado", *methods, "Total"]]
+    payment_table = [["Caja", "Estado", *payment_methods, "Total"]]
     for row in report["registers"]:
-        values = [row["payments"].get(method, ZERO) for method in methods]
+        values = [row["payments"].get(method, ZERO) for method in payment_methods]
         payment_table.append([
             row["box"], row["status"],
             *[_money_text(value) for value in values],
             _money_text(sum(values, ZERO)),
         ])
-    payment_table.append(_pdf_method_totals_row("TOTAL", methods, report["payments_by_box_totals"]))
+    payment_table.append(_pdf_method_totals_row("TOTAL", payment_methods, report["payments_by_box_totals"]))
     story.extend([
         Paragraph("Pagos de cartera por caja", styles["Heading2"]),
         _pdf_table(payment_table),
@@ -657,22 +677,12 @@ def pdf_report(report) -> tuple[bytes, str]:
             )
         )
 
-    total_sales = sum(report["sales_day"].values(), ZERO)
-    total_sales_by_box = sum(report["sales_by_box_totals"].values(), ZERO)
-    credit_sales = report["sales_day"].get("Crédito", ZERO)
+    credit_sales = report.get("unassigned_credit_sales", ZERO)
     if credit_sales:
         story.append(
             Paragraph(
                 "Ventas a crédito del día (sin movimiento de caja asignable): "
                 f"{_money_text(credit_sales)}",
-                styles["Normal"],
-            )
-        )
-    if total_sales != total_sales_by_box:
-        story.append(
-            Paragraph(
-                "Diferencia entre ventas del día y ventas asignadas a cajas: "
-                f"{_money_text(total_sales - total_sales_by_box)}",
                 styles["Normal"],
             )
         )
