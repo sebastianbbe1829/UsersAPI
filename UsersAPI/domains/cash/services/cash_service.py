@@ -150,13 +150,11 @@ class CashService:
         register: CashRegisterDB,
         counted_cash: Decimal | None = None,
     ) -> dict:
-        end_at = register.closed_at or datetime.now()
         movements = db.scalars(
             select(CashMovementDB).where(
                 CashMovementDB.tenant_id == register.tenant_id,
                 CashMovementDB.cash_register_id == register.id,
-                CashMovementDB.created_at >= register.opened_at,
-                CashMovementDB.created_at <= end_at,
+                CashMovementDB.business_date == register.business_date,
             )
         ).all()
         sales = {"cash": ZERO, "transfer": ZERO, "card": ZERO}
@@ -187,8 +185,7 @@ class CashService:
             .where(
                 SalePaymentDB.tenant_id == register.tenant_id,
                 SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
-                SaleDB.created_at >= register.opened_at,
-                SaleDB.created_at <= end_at,
+                SaleDB.business_date == register.business_date,
             )
         )
         expected_cash = Decimal(str(register.opening_amount or 0)) + physical_cash_delta
