@@ -21,6 +21,7 @@ from ..schemas import CreditLimitUpdate, PaymentCreate
 MONEY_UNIT = Decimal("0.01")
 PAYMENT_STATUS_APPLIED = "APLICADO"
 PAYMENT_STATUS_CANCELLED = "ANULADO"
+INVALID_PORTFOLIO_PAYMENT_METHODS = {"CREDITO", "CREDIT", "CRÉDITO"}
 
 
 def _money(value: Decimal) -> Decimal:
@@ -138,6 +139,7 @@ def register_payment(
 ):
     cash_context = require_operational_context(db, tenant_id, current_user)
     business_date = cash_context["business_date"]
+    cash_register_id = cash_context["register_id"]
 
     if data.payment_date is not None and data.payment_date != business_date:
         raise HTTPException(
@@ -198,8 +200,14 @@ def register_payment(
 
     actor = _actor_name(current_user)
     payment_method = data.payment_method.strip().upper()
+    if payment_method in INVALID_PORTFOLIO_PAYMENT_METHODS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit is not a valid portfolio payment method",
+        )
     payment = PaymentDB(
         tenant_id=tenant_id,
+        cash_register_id=cash_register_id,
         client_id=client.id,
         payment_date=business_date,
         payment_method=payment_method,
