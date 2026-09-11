@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -14,6 +14,11 @@ def _actor_name(current_user: object | None) -> str:
         or getattr(current_user, "username", None)
         or getattr(current_user, "id", "system")
     )[:100]
+
+
+def _utc_now_naive() -> datetime:
+    """Return UTC without tzinfo because Caja columns are timestamp without time zone."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def get_current_day(db: Session, tenant_id: int) -> CashDayDB | None:
@@ -247,7 +252,7 @@ def close_register(
 
     from .cash_service import CashService
 
-    closed_at = datetime.now()
+    closed_at = _utc_now_naive()
     summary = CashService._summary(db, register, counted_cash)
     register.expected_cash = summary["expected_cash"]
     register.counted_cash = counted_cash
@@ -304,7 +309,7 @@ def close_branch(
             },
         )
 
-    now = datetime.now()
+    now = _utc_now_naive()
     branch_day.status = "CLOSED"
     branch_day.closed_at = now
     branch_day.closed_by = _actor_name(current_user)
@@ -351,7 +356,7 @@ def close_day(db: Session, tenant_id: int, current_user: object) -> CashDayDB:
             },
         )
 
-    now = datetime.now()
+    now = _utc_now_naive()
     day.status = "CLOSED"
     day.closed_at = now
     day.closed_by = _actor_name(current_user)
