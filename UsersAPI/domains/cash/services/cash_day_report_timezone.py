@@ -144,21 +144,19 @@ def _compact_pdf_table(rows, align_from=2):
     return table
 
 
-def _proper_side_by_side_payment_tables(sales_table, payments_table, styles, doc_width):
-    """Render the two payment summaries in fixed, equal-width columns."""
+def _two_column_layout(left_title, left_table, right_title, right_table, styles, doc_width, *, left_align_from=1, right_align_from=1):
+    """Render two titled tables side by side using the same report table styling."""
     column_width = (doc_width - 5 * mm) / 2
 
-    def compact_table(rows):
-        return _compact_pdf_table(rows, align_from=1)
-
     left = [
-        _ORIGINAL_PARAGRAPH("Ventas del día por medio de pago", styles["Heading2"]),
-        compact_table(sales_table),
+        _ORIGINAL_PARAGRAPH(left_title, styles["Heading2"]),
+        _compact_pdf_table(left_table, align_from=left_align_from),
     ]
     right = [
-        _ORIGINAL_PARAGRAPH("Pagos de cartera del día por medio de pago", styles["Heading2"]),
-        compact_table(payments_table),
+        _ORIGINAL_PARAGRAPH(right_title, styles["Heading2"]),
+        _compact_pdf_table(right_table, align_from=right_align_from),
     ]
+
     layout = Table(
         [[left, right]],
         colWidths=[column_width, column_width],
@@ -178,40 +176,48 @@ def _proper_side_by_side_payment_tables(sales_table, payments_table, styles, doc
         )
     )
     return KeepTogether([layout])
+
+
+def _proper_side_by_side_payment_tables(sales_table, payments_table, styles, doc_width):
+    """Render the narrower portfolio table on the left and sales table on the right."""
+    return _two_column_layout(
+        "Pagos de cartera del día por medio de pago",
+        payments_table,
+        "Ventas del día por medio de pago",
+        sales_table,
+        styles,
+        doc_width,
+        left_align_from=1,
+        right_align_from=1,
+    )
 
 
 def _side_by_side_summary_status(summary, status_table, styles, doc_width):
-    """Render the cash summary and box status side by side with their own titles."""
-    column_width = (doc_width - 5 * mm) / 2
-
-    left = [
-        _ORIGINAL_PARAGRAPH("Resumen de caja", styles["Heading2"]),
-        _compact_pdf_table(summary, align_from=0),
-    ]
-    right = [
-        _ORIGINAL_PARAGRAPH("Estado de cajas", styles["Heading2"]),
-        _compact_pdf_table(status_table, align_from=1),
-    ]
-
-    layout = Table(
-        [[left, right]],
-        colWidths=[column_width, column_width],
-        hAlign="LEFT",
+    """Render the table with fewer columns on the left and the wider summary on the right."""
+    return _two_column_layout(
+        "Estado de cajas",
+        status_table,
+        "Resumen de caja",
+        summary,
+        styles,
+        doc_width,
+        left_align_from=1,
+        right_align_from=0,
     )
-    layout.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (0, 0), 0),
-                ("RIGHTPADDING", (0, 0), (0, 0), 2.5 * mm),
-                ("LEFTPADDING", (1, 0), (1, 0), 2.5 * mm),
-                ("RIGHTPADDING", (1, 0), (1, 0), 0),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
-        )
+
+
+def _side_by_side_register_tables(sales_table, payment_table, styles, doc_width):
+    """Render payments by box on the left and sales by box on the right."""
+    return _two_column_layout(
+        "Pagos de cartera por caja",
+        payment_table,
+        "Ventas por caja",
+        sales_table,
+        styles,
+        doc_width,
+        left_align_from=1,
+        right_align_from=2,
     )
-    return KeepTogether([layout])
 
 
 def build_day_report(*args, **kwargs):
@@ -356,11 +362,7 @@ def pdf_report(report):
         Spacer(1, 1.5 * mm),
         _proper_side_by_side_payment_tables(sales_day_table, payments_day_table, styles, doc.width),
         Spacer(1, 1.5 * mm),
-        Paragraph("Ventas por caja", section_style),
-        _compact_pdf_table(sales_table),
-        Spacer(1, 1.5 * mm),
-        Paragraph("Pagos de cartera por caja", section_style),
-        _compact_pdf_table(payment_table),
+        _side_by_side_register_tables(sales_table, payment_table, styles, doc.width),
         Spacer(1, 1.5 * mm),
         Paragraph("Movimientos de efectivo", section_style),
         _compact_pdf_table(cash_table, align_from=1),
