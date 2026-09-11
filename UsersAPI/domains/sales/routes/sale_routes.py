@@ -20,10 +20,81 @@ from ..controllers import (
     list_all,
     list_frozen,
 )
-from ..schemas import SaleCreate, SaleDraftCreate, SaleDraftRead, SaleRead
+from ..schemas import (
+    SaleCreate,
+    SaleDraftCreate,
+    SaleDraftRead,
+    SaleRead,
+    SalesPOSCatalogRead,
+    SalesPOSClientRead,
+    SalesPOSCreditRead,
+)
+from ..services import get_pos_catalog, get_pos_client_credit, search_pos_clients
 from ..services.invoice_service import send_invoice_email
 
 sales_routes = APIRouter(prefix="/sales", tags=["Ventas"])
+
+
+@sales_routes.get(
+    "/pos/catalog",
+    response_model=SalesPOSCatalogRead,
+    dependencies=[Depends(require_permission("SALES_CREATE"))],
+)
+async def get_sales_pos_catalog_route(
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return get_pos_catalog(db, cast(int, user_tenant.tenant_id))
+
+
+@sales_routes.get(
+    "/pos/clients",
+    response_model=list[SalesPOSClientRead],
+    dependencies=[Depends(require_permission("SALES_CREATE"))],
+)
+async def search_sales_pos_clients_route(
+    search: str | None = Query(None, max_length=100),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    clients = search_pos_clients(
+        db,
+        cast(int, user_tenant.tenant_id),
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    return [
+        SalesPOSClientRead(
+            id=str(client.id),
+            full_name=client.full_name,
+            identification_number=client.identification_number,
+            status=client.status,
+            email=str(client.email) if client.email else None,
+        )
+        for client in clients
+    ]
+
+
+@sales_routes.get(
+    "/pos/clients/{client_id}/credit",
+    response_model=SalesPOSCreditRead,
+    dependencies=[Depends(require_permission("SALES_CREATE"))],
+)
+async def get_sales_pos_client_credit_route(
+    client_id: UUID,
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    credit = get_pos_client_credit(client_id, db, cast(int, user_tenant.tenant_id))
+    return SalesPOSCreditRead(
+        client_id=str(client_id),
+        approved_limit=float(credit.approved_limit),
+        credit_used=float(credit.credit_used),
+        credit_available=float(credit.credit_available),
+    )
 
 
 @sales_routes.post(
