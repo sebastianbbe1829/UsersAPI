@@ -105,7 +105,7 @@ def create_sale(
 ) -> SaleDB:
     cash_context = require_operational_context(db, tenant_id, current_user)
     business_date = cash_context["business_date"]
-    cash_register_id = cash_context["register_id"]
+    cash_register_id = cash_context.get("register_id")
 
     product_ids = [item.product_id for item in data.items]
     if len(product_ids) != len(set(product_ids)):
