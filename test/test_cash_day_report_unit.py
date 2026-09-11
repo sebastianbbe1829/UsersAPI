@@ -35,8 +35,8 @@ def _register(register_id, box_id, base, status="CLOSED"):
             if status == "CLOSED"
             else None
         ),
-        expected_cash=Decimal("150000.00") if register_id == 1 else Decimal("0"),
-        counted_cash=Decimal("150000.00") if register_id == 1 else Decimal("0"),
+        expected_cash=Decimal("200000.00") if register_id == 1 else Decimal("0"),
+        counted_cash=Decimal("200000.00") if register_id == 1 else Decimal("0"),
         difference=Decimal("0.00"),
     )
 
@@ -56,7 +56,10 @@ def _db():
     db = MagicMock()
     registers = [_register(1, 1, 100000), _register(2, 2, 0)]
     branches = [SimpleNamespace(id=4, name="Caldas Parque")]
-    boxes = [SimpleNamespace(id=1, name="Caja 1"), SimpleNamespace(id=2, name="Caja 2")]
+    boxes = [
+        SimpleNamespace(id=1, name="Caja 1"),
+        SimpleNamespace(id=2, name="Caja 2"),
+    ]
     movements = [
         _movement(1, 50000, "EFECTIVO", "SALE"),
         _movement(1, 50000, "TARJETA", "SALE"),
@@ -71,13 +74,19 @@ def _db():
         MagicMock(all=MagicMock(return_value=movements)),
     ]
     db.execute.side_effect = [
-        MagicMock(all=MagicMock(return_value=[
-            ("EFECTIVO", Decimal("50000")),
-            ("TARJETA", Decimal("50000")),
-        ])),
-        MagicMock(all=MagicMock(return_value=[
-            ("EFECTIVO", Decimal("50000"), "APLICADO"),
-        ])),
+        MagicMock(
+            all=MagicMock(
+                return_value=[
+                    ("EFECTIVO", Decimal("50000")),
+                    ("TARJETA", Decimal("50000")),
+                ]
+            )
+        ),
+        MagicMock(
+            all=MagicMock(
+                return_value=[("EFECTIVO", Decimal("50000"), "APLICADO")]
+            )
+        ),
     ]
     return db
 
@@ -94,7 +103,7 @@ def test_report_uses_one_calculation_for_totals_and_renderers():
 
     assert report["total_base"] == Decimal("100000.00")
     assert report["total_expected"] == Decimal("200000.00")
-    assert report["total_counted"] == Decimal("150000.00")
+    assert report["total_counted"] == Decimal("200000.00")
     assert report["total_difference"] == Decimal("0.00")
     assert report["cash_sales"] == Decimal("50000.00")
     assert report["cash_payments"] == Decimal("50000.00")
