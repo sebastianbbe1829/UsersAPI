@@ -122,6 +122,25 @@ _ORIGINAL_PARAGRAPH = report_service.Paragraph
 _ORIGINAL_DOC = report_service.SimpleDocTemplate
 _ORIGINAL_SPACER = report_service.Spacer
 _ORIGINAL_SIDE_BY_SIDE = report_service._pdf_side_by_side_payment_tables
+_ORIGINAL_PDF_TABLE = report_service._pdf_table
+
+
+def _compact_pdf_table(rows, align_from=2):
+    """Use the same compact table typography throughout the complete PDF."""
+    table = _ORIGINAL_PDF_TABLE(rows, align_from=align_from)
+    table.setStyle(
+        TableStyle(
+            [
+                ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("LEADING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    return table
 
 
 def _proper_side_by_side_payment_tables(sales_table, payments_table, styles):
@@ -133,29 +152,16 @@ def _proper_side_by_side_payment_tables(sales_table, payments_table, styles):
     inner_width = column_width - 5 * mm
 
     def compact_table(rows):
-        table = report_service._pdf_table(rows, align_from=1)
+        table = _compact_pdf_table(rows, align_from=1)
         table._argW = [inner_width * 0.58, inner_width * 0.42]
-        table.setStyle(
-            TableStyle(
-                [
-                    ("TOPPADDING", (0, 0), (-1, -1), 1.5),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 3),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-                    ("FONTSIZE", (0, 0), (-1, -1), 7),
-                    ("LEADING", (0, 0), (-1, -1), 8),
-                    ("ALIGN", (1, 1), (1, -1), "RIGHT"),
-                ]
-            )
-        )
         return table
 
     left = [
-        report_service.Paragraph("Ventas del día por medio de pago", styles["Heading2"]),
+        _ORIGINAL_PARAGRAPH("Ventas del día por medio de pago", styles["Heading2"]),
         compact_table(sales_table),
     ]
     right = [
-        report_service.Paragraph("Pagos de cartera del día por medio de pago", styles["Heading2"]),
+        _ORIGINAL_PARAGRAPH("Pagos de cartera del día por medio de pago", styles["Heading2"]),
         compact_table(payments_table),
     ]
 
@@ -229,12 +235,14 @@ def pdf_report(report):
     original_doc = report_service.SimpleDocTemplate
     original_spacer = report_service.Spacer
     original_side_by_side = report_service._pdf_side_by_side_payment_tables
+    original_pdf_table = report_service._pdf_table
     report_service._fmt_dt = _fmt_dt
     report_service._to_colombia_datetime = _to_colombia_datetime
     report_service.Paragraph = _without_sales_difference_paragraph
     report_service.SimpleDocTemplate = _compact_doc
     report_service.Spacer = _compact_spacer
     report_service._pdf_side_by_side_payment_tables = _proper_side_by_side_payment_tables
+    report_service._pdf_table = _compact_pdf_table
     _CURRENT_REPORT = report
     try:
         return report_service.pdf_report(report)
@@ -246,3 +254,4 @@ def pdf_report(report):
         report_service.SimpleDocTemplate = original_doc
         report_service.Spacer = original_spacer
         report_service._pdf_side_by_side_payment_tables = original_side_by_side
+        report_service._pdf_table = original_pdf_table
