@@ -11,7 +11,12 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "f4c8a1b2d3e4"
-down_revision: Union[str, Sequence[str], None] = "e3f5a7c9d1b2"
+# This branch already contains an independent cash-domain migration head.
+# Merge both heads here so `alembic upgrade head` remains deterministic.
+down_revision: Union[str, Sequence[str], None] = (
+    "e3f5a7c9d1b2",
+    "b2c4d6e8f0a1",
+)
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
