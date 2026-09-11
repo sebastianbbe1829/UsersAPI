@@ -2,9 +2,7 @@ from copy import copy
 from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from sqlalchemy import select
 
 from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
