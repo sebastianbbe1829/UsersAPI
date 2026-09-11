@@ -25,6 +25,10 @@ class PaymentDB(Base):
             "status IN ('APLICADO', 'ANULADO')",
             name="ck_portfolio_payments_status",
         ),
+        CheckConstraint(
+            "UPPER(payment_method) NOT IN ('CREDITO', 'CREDIT', 'CRÉDITO')",
+            name="ck_portfolio_payments_method_not_credit",
+        ),
         {"schema": "users_api"},
     )
 
@@ -33,6 +37,12 @@ class PaymentDB(Base):
         Integer,
         ForeignKey("users_api.tenants.id"),
         nullable=False,
+        index=True,
+    )
+    cash_register_id = Column(
+        Integer,
+        ForeignKey("users_api.cash_registers.id"),
+        nullable=True,
         index=True,
     )
     client_id = Column(
