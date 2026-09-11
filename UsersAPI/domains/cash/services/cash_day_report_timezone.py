@@ -56,9 +56,7 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
         sale_register.setdefault(str(movement.origin_id), movement.cash_register_id)
 
     register_rows = {row["register_id"]: row for row in report["registers"]}
-    credit_total = report_service._money(
-        report["sales_day"].get("Crédito", report_service.ZERO)
-    )
+    credit_total = report_service._money(report["sales_day"].get("Crédito", report_service.ZERO))
     unassigned_credit = credit_total
 
     credit_rows = db.execute(
@@ -69,9 +67,7 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
             SaleDB.tenant_id == tenant_id,
             SaleDB.business_date == day.business_date,
             SaleDB.status != "CANCELLED",
-            SalePaymentDB.payment_method.in_(
-                ["CREDITO", "CREDIT", "CRÉDITO"]
-            ),
+            SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
         )
     ).all()
 
@@ -144,7 +140,17 @@ def _compact_pdf_table(rows, align_from=2):
     return table
 
 
-def _two_column_layout(left_title, left_table, right_title, right_table, styles, doc_width, *, left_align_from=1, right_align_from=1):
+def _two_column_layout(
+    left_title,
+    left_table,
+    right_title,
+    right_table,
+    styles,
+    doc_width,
+    *,
+    left_align_from=1,
+    right_align_from=1,
+):
     """Render two titled tables side by side using the same report table styling."""
     column_width = (doc_width - 5 * mm) / 2
 
@@ -279,23 +285,42 @@ def pdf_report(report):
     sales_day_table = [["Medio", "Total"]]
     for method in methods:
         sales_day_table.append(
-            [method, report_service._money_text(report["sales_day"].get(method, report_service.ZERO))]
+            [
+                method,
+                report_service._money_text(report["sales_day"].get(method, report_service.ZERO)),
+            ]
         )
     sales_day_table.append(
-        ["TOTAL", report_service._money_text(sum(report["sales_day"].values(), report_service.ZERO))]
+        [
+            "TOTAL",
+            report_service._money_text(sum(report["sales_day"].values(), report_service.ZERO)),
+        ]
     )
 
     payments_day_table = [["Medio", "Total"]]
     for method in payment_methods:
         payments_day_table.append(
-            [method, report_service._money_text(report["payments_day"].get(method, report_service.ZERO))]
+            [
+                method,
+                report_service._money_text(report["payments_day"].get(method, report_service.ZERO)),
+            ]
         )
     payments_day_table.append(
-        ["TOTAL", report_service._money_text(sum(report["payments_day"].values(), report_service.ZERO))]
+        [
+            "TOTAL",
+            report_service._money_text(sum(report["payments_day"].values(), report_service.ZERO)),
+        ]
     )
 
     summary = [
-        ["Total bases", "Total esperado", "Total contado", "Total diferencia", "Efectivo ventas", "Efectivo pagos"],
+        [
+            "Total bases",
+            "Total esperado",
+            "Total contado",
+            "Total diferencia",
+            "Efectivo ventas",
+            "Efectivo pagos",
+        ],
         [
             report_service._money_text(report["total_base"]),
             report_service._money_text(report["total_expected"]),
@@ -316,7 +341,12 @@ def pdf_report(report):
     for row in report["registers"]:
         values = [row["sales"].get(method, report_service.ZERO) for method in methods]
         sales_table.append(
-            [row["box"], row["status"], *[report_service._money_text(value) for value in values], report_service._money_text(sum(values, report_service.ZERO))]
+            [
+                row["box"],
+                row["status"],
+                *[report_service._money_text(value) for value in values],
+                report_service._money_text(sum(values, report_service.ZERO)),
+            ]
         )
     sales_table.append(
         report_service._pdf_method_totals_row("TOTAL", methods, report["sales_by_box_totals"])
@@ -326,37 +356,110 @@ def pdf_report(report):
     for row in report["registers"]:
         values = [row["payments"].get(method, report_service.ZERO) for method in payment_methods]
         payment_table.append(
-            [row["box"], row["status"], *[report_service._money_text(value) for value in values], report_service._money_text(sum(values, report_service.ZERO))]
+            [
+                row["box"],
+                row["status"],
+                *[report_service._money_text(value) for value in values],
+                report_service._money_text(sum(values, report_service.ZERO)),
+            ]
         )
     payment_table.append(
-        report_service._pdf_method_totals_row("TOTAL", payment_methods, report["payments_by_box_totals"])
+        report_service._pdf_method_totals_row(
+            "TOTAL", payment_methods, report["payments_by_box_totals"]
+        )
     )
 
     cash_totals = report["cash_movement_totals"]
-    cash_table = [["Caja", "Ventas efectivo", "Pagos efectivo", "Ingresos manuales", "Egresos manuales", "Neto efectivo"]]
+    cash_table = [
+        [
+            "Caja",
+            "Ventas efectivo",
+            "Pagos efectivo",
+            "Ingresos manuales",
+            "Egresos manuales",
+            "Neto efectivo",
+        ]
+    ]
     for row in report["registers"]:
         cash_table.append(
-            [row["box"], report_service._money_text(row["cash_sales"]), report_service._money_text(row["cash_payments"]), report_service._money_text(row["manual_income"]), report_service._money_text(row["manual_expense"]), report_service._money_text(row["net_cash"])]
+            [
+                row["box"],
+                report_service._money_text(row["cash_sales"]),
+                report_service._money_text(row["cash_payments"]),
+                report_service._money_text(row["manual_income"]),
+                report_service._money_text(row["manual_expense"]),
+                report_service._money_text(row["net_cash"]),
+            ]
         )
     cash_table.append(
-        ["TOTAL", report_service._money_text(cash_totals["sales_cash"]), report_service._money_text(cash_totals["payments_cash"]), report_service._money_text(cash_totals["manual_income"]), report_service._money_text(cash_totals["manual_expense"]), report_service._money_text(cash_totals["net_cash"])]
+        [
+            "TOTAL",
+            report_service._money_text(cash_totals["sales_cash"]),
+            report_service._money_text(cash_totals["payments_cash"]),
+            report_service._money_text(cash_totals["manual_income"]),
+            report_service._money_text(cash_totals["manual_expense"]),
+            report_service._money_text(cash_totals["net_cash"]),
+        ]
     )
 
-    reconciliation = [["Caja", "Sucursal", "Base", "Apertura", "Hora apertura", "Hora cierre", "Esperado", "Contado", "Diferencia", "Resultado"]]
+    reconciliation = [
+        [
+            "Caja",
+            "Sucursal",
+            "Base",
+            "Apertura",
+            "Hora apertura",
+            "Hora cierre",
+            "Esperado",
+            "Contado",
+            "Diferencia",
+            "Resultado",
+        ]
+    ]
     for row in report["registers"]:
         reconciliation.append(
-            [row["box"], row["branch"], report_service._money_text(row["base_amount"]), report_service._money_text(row["opening_amount"]), _fmt_dt(row["opened_at"]), _fmt_dt(row["closed_at"], "Pendiente"), report_service._money_text(row["expected"]), "—" if row["counted"] is None else report_service._money_text(row["counted"]), "—" if row["difference"] is None else report_service._money_text(row["difference"]), report_service._result(row)]
+            [
+                row["box"],
+                row["branch"],
+                report_service._money_text(row["base_amount"]),
+                report_service._money_text(row["opening_amount"]),
+                _fmt_dt(row["opened_at"]),
+                _fmt_dt(row["closed_at"], "Pendiente"),
+                report_service._money_text(row["expected"]),
+                "—" if row["counted"] is None else report_service._money_text(row["counted"]),
+                "—" if row["difference"] is None else report_service._money_text(row["difference"]),
+                report_service._result(row),
+            ]
         )
     reconciliation.append(
-        ["TOTAL", "", report_service._money_text(report["total_base"]), report_service._money_text(report["total_opening"]), "", "", report_service._money_text(report["total_expected"]), report_service._money_text(report["total_counted"]), report_service._money_text(report["total_difference"]), "PENDIENTE" if report["pending"] else ("OK" if not report["closed_mismatch"] else "DESCUADRADA")]
+        [
+            "TOTAL",
+            "",
+            report_service._money_text(report["total_base"]),
+            report_service._money_text(report["total_opening"]),
+            "",
+            "",
+            report_service._money_text(report["total_expected"]),
+            report_service._money_text(report["total_counted"]),
+            report_service._money_text(report["total_difference"]),
+            "PENDIENTE"
+            if report["pending"]
+            else ("OK" if not report["closed_mismatch"] else "DESCUADRADA"),
+        ]
     )
 
     story = [
         Paragraph("Resumen de cierre de Caja", styles["Title"]),
         Paragraph(f"Tenant: {report['tenant_name']}", styles["Normal"]),
         Paragraph(f"Fecha operativa: {day.business_date} · Estado: {day.status}", styles["Normal"]),
-        Paragraph(f"Generado por: {report['generated_by']} · Generado: {_fmt_dt(report['generated_at'])}", styles["Normal"]),
-        Paragraph(f"Apertura del día: {_fmt_dt(day.opened_at)} · Cierre del día: {_fmt_dt(day.closed_at, 'Pendiente')}", styles["Normal"]),
+        Paragraph(
+            f"Generado por: {report['generated_by']} · Generado: {_fmt_dt(report['generated_at'])}",
+            styles["Normal"],
+        ),
+        Paragraph(
+            f"Apertura del día: {_fmt_dt(day.opened_at)} · Cierre del día: {_fmt_dt(day.closed_at, 'Pendiente')}",
+            styles["Normal"],
+        ),
         Spacer(1, 1.5 * mm),
         _side_by_side_summary_status(summary, status_table, styles, doc.width),
         Spacer(1, 1.5 * mm),
