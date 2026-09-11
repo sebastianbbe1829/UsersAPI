@@ -46,4 +46,5 @@ class CashBoxDB(Base):
         "UserCashAssignmentDB",
         back_populates="cash_box",
         cascade="all, delete-orphan",
+        overlaps="user_assignments",
     )
