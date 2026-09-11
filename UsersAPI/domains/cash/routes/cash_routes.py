@@ -56,7 +56,14 @@ def _read_register(db: Session, tenant_id: int, register_id: int) -> CashRegiste
     register = get_register(db, tenant_id, register_id)
     summary = register_summary(db, tenant_id, register_id)
     return CashRegisterRead.model_validate(
-        {**register.__dict__, "movements": register.movements, "summary": summary}
+        {
+            **register.__dict__,
+            "movements": register.movements,
+            "summary": summary,
+            "expected_cash": summary["expected_cash"],
+            "counted_cash": summary["counted_cash"],
+            "difference": summary["difference"],
+        }
     )
 
 
