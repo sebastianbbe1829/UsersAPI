@@ -1,5 +1,10 @@
+from datetime import datetime
+
 from fastapi import HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
+
+from UsersAPI.domains.cash.models import UserCashAssignmentDB
 
 from ..logging_config import logger
 from ..repositories.user_repository import UserRepository
@@ -17,6 +22,19 @@ def delete_user(
     usuario = _get_user_entity(dni, tenant_id, user_repository)
     link = _tenant_link(usuario, tenant_id, user_tenant_repository)
     try:
+        db.execute(
+            update(UserCashAssignmentDB)
+            .where(
+                UserCashAssignmentDB.tenant_id == tenant_id,
+                UserCashAssignmentDB.user_tenant_id == link.id,
+                UserCashAssignmentDB.status == 1,
+            )
+            .values(
+                status=0,
+                unassigned_at=datetime.now(),
+                unassigned_by="user deletion",
+            )
+        )
         user_tenant_repository.delete(link)
     except Exception as exc:
         logger.exception(
