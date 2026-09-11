@@ -1,8 +1,9 @@
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
+from reportlab.lib import colors
 from reportlab.lib.units import mm
-from reportlab.platypus import KeepTogether, Spacer, TableStyle
+from reportlab.platypus import Spacer, Table, TableStyle
 from sqlalchemy import select
 
 from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
@@ -13,6 +14,7 @@ from . import cash_day_report_service as report_service
 COLOMBIA_TZ = ZoneInfo("America/Bogota")
 UTC = timezone.utc
 _CURRENT_REPORT = None
+_METHOD_TOTALS = []
 
 
 def _to_colombia_datetime(value):
@@ -93,10 +95,16 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
 
 
 def _without_sales_difference_paragraph(text, style, *args, **kwargs):
-    """Hide technical reconciliation text and show only unassigned credit sales."""
+    """Hide technical text and the two headings replaced by the side-by-side block."""
     if isinstance(text, str) and text.startswith(
         "Diferencia entre ventas del día y ventas asignadas a cajas:"
     ):
+        return Spacer(1, 0)
+
+    if isinstance(text, str) and text in {
+        "Ventas del día por medio de pago",
+        "Pagos de cartera del día por medio de pago",
+    }:
         return Spacer(1, 0)
 
     if isinstance(text, str) and text.startswith("Ventas a crédito del día"):
@@ -163,8 +171,62 @@ def _compact_spacer(width, height):
     return _ORIGINAL_SPACER(width, min(height, 1.5 * mm))
 
 
+def _side_by_side_table(left_rows, right_rows):
+    """Render the two daily payment summaries as adjacent compact tables."""
+    def compact_table(rows):
+        table = _ORIGINAL_PDF_TABLE(rows, align_from=1)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("TOPPADDING", (0, 0), (-1, -1), 1.2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                    ("FONTSIZE", (0, 0), (-1, -1), 6.5),
+                    ("LEADING", (0, 0), (-1, -1), 7),
+                ]
+            )
+        )
+        return table
+
+    left = compact_table(left_rows)
+    right = compact_table(right_rows)
+    outer = Table([[left, right]], colWidths=[None, None], hAlign="LEFT")
+    outer.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ("LINEBELOW", (0, 0), (-1, -1), 0, colors.white),
+            ]
+        )
+    )
+    return outer
+
+
 def _compact_pdf_table(rows, align_from=2):
-    """Compact a report table and keep it as one indivisible flowable."""
+    """Compact report tables and combine the two daily payment summaries."""
+    global _METHOD_TOTALS
+
+    if (
+        len(rows) >= 2
+        and rows[0] == ["Medio", "Total"]
+        and not _METHOD_TOTALS
+    ):
+        _METHOD_TOTALS.append(rows)
+        return Spacer(1, 0)
+
+    if (
+        len(rows) >= 2
+        and rows[0] == ["Medio", "Total"]
+        and _METHOD_TOTALS
+    ):
+        left_rows = _METHOD_TOTALS.pop()
+        return _side_by_side_table(left_rows, rows)
+
     table = _ORIGINAL_PDF_TABLE(rows, align_from=align_from)
     table.setStyle(
         TableStyle(
@@ -178,12 +240,13 @@ def _compact_pdf_table(rows, align_from=2):
             ]
         )
     )
-    return KeepTogether([table])
+    return table
 
 
 def pdf_report(report):
-    global _CURRENT_REPORT
+    global _CURRENT_REPORT, _METHOD_TOTALS
     _normalize_legacy_report_timestamps(report)
+    _METHOD_TOTALS = []
     original_fmt = report_service._fmt_dt
     original_to_colombia = report_service._to_colombia_datetime
     original_paragraph = report_service.Paragraph
@@ -201,6 +264,7 @@ def pdf_report(report):
         return report_service.pdf_report(report)
     finally:
         _CURRENT_REPORT = None
+        _METHOD_TOTALS = []
         report_service._fmt_dt = original_fmt
         report_service._to_colombia_datetime = original_to_colombia
         report_service.Paragraph = original_paragraph
