@@ -143,12 +143,9 @@ def _compact_pdf_table(rows, align_from=2):
     return table
 
 
-def _proper_side_by_side_payment_tables(sales_table, payments_table, styles):
+def _proper_side_by_side_payment_tables(sales_table, payments_table, styles, doc_width):
     """Render the two payment summaries in fixed, equal-width columns."""
-    page_width, _ = landscape(A4)
-    horizontal_margins = 10 * mm
-    available_width = page_width - horizontal_margins
-    column_width = available_width / 2
+    column_width = doc_width / 2
     inner_width = column_width - 5 * mm
 
     def compact_table(rows):
