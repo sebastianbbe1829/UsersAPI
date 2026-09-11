@@ -138,6 +138,19 @@ def register_payment(
 ):
     cash_context = require_operational_context(db, tenant_id, current_user)
     business_date = cash_context["business_date"]
+
+    if data.payment_date is not None and data.payment_date != business_date:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "PAYMENT_DATE_MUST_MATCH_OPERATIONAL_DATE",
+                "message": (
+                    f"La fecha del pago debe coincidir con la fecha operativa de Caja "
+                    f"({business_date.isoformat()})."
+                ),
+            },
+        )
+
     client = _client(db, tenant_id, data.client_id, lock=True)
     allocations_total = _money(
         sum(
