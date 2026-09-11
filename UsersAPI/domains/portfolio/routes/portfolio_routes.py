@@ -27,7 +27,9 @@ from ..schemas import (
     ObligationRead,
     PaymentCreate,
     PaymentRead,
+    PortfolioPaymentClientRead,
 )
+from ..services import get_payment_client_obligations, search_payment_clients
 
 portfolio_routes = APIRouter(prefix="/portfolio", tags=["Cartera"])
 
@@ -98,6 +100,54 @@ async def list_client_obligations_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     return client_obligations(client_id, db, cast(int, user_tenant.tenant_id))
+
+
+@portfolio_routes.get(
+    "/payments/clients",
+    response_model=list[PortfolioPaymentClientRead],
+    dependencies=[Depends(require_permission("PORTFOLIO_PAYMENT_CREATE"))],
+)
+async def search_payment_clients_route(
+    search: str | None = Query(None, max_length=100),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    clients = search_payment_clients(
+        db,
+        cast(int, user_tenant.tenant_id),
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    return [
+        PortfolioPaymentClientRead(
+            id=str(client.id),
+            full_name=client.full_name,
+            identification_number=client.identification_number,
+            status=client.status,
+            email=str(client.email) if client.email else None,
+        )
+        for client in clients
+    ]
+
+
+@portfolio_routes.get(
+    "/payments/clients/{client_id}/obligations",
+    response_model=list[ObligationRead],
+    dependencies=[Depends(require_permission("PORTFOLIO_PAYMENT_CREATE"))],
+)
+async def get_payment_client_obligations_route(
+    client_id: UUID,
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    return get_payment_client_obligations(
+        client_id,
+        db,
+        cast(int, user_tenant.tenant_id),
+    )
 
 
 @portfolio_routes.post(
