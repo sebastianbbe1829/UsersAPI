@@ -309,14 +309,35 @@ def _pdf_method_totals_row(label, methods, totals):
     return [label, "", *[_money_text(totals.get(method, ZERO)) for method in methods], _money_text(sum((totals.get(method, ZERO) for method in methods), ZERO))]
 
 
-def _pdf_side_by_side_payment_tables(sales_table, payments_table, styles):
-    left = [Paragraph("Ventas del día por medio de pago", styles["Heading2"]), _pdf_table(sales_table, align_from=1)]
-    right = [Paragraph("Pagos de cartera del día por medio de pago", styles["Heading2"]), _pdf_table(payments_table, align_from=1)]
-    layout = Table([[left, right]], colWidths=[None, None], hAlign="LEFT")
+def _pdf_side_by_side_payment_tables(sales_table, payments_table, styles, available_width):
+    """Keep the two payment summaries visually identical to the other report tables."""
+    heading_style = styles["Heading2"]
+    left_heading = Paragraph("Ventas del día por medio de pago", heading_style)
+    right_heading = Paragraph("Pagos de cartera del día por medio de pago", heading_style)
+
+    column_width = (available_width - 6 * mm) / 2
+    left = Table(
+        [[left_heading], [_pdf_table(sales_table, align_from=1)]],
+        colWidths=[column_width],
+    )
+    right = Table(
+        [[right_heading], [_pdf_table(payments_table, align_from=1)]],
+        colWidths=[column_width],
+    )
+    for table in (left, right):
+        table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+
+    layout = Table([[left, right]], colWidths=[column_width, column_width], hAlign="LEFT")
     layout.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6 * mm),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
@@ -329,6 +350,7 @@ def pdf_report(report) -> tuple[bytes, str]:
     doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=10 * mm, leftMargin=10 * mm, topMargin=10 * mm, bottomMargin=10 * mm)
     styles = getSampleStyleSheet()
     day = report["day"]
+    section_style = styles["Heading2"]
     story = [
         Paragraph("Resumen de cierre de Caja", styles["Title"]),
         Paragraph(f"Tenant: {report['tenant_name']}", styles["Normal"]),
@@ -338,9 +360,9 @@ def pdf_report(report) -> tuple[bytes, str]:
         Spacer(1, 5 * mm),
     ]
     summary = [["Total bases", "Total esperado", "Total contado", "Total diferencia", "Efectivo ventas", "Efectivo pagos"], [_money_text(report["total_base"]), _money_text(report["total_expected"]), _money_text(report["total_counted"]), _money_text(report["total_difference"]), _money_text(report["cash_sales"]), _money_text(report["cash_payments"])]]
-    story.extend([_pdf_table(summary, align_from=0), Spacer(1, 5 * mm)])
+    story.extend([Paragraph("Resumen de caja", section_style), _pdf_table(summary, align_from=0), Spacer(1, 5 * mm)])
     status_table = [["Estado de cajas", "Cantidad"], ["OK", str(report["status_totals"]["OK"])], ["DESCUADRADA", str(report["status_totals"]["DESCUADRADA"])], ["PENDIENTE", str(report["status_totals"]["PENDIENTE"])]]
-    story.extend([_pdf_table(status_table, align_from=1), Spacer(1, 5 * mm)])
+    story.extend([Paragraph("Estado de cajas", section_style), _pdf_table(status_table, align_from=1), Spacer(1, 5 * mm)])
     methods = report["methods"]
     sales_day_table = [["Medio", "Total"]]
     for method in methods:
@@ -351,38 +373,31 @@ def pdf_report(report) -> tuple[bytes, str]:
     for method in payment_methods:
         payments_day_table.append([method, _money_text(report["payments_day"].get(method, ZERO))])
     payments_day_table.append(["TOTAL", _money_text(sum(report["payments_day"].values(), ZERO))])
-    story.extend([_pdf_side_by_side_payment_tables(sales_day_table, payments_day_table, styles), Spacer(1, 5 * mm)])
+    story.extend([_pdf_side_by_side_payment_tables(sales_day_table, payments_day_table, styles, doc.width), Spacer(1, 5 * mm)])
     sales_table = [["Caja", "Estado", *methods, "Total"]]
     for row in report["registers"]:
         values = [row["sales"].get(method, ZERO) for method in methods]
         sales_table.append([row["box"], row["status"], *[_money_text(value) for value in values], _money_text(sum(values, ZERO))])
     sales_table.append(_pdf_method_totals_row("TOTAL", methods, report["sales_by_box_totals"]))
-    story.extend([Paragraph("Ventas por caja", styles["Heading2"]), _pdf_table(sales_table), Spacer(1, 5 * mm)])
+    story.extend([Paragraph("Ventas por caja", section_style), _pdf_table(sales_table), Spacer(1, 5 * mm)])
     payment_table = [["Caja", "Estado", *payment_methods, "Total"]]
     for row in report["registers"]:
         values = [row["payments"].get(method, ZERO) for method in payment_methods]
         payment_table.append([row["box"], row["status"], *[_money_text(value) for value in values], _money_text(sum(values, ZERO))])
     payment_table.append(_pdf_method_totals_row("TOTAL", payment_methods, report["payments_by_box_totals"]))
-    story.extend([Paragraph("Pagos de cartera por caja", styles["Heading2"]), _pdf_table(payment_table), Spacer(1, 5 * mm)])
+    story.extend([Paragraph("Pagos de cartera por caja", section_style), _pdf_table(payment_table), Spacer(1, 5 * mm)])
     cash_totals = report["cash_movement_totals"]
     cash_table = [["Caja", "Ventas efectivo", "Pagos efectivo", "Ingresos manuales", "Egresos manuales", "Neto efectivo"]]
     for row in report["registers"]:
         cash_table.append([row["box"], _money_text(row["cash_sales"]), _money_text(row["cash_payments"]), _money_text(row["manual_income"]), _money_text(row["manual_expense"]), _money_text(row["net_cash"])])
     cash_table.append(["TOTAL", _money_text(cash_totals["sales_cash"]), _money_text(cash_totals["payments_cash"]), _money_text(cash_totals["manual_income"]), _money_text(cash_totals["manual_expense"]), _money_text(cash_totals["net_cash"])])
-    story.extend([Paragraph("Movimientos de efectivo", styles["Heading2"]), _pdf_table(cash_table, align_from=1), Spacer(1, 5 * mm)])
+    story.extend([Paragraph("Movimientos de efectivo", section_style), _pdf_table(cash_table, align_from=1), Spacer(1, 5 * mm)])
     reconciliation = [["Caja", "Sucursal", "Base", "Apertura", "Hora apertura", "Hora cierre", "Esperado", "Contado", "Diferencia", "Resultado"]]
     for row in report["registers"]:
         reconciliation.append([row["box"], row["branch"], _money_text(row["base_amount"]), _money_text(row["opening_amount"]), _fmt_dt(row["opened_at"]), _fmt_dt(row["closed_at"], "Pendiente"), _money_text(row["expected"]), "—" if row["counted"] is None else _money_text(row["counted"]), "—" if row["difference"] is None else _money_text(row["difference"]), _result(row)])
     reconciliation.append(["TOTAL", "", _money_text(report["total_base"]), _money_text(report["total_opening"]), "", "", _money_text(report["total_expected"]), _money_text(report["total_counted"]), _money_text(report["total_difference"]), "PENDIENTE" if report["pending"] else ("OK" if not report["closed_mismatch"] else "DESCUADRADA")])
-    story.extend([Paragraph("Arqueos y diferencias", styles["Heading2"]), _pdf_table(reconciliation, align_from=2), Spacer(1, 4 * mm)])
-    if report["pending"]:
-        story.append(Paragraph(f"Cajas pendientes de arqueo: {len(report['pending'])}", styles["Normal"]))
-    credit_sales = report.get("unassigned_credit_sales", ZERO)
-    if credit_sales:
-        story.append(Paragraph("Ventas a crédito del día (sin movimiento de caja asignable): " f"{_money_text(credit_sales)}", styles["Normal"]))
-    total_payments = sum(report["payments_day"].values(), ZERO)
-    total_payments_by_box = sum(report["payments_by_box_totals"].values(), ZERO)
-    if total_payments != total_payments_by_box:
-        story.append(Paragraph("Diferencia entre pagos del día y pagos asignados a cajas: " f"{_money_text(total_payments - total_payments_by_box)}", styles["Normal"]))
+    story.extend([Paragraph("Arqueos y diferencias", section_style), _pdf_table(reconciliation, align_from=2)])
+    if report.get("unassigned_credit_sales"):
+        story.append(Paragraph(f"Ventas a crédito del día (sin movimiento de caja asignable): {_money_text(report['unassigned_credit_sales'])}", styles["Normal"]))
     doc.build(story)
     return output.getvalue(), _filename(report, "pdf")
