@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from UsersAPI.domains.core.controllers import get_current_user
@@ -16,6 +17,7 @@ from ..services import (
     serialize_day,
     start_day,
 )
+from ..services.cash_day_report_service import build_day_report, excel_report, pdf_report
 
 cash_day_routes = APIRouter(prefix="/days", tags=["Caja - Día operativo"])
 
@@ -51,6 +53,54 @@ async def current_day_route(
 ):
     day = get_current_day(db, _tenant_id(user_tenant))
     return None if day is None else serialize_day(db, day)
+
+
+@cash_day_routes.get(
+    "/{day_id}/report/{file_format}",
+    dependencies=[Depends(require_permission("CASH_READ"))],
+)
+async def day_report_route(
+    day_id: int,
+    file_format: str,
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    tenant_id = _tenant_id(user_tenant)
+    try:
+        report = build_day_report(db, tenant_id, day_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    normalized = file_format.strip().lower()
+    if normalized == "pdf":
+        content, filename = pdf_report(report)
+        media_type = "application/pdf"
+    elif normalized in {"xlsx", "excel"}:
+        content, filename = excel_report(report)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        raise HTTPException(status_code=400, detail="Formato de reporte no soportado. Usa pdf o xlsx.")
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@cash_day_routes.get(
+    "/current/report/{file_format}",
+    dependencies=[Depends(require_permission("CASH_READ"))],
+)
+async def current_day_report_route(
+    file_format: str,
+    db: Session = Depends(get_db),
+    user_tenant: UserTenantDB = Depends(get_current_tenant),
+):
+    day = get_current_day(db, _tenant_id(user_tenant))
+    if day is None:
+        raise HTTPException(status_code=404, detail="No existe un día operativo para generar el reporte.")
+    return await day_report_route(file_format=file_format, day_id=day.id, db=db, user_tenant=user_tenant)
 
 
 @cash_day_routes.post(
