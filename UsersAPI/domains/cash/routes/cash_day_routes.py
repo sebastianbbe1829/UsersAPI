@@ -17,7 +17,11 @@ from ..services import (
     serialize_day,
     start_day,
 )
-from ..services.cash_day_report_service import build_day_report, excel_report, pdf_report
+from ..services.cash_day_report_service import (
+    build_day_report,
+    excel_report,
+    pdf_report,
+)
 
 cash_day_routes = APIRouter(prefix="/days", tags=["Caja - Día operativo"])
 
@@ -66,8 +70,16 @@ async def current_day_report_route(
 ):
     day = get_current_day(db, _tenant_id(user_tenant))
     if day is None:
-        raise HTTPException(status_code=404, detail="No existe un día operativo para generar el reporte.")
-    return await day_report_route(file_format=file_format, day_id=day.id, db=db, user_tenant=user_tenant)
+        raise HTTPException(
+            status_code=404,
+            detail="No existe un día operativo para generar el reporte.",
+        )
+    return await day_report_route(
+        file_format=file_format,
+        day_id=day.id,
+        db=db,
+        user_tenant=user_tenant,
+    )
 
 
 @cash_day_routes.get(
@@ -94,7 +106,10 @@ async def day_report_route(
         content, filename = excel_report(report)
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
-        raise HTTPException(status_code=400, detail="Formato de reporte no soportado. Usa pdf o xlsx.")
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de reporte no soportado. Usa pdf o xlsx.",
+        )
 
     return Response(
         content=content,
@@ -116,7 +131,14 @@ async def close_day_register_route(
     user_tenant: UserTenantDB = Depends(get_current_tenant),
 ):
     tenant_id = _tenant_id(user_tenant)
-    close_register(db, tenant_id, register_id, data.counted_cash, data.closing_notes, current_user)
+    close_register(
+        db,
+        tenant_id,
+        register_id,
+        data.counted_cash,
+        data.closing_notes,
+        current_user,
+    )
     day = get_current_day(db, tenant_id)
     return serialize_day(db, day)
 
