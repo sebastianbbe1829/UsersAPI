@@ -11,11 +11,13 @@ from UsersAPI.security.permissions import require_permission
 from ..controllers.catalog_controller import list_product_items
 from ..schemas import ProductRead
 
-movement_lookup_routes = APIRouter(prefix="/movements", tags=["Inventarios"])
+# These lookups intentionally do not live under /movements/{movement_id}.
+# The UUID detail route would otherwise capture "products" first and return 422.
+movement_lookup_routes = APIRouter(prefix="/movement-products", tags=["Inventarios"])
 
 
 @movement_lookup_routes.get(
-    "/products",
+    "",
     response_model=list[ProductRead],
     dependencies=[Depends(require_permission("INVENTORY_MOVEMENT_READ"))],
 )
@@ -27,7 +29,7 @@ async def list_movement_products_route(
 
 
 @movement_lookup_routes.get(
-    "/products-for-create",
+    "/for-create",
     response_model=list[ProductRead],
     dependencies=[Depends(require_permission("INVENTORY_MOVEMENT_CREATE"))],
 )
