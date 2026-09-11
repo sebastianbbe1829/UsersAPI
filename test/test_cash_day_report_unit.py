@@ -120,7 +120,7 @@ def test_report_uses_one_calculation_for_totals_and_renderers():
     assert pdf_bytes.startswith(b"%PDF")
 
 
-def test_report_dates_use_colombia_24_hour_format():
+def test_report_dates_use_colombia_12_hour_format():
     value = datetime(2026, 9, 10, 21, 11, 37)
 
-    assert _fmt_dt(value) == "10/09/2026 21:11:37"
+    assert _fmt_dt(value) == "10/09/2026 04:11:37 PM"
