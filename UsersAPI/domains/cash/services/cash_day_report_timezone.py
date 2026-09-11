@@ -1,4 +1,3 @@
-from copy import copy
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
@@ -55,7 +54,9 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
         sale_register.setdefault(str(movement.origin_id), movement.cash_register_id)
 
     register_rows = {row["register_id"]: row for row in report["registers"]}
-    credit_total = report_service._money(report["sales_day"].get("Crédito", report_service.ZERO))
+    credit_total = report_service._money(
+        report["sales_day"].get("Crédito", report_service.ZERO)
+    )
     unassigned_credit = credit_total
 
     credit_rows = db.execute(
@@ -66,7 +67,9 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
             SaleDB.tenant_id == tenant_id,
             SaleDB.business_date == day.business_date,
             SaleDB.status != "CANCELLED",
-            SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
+            SalePaymentDB.payment_method.in_(
+                ["CREDITO", "CREDIT", "CRÉDITO"]
+            ),
         )
     ).all()
 
@@ -117,7 +120,7 @@ report_service._fmt_dt = _fmt_dt
 _ORIGINAL_PARAGRAPH = report_service.Paragraph
 _ORIGINAL_SPACER = report_service.Spacer
 _ORIGINAL_DOC = report_service.SimpleDocTemplate
-_ORIGINAL_TABLE = report_service.Table
+_ORIGINAL_PDF_TABLE = report_service._pdf_table
 
 
 def build_day_report(*args, **kwargs):
@@ -160,9 +163,9 @@ def _compact_spacer(width, height):
     return _ORIGINAL_SPACER(width, min(height, 1.5 * mm))
 
 
-def _compact_table(*args, **kwargs):
-    """Keep every report table together and compact its cell spacing."""
-    table = _ORIGINAL_TABLE(*args, **kwargs)
+def _compact_pdf_table(rows, align_from=2):
+    """Compact a report table and keep it as one indivisible flowable."""
+    table = _ORIGINAL_PDF_TABLE(rows, align_from=align_from)
     table.setStyle(
         TableStyle(
             [
@@ -186,13 +189,13 @@ def pdf_report(report):
     original_paragraph = report_service.Paragraph
     original_doc = report_service.SimpleDocTemplate
     original_spacer = report_service.Spacer
-    original_table = report_service.Table
+    original_pdf_table = report_service._pdf_table
     report_service._fmt_dt = _fmt_dt
     report_service._to_colombia_datetime = _to_colombia_datetime
     report_service.Paragraph = _without_sales_difference_paragraph
     report_service.SimpleDocTemplate = _compact_doc
     report_service.Spacer = _compact_spacer
-    report_service.Table = _compact_table
+    report_service._pdf_table = _compact_pdf_table
     _CURRENT_REPORT = report
     try:
         return report_service.pdf_report(report)
@@ -203,4 +206,4 @@ def pdf_report(report):
         report_service.Paragraph = original_paragraph
         report_service.SimpleDocTemplate = original_doc
         report_service.Spacer = original_spacer
-        report_service.Table = original_table
+        report_service._pdf_table = original_pdf_table
