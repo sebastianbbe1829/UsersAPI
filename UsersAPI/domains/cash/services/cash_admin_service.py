@@ -52,25 +52,30 @@ def _cash_box(db: Session, tenant_id: int, cash_box_id: int) -> CashBoxDB:
     return cash_box
 
 
+def list_assignable_users(db: Session, tenant_id: int) -> list[dict]:
+    rows = db.execute(
+        select(UserTenantDB.id, UserDB.name, UserDB.dni)
+        .join(UserDB, UserDB.id == UserTenantDB.user_id)
+        .where(UserTenantDB.tenant_id == tenant_id, UserTenantDB.status == 1)
+        .order_by(UserDB.name, UserDB.dni)
+    ).all()
+    return [{"id": user_id, "name": name, "dni": dni} for user_id, name, dni in rows]
+
+
 def list_branches(db: Session, tenant_id: int) -> list[dict]:
     rows = db.execute(
-        select(
-            BranchDB,
-            func.count(CashBoxDB.id).label("cash_boxes_count"),
-        )
+        select(BranchDB, func.count(CashBoxDB.id).label("cash_boxes_count"))
         .outerjoin(
             CashBoxDB,
-            (CashBoxDB.tenant_id == BranchDB.tenant_id) & (CashBoxDB.branch_id == BranchDB.id),
+            (CashBoxDB.tenant_id == BranchDB.tenant_id)
+            & (CashBoxDB.branch_id == BranchDB.id),
         )
         .where(BranchDB.tenant_id == tenant_id)
         .group_by(BranchDB.id)
         .order_by(BranchDB.id)
     ).all()
     return [
-        {
-            **branch.__dict__,
-            "cash_boxes_count": int(count or 0),
-        }
+        {**branch.__dict__, "cash_boxes_count": int(count or 0)}
         for branch, count in rows
     ]
 
@@ -133,12 +138,17 @@ def update_branch(
     return branch
 
 
-def list_cash_boxes(db: Session, tenant_id: int, branch_id: int | None = None) -> list[dict]:
+def list_cash_boxes(
+    db: Session,
+    tenant_id: int,
+    branch_id: int | None = None,
+) -> list[dict]:
     query = (
         select(CashBoxDB, BranchDB.name.label("branch_name"))
         .join(
             BranchDB,
-            (BranchDB.tenant_id == CashBoxDB.tenant_id) & (BranchDB.id == CashBoxDB.branch_id),
+            (BranchDB.tenant_id == CashBoxDB.tenant_id)
+            & (BranchDB.id == CashBoxDB.branch_id),
         )
         .where(CashBoxDB.tenant_id == tenant_id)
         .order_by(CashBoxDB.branch_id, CashBoxDB.id)
@@ -252,15 +262,8 @@ def list_assignments(db: Session, tenant_id: int) -> list[dict]:
             "cash_box_name": cash_box_name,
             "cash_box_code": cash_box_code,
         }
-        for (
-            assignment,
-            user_name,
-            user_dni,
-            user_email,
-            branch_name,
-            cash_box_name,
-            cash_box_code,
-        ) in db.execute(query).all()
+        for assignment, user_name, user_dni, user_email, branch_name, cash_box_name, cash_box_code
+        in db.execute(query).all()
     ]
 
 
@@ -279,17 +282,14 @@ def create_assignment(
     )
     if user_tenant is None:
         raise HTTPException(status_code=404, detail="Usuario activo no encontrado.")
-
     branch = _branch(db, tenant_id, data.branch_id)
     if branch.status != 1:
         raise _conflict("La sucursal seleccionada está inactiva.")
-
     cash_box = _cash_box(db, tenant_id, data.cash_box_id)
     if cash_box.branch_id != data.branch_id:
         raise _conflict("La caja física no pertenece a la sucursal seleccionada.")
     if cash_box.status != 1:
         raise _conflict("La caja física seleccionada está inactiva.")
-
     existing = db.scalar(
         select(UserCashAssignmentDB).where(
             UserCashAssignmentDB.tenant_id == tenant_id,
@@ -299,9 +299,9 @@ def create_assignment(
     )
     if existing is not None:
         raise _conflict(
-            "El usuario ya tiene una sucursal y caja asignadas. Primero desasigna la actual."
+            "El usuario ya tiene una sucursal y caja asignadas. "
+            "Primero desasigna la actual."
         )
-
     assignment = UserCashAssignmentDB(
         tenant_id=tenant_id,
         user_tenant_id=data.user_tenant_id,

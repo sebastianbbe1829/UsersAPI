@@ -1,3 +1,4 @@
+from .payment_operational import PortfolioPaymentClientRead
 from .portfolio import (
     CreditLimitRead,
     CreditLimitUpdate,
@@ -14,4 +15,5 @@ __all__ = [
     "PaymentCreate",
     "PaymentAllocationCreate",
     "PaymentRead",
+    "PortfolioPaymentClientRead",
 ]
