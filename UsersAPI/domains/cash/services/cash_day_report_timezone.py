@@ -457,7 +457,8 @@ def pdf_report(report):
             styles["Normal"],
         ),
         Paragraph(
-            f"Apertura del día: {_fmt_dt(day.opened_at)} · Cierre del día: {_fmt_dt(day.closed_at, 'Pendiente')}",
+            f"Apertura del día: {_fmt_dt(day.opened_at)} · "
+            f"Cierre del día: {_fmt_dt(day.closed_at, 'Pendiente')}",
             styles["Normal"],
         ),
         Spacer(1, 1.5 * mm),
@@ -477,7 +478,8 @@ def pdf_report(report):
     if report.get("unassigned_credit_sales"):
         story.append(
             Paragraph(
-                f"Ventas a crédito del día (sin movimiento de caja asignable): {report_service._money_text(report['unassigned_credit_sales'])}",
+                "Ventas a crédito del día (sin movimiento de caja asignable): "
+                f"{report_service._money_text(report['unassigned_credit_sales'])}",
                 styles["Normal"],
             )
         )
