@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import timezone
 from zoneinfo import ZoneInfo
 
 from . import cash_day_report_service as report_service
@@ -20,21 +20,9 @@ def _fmt_dt(value, empty="—"):
     return value.strftime("%d/%m/%Y %I:%M:%S %p") if value else empty
 
 
-def _configure_report_timezone():
-    report_service._to_colombia_datetime = _to_colombia_datetime
-    report_service._fmt_dt = _fmt_dt
+report_service._to_colombia_datetime = _to_colombia_datetime
+report_service._fmt_dt = _fmt_dt
 
-
-def build_day_report(*args, **kwargs):
-    _configure_report_timezone()
-    return report_service.build_day_report(*args, **kwargs)
-
-
-def excel_report(report):
-    _configure_report_timezone()
-    return report_service.excel_report(report)
-
-
-def pdf_report(report):
-    _configure_report_timezone()
-    return report_service.pdf_report(report)
+build_day_report = report_service.build_day_report
+excel_report = report_service.excel_report
+pdf_report = report_service.pdf_report
