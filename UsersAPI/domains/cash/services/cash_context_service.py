@@ -76,22 +76,7 @@ def get_user_cash_context(db: Session, tenant_id: int, user_tenant_id: int) -> d
         .order_by(CashDayDB.business_date.desc(), CashDayDB.id.desc())
     )
     if day is None:
-        latest_day = db.scalar(
-            select(CashDayDB)
-            .where(CashDayDB.tenant_id == tenant_id)
-            .order_by(CashDayDB.business_date.desc(), CashDayDB.id.desc())
-        )
-        if latest_day is not None and latest_day.status == "CLOSED":
-            context.update(
-                {
-                    "day_id": latest_day.id,
-                    "day_status": latest_day.status,
-                    "business_date": latest_day.business_date,
-                    "blocked_reason": "CASH_DAY_CLOSED",
-                }
-            )
-        else:
-            context["blocked_reason"] = "CASH_DAY_NOT_STARTED"
+        context["blocked_reason"] = "CASH_DAY_NOT_STARTED"
         return context
 
     context.update(
@@ -151,8 +136,8 @@ def require_operational_context(db: Session, tenant_id: int, current_user: objec
             ),
             "CASH_BRANCH_INACTIVE": "La sucursal asignada está inactiva.",
             "CASH_BOX_INACTIVE": "La caja asignada está inactiva.",
-            "CASH_DAY_NOT_STARTED": "El día operativo no ha sido iniciado.",
-            "CASH_DAY_CLOSED": "El día operativo está cerrado.",
+            "CASH_DAY_NOT_STARTED": "No existe una caja abierta. No es posible realizar ventas ni pagos.",
+            "CASH_DAY_CLOSED": "No existe una caja abierta. No es posible realizar ventas ni pagos.",
             "CASH_BRANCH_CLOSED": "La sucursal asignada está cerrada.",
             "CASH_REGISTER_NOT_STARTED": "La caja asignada no tiene sesión para el día operativo.",
             "CASH_REGISTER_CLOSED": "La caja asignada está cerrada.",
