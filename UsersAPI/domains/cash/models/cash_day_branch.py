@@ -51,4 +51,4 @@ class CashDayBranchDB(Base):
     updated_at = Column(DateTime, nullable=True)
 
     cash_day = relationship("CashDayDB", back_populates="branches")
-    branch = relationship("BranchDB")
+    branch = relationship("BranchDB", overlaps="branches,cash_day")
