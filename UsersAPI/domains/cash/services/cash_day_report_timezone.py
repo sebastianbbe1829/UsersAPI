@@ -3,7 +3,7 @@ from datetime import timezone
 from zoneinfo import ZoneInfo
 
 from reportlab.lib.units import mm
-from reportlab.platypus import Spacer
+from reportlab.platypus import KeepTogether, Spacer, TableStyle
 from sqlalchemy import select
 
 from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
@@ -117,6 +117,7 @@ report_service._fmt_dt = _fmt_dt
 _ORIGINAL_PARAGRAPH = report_service.Paragraph
 _ORIGINAL_SPACER = report_service.Spacer
 _ORIGINAL_DOC = report_service.SimpleDocTemplate
+_ORIGINAL_TABLE = report_service.Table
 
 
 def build_day_report(*args, **kwargs):
@@ -142,22 +143,39 @@ def excel_report(report):
 
 
 def _compact_doc(*args, **kwargs):
-    """Use the available landscape A4 height more efficiently so the report fits one page."""
+    """Use landscape A4 with compact margins for the one-page closing report."""
     kwargs.update(
         {
-            "rightMargin": 6 * mm,
-            "leftMargin": 6 * mm,
-            "topMargin": 5 * mm,
-            "bottomMargin": 5 * mm,
+            "rightMargin": 5 * mm,
+            "leftMargin": 5 * mm,
+            "topMargin": 4 * mm,
+            "bottomMargin": 4 * mm,
         }
     )
     return _ORIGINAL_DOC(*args, **kwargs)
 
 
 def _compact_spacer(width, height):
-    # The report contains several section spacers. Keep visual separation while
-    # avoiding unnecessary page breaks in the one-page daily closing report.
-    return _ORIGINAL_SPACER(width, min(height, 2 * mm))
+    """Reduce section gaps without changing report content."""
+    return _ORIGINAL_SPACER(width, min(height, 1.5 * mm))
+
+
+def _compact_table(*args, **kwargs):
+    """Keep every report table together and compact its cell spacing."""
+    table = _ORIGINAL_TABLE(*args, **kwargs)
+    table.setStyle(
+        TableStyle(
+            [
+                ("TOPPADDING", (0, 0), (-1, -1), 1.2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("FONTSIZE", (0, 0), (-1, -1), 6.5),
+                ("LEADING", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
+    return KeepTogether([table])
 
 
 def pdf_report(report):
@@ -168,11 +186,13 @@ def pdf_report(report):
     original_paragraph = report_service.Paragraph
     original_doc = report_service.SimpleDocTemplate
     original_spacer = report_service.Spacer
+    original_table = report_service.Table
     report_service._fmt_dt = _fmt_dt
     report_service._to_colombia_datetime = _to_colombia_datetime
     report_service.Paragraph = _without_sales_difference_paragraph
     report_service.SimpleDocTemplate = _compact_doc
     report_service.Spacer = _compact_spacer
+    report_service.Table = _compact_table
     _CURRENT_REPORT = report
     try:
         return report_service.pdf_report(report)
@@ -183,3 +203,4 @@ def pdf_report(report):
         report_service.Paragraph = original_paragraph
         report_service.SimpleDocTemplate = original_doc
         report_service.Spacer = original_spacer
+        report_service.Table = original_table
