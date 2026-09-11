@@ -49,42 +49,23 @@ def _ordered_methods(sales_day, payments_day):
 
 
 def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
-    day = db.scalar(
-        select(CashDayDB).where(
-            CashDayDB.tenant_id == tenant_id,
-            CashDayDB.id == day_id,
-        )
-    )
+    day = db.scalar(select(CashDayDB).where(CashDayDB.tenant_id == tenant_id, CashDayDB.id == day_id))
     if day is None:
         raise ValueError("Día operativo no encontrado.")
 
     registers = db.scalars(
-        select(CashRegisterDB)
-        .where(
+        select(CashRegisterDB).where(
             CashRegisterDB.tenant_id == tenant_id,
             CashRegisterDB.cash_day_id == day.id,
-        )
-        .order_by(CashRegisterDB.branch_id, CashRegisterDB.id)
+        ).order_by(CashRegisterDB.branch_id, CashRegisterDB.id)
     ).all()
-    branches = {
-        branch.id: branch.name
-        for branch in db.scalars(
-            select(BranchDB).where(BranchDB.tenant_id == tenant_id)
-        ).all()
-    }
-    boxes = {
-        box.id: box.name
-        for box in db.scalars(
-            select(CashBoxDB).where(CashBoxDB.tenant_id == tenant_id)
-        ).all()
-    }
+    branches = {b.id: b.name for b in db.scalars(select(BranchDB).where(BranchDB.tenant_id == tenant_id)).all()}
+    boxes = {b.id: b.name for b in db.scalars(select(CashBoxDB).where(CashBoxDB.tenant_id == tenant_id)).all()}
     movements = db.scalars(
-        select(CashMovementDB)
-        .where(
+        select(CashMovementDB).where(
             CashMovementDB.tenant_id == tenant_id,
             CashMovementDB.business_date == day.business_date,
-        )
-        .order_by(CashMovementDB.cash_register_id, CashMovementDB.id)
+        ).order_by(CashMovementDB.cash_register_id, CashMovementDB.id)
     ).all()
 
     sales_by_box = defaultdict(lambda: defaultdict(lambda: ZERO))
@@ -93,12 +74,10 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
     cash_payments = ZERO
     cash_sales_reversals = ZERO
     cash_payment_reversals = ZERO
-
     for movement in movements:
         amount = _money(movement.amount)
         signed = amount if movement.movement_type == "INCOME" else -amount
         method = _method(movement.payment_method)
-
         if movement.origin_type == "SALE":
             sales_by_box[movement.cash_register_id][method] += signed
             if method == "Efectivo":
@@ -115,9 +94,9 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
                     cash_payment_reversals += amount
 
     sale_rows = db.execute(
-        select(SalePaymentDB.payment_method, SalePaymentDB.amount)
-        .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
-        .where(
+        select(SalePaymentDB.payment_method, SalePaymentDB.amount).join(
+            SaleDB, SaleDB.id == SalePaymentDB.sale_id
+        ).where(
             SalePaymentDB.tenant_id == tenant_id,
             SaleDB.tenant_id == tenant_id,
             SaleDB.business_date == day.business_date,
@@ -136,8 +115,7 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
     ).all()
     payments_day = defaultdict(lambda: ZERO)
     for method, amount, status in payment_rows:
-        signed = _money(amount) if status == "APLICADO" else -_money(amount)
-        payments_day[_method(method)] += signed
+        payments_day[_method(method)] += _money(amount) if status == "APLICADO" else -_money(amount)
 
     register_rows = []
     total_expected = ZERO
@@ -146,21 +124,14 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
     closed_ok = []
     closed_mismatch = []
     pending = []
-
     for register in registers:
         expected = _money(register.expected_cash)
-        counted = None
-        if register.counted_cash is not None:
-            counted = _money(register.counted_cash)
-        difference = None
-        if register.difference is not None:
-            difference = _money(register.difference)
-
+        counted = _money(register.counted_cash) if register.counted_cash is not None else None
+        difference = _money(register.difference) if register.difference is not None else None
         total_expected += expected
         if counted is not None:
             total_counted += counted
             total_difference += difference or ZERO
-
         row = {
             "register_id": register.id,
             "branch": branches.get(register.branch_id, "—"),
@@ -173,38 +144,25 @@ def build_day_report(db: Session, tenant_id: int, day_id: int) -> dict:
             "payments": dict(payments_by_box[register.id]),
         }
         register_rows.append(row)
-
         if register.status == "CLOSED" and difference is not None:
-            if difference == ZERO:
-                closed_ok.append(row)
-            else:
-                closed_mismatch.append(row)
+            (closed_ok if difference == ZERO else closed_mismatch).append(row)
         else:
             pending.append(row)
 
     methods = _ordered_methods(sales_day, payments_day)
     return {
-        "day": day,
-        "registers": register_rows,
-        "methods": methods,
-        "sales_day": dict(sales_day),
-        "payments_day": dict(payments_day),
-        "closed_ok": closed_ok,
-        "closed_mismatch": closed_mismatch,
-        "pending": pending,
-        "total_expected": total_expected,
-        "total_counted": total_counted,
-        "total_difference": total_difference,
-        "cash_sales": cash_sales,
-        "cash_payments": cash_payments,
-        "cash_sales_reversals": cash_sales_reversals,
+        "day": day, "registers": register_rows, "methods": methods,
+        "sales_day": dict(sales_day), "payments_day": dict(payments_day),
+        "closed_ok": closed_ok, "closed_mismatch": closed_mismatch, "pending": pending,
+        "total_expected": total_expected, "total_counted": total_counted,
+        "total_difference": total_difference, "cash_sales": cash_sales,
+        "cash_payments": cash_payments, "cash_sales_reversals": cash_sales_reversals,
         "cash_payment_reversals": cash_payment_reversals,
     }
 
 
 def _filename(report, extension):
-    date_value = report["day"].business_date.isoformat()
-    return f"cierre_caja_{date_value}.{extension}"
+    return f"cierre_caja_{report['day'].business_date.isoformat()}.{extension}"
 
 
 def excel_report(report) -> tuple[bytes, str]:
@@ -226,52 +184,31 @@ def excel_report(report) -> tuple[bytes, str]:
     ws.append(["Medio", "Total"])
     for method in report["methods"]:
         ws.append([method, float(report["sales_day"].get(method, ZERO))])
-
     wp = wb.create_sheet("Pagos del día")
     wp.append(["MEDIO", "TOTAL PAGOS"])
     for method in report["methods"]:
         wp.append([method, float(report["payments_day"].get(method, ZERO))])
-
     wc = wb.create_sheet("Ventas por caja")
     wc.append(["Sucursal", "Caja", "Estado", *report["methods"], "Total ventas"])
     for row in report["registers"]:
         values = [row["sales"].get(method, ZERO) for method in report["methods"]]
-        wc.append([
-            row["branch"], row["box"], row["status"], *map(float, values),
-            float(sum(values, ZERO)),
-        ])
-
+        wc.append([row["branch"], row["box"], row["status"], *map(float, values), float(sum(values, ZERO))])
     wpc = wb.create_sheet("Pagos por caja")
     wpc.append(["Sucursal", "Caja", "Estado", *report["methods"], "Total pagos"])
     for row in report["registers"]:
         values = [row["payments"].get(method, ZERO) for method in report["methods"]]
-        wpc.append([
-            row["branch"], row["box"], row["status"], *map(float, values),
-            float(sum(values, ZERO)),
-        ])
-
+        wpc.append([row["branch"], row["box"], row["status"], *map(float, values), float(sum(values, ZERO))])
     wa = wb.create_sheet("Arqueos")
     wa.append(["Sucursal", "Caja", "Estado", "Esperado", "Contado", "Diferencia", "Resultado"])
     for row in report["registers"]:
-        if row["difference"] == ZERO:
-            result = "OK"
-        elif row["difference"] is not None:
-            result = "DESCUADRADA"
-        else:
-            result = "PENDIENTE"
-        wa.append([
-            row["branch"], row["box"], row["status"], float(row["expected"]),
-            None if row["counted"] is None else float(row["counted"]),
-            None if row["difference"] is None else float(row["difference"]), result,
-        ])
-
+        result = "OK" if row["difference"] == ZERO else "DESCUADRADA" if row["difference"] is not None else "PENDIENTE"
+        wa.append([row["branch"], row["box"], row["status"], float(row["expected"]), None if row["counted"] is None else float(row["counted"]), None if row["difference"] is None else float(row["difference"]), result])
     wm = wb.create_sheet("Movimientos efectivo")
     wm.append(["Concepto", "Total"])
     wm.append(["Efectivo a caja por ventas", float(report["cash_sales"])])
     wm.append(["Efectivo a caja por pagos", float(report["cash_payments"])])
     wm.append(["Reversiones efectivo ventas", float(report["cash_sales_reversals"])])
     wm.append(["Reversiones efectivo pagos", float(report["cash_payment_reversals"])])
-
     for sheet in wb.worksheets:
         sheet.freeze_panes = "A2"
         sheet.auto_filter.ref = sheet.dimensions
@@ -281,7 +218,6 @@ def excel_report(report) -> tuple[bytes, str]:
         for column in sheet.columns:
             width = min(max(len(str(cell.value or "")) for cell in column) + 2, 35)
             sheet.column_dimensions[column[0].column_letter].width = width
-
     output = BytesIO()
     wb.save(output)
     return output.getvalue(), _filename(report, "xlsx")
@@ -290,7 +226,7 @@ def excel_report(report) -> tuple[bytes, str]:
 def _pdf_table(rows):
     table = Table(rows, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("D9EAF7")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9EAF7")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
         ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
@@ -300,104 +236,42 @@ def _pdf_table(rows):
 
 def pdf_report(report) -> tuple[bytes, str]:
     output = BytesIO()
-    doc = SimpleDocTemplate(
-        output,
-        pagesize=landscape(A4),
-        rightMargin=10 * mm,
-        leftMargin=10 * mm,
-        topMargin=10 * mm,
-        bottomMargin=10 * mm,
-    )
+    doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=10 * mm, leftMargin=10 * mm, topMargin=10 * mm, bottomMargin=10 * mm)
     styles = getSampleStyleSheet()
     day = report["day"]
-    story = [
-        Paragraph("Resumen de cierre de Caja", styles["Title"]),
-        Paragraph(
-            f"Fecha operativa: {day.business_date} · Estado: {day.status}",
-            styles["Normal"],
-        ),
-        Spacer(1, 6 * mm),
-    ]
-
+    story = [Paragraph("Resumen de cierre de Caja", styles["Title"]), Paragraph(f"Fecha operativa: {day.business_date} · Estado: {day.status}", styles["Normal"]), Spacer(1, 6 * mm)]
     summary = [
         ["Total esperado", "Total contado", "Total diferencia", "Efectivo ventas", "Efectivo pagos"],
-        [
-            f"${report['total_expected']:,.0f}",
-            f"${report['total_counted']:,.0f}",
-            f"${report['total_difference']:,.0f}",
-            f"${report['cash_sales']:,.0f}",
-            f"${report['cash_payments']:,.0f}",
-        ],
+        [f"${report['total_expected']:,.0f}", f"${report['total_counted']:,.0f}", f"${report['total_difference']:,.0f}", f"${report['cash_sales']:,.0f}", f"${report['cash_payments']:,.0f}"],
     ]
     table = Table(summary, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("D9EAF7")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D9EAF7")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
     ]))
     story.extend([table, Spacer(1, 5 * mm)])
-
     methods = report["methods"]
     sales_table = [["Caja", "Estado", *methods, "Total"]]
     for row in report["registers"]:
         values = [row["sales"].get(method, ZERO) for method in methods]
-        sales_table.append([
-            row["box"], row["status"], *[f"${value:,.0f}" for value in values],
-            f"${sum(values, ZERO):,.0f}",
-        ])
-    story.extend([
-        Paragraph("Ventas por caja", styles["Heading2"]),
-        _pdf_table(sales_table),
-        Spacer(1, 5 * mm),
-    ])
-
+        sales_table.append([row["box"], row["status"], *[f"${value:,.0f}" for value in values], f"${sum(values, ZERO):,.0f}"])
+    story.extend([Paragraph("Ventas por caja", styles["Heading2"]), _pdf_table(sales_table), Spacer(1, 5 * mm)])
     payment_table = [["Caja", "Estado", *methods, "Total"]]
     for row in report["registers"]:
         values = [row["payments"].get(method, ZERO) for method in methods]
-        payment_table.append([
-            row["box"], row["status"], *[f"${value:,.0f}" for value in values],
-            f"${sum(values, ZERO):,.0f}",
-        ])
-    story.extend([
-        Paragraph("Pagos de cartera por caja", styles["Heading2"]),
-        _pdf_table(payment_table),
-        Spacer(1, 5 * mm),
-    ])
-
-    reconciliation = [[
-        "Caja", "Sucursal", "Esperado", "Contado", "Diferencia", "Resultado",
-    ]]
+        payment_table.append([row["box"], row["status"], *[f"${value:,.0f}" for value in values], f"${sum(values, ZERO):,.0f}"])
+    story.extend([Paragraph("Pagos de cartera por caja", styles["Heading2"]), _pdf_table(payment_table), Spacer(1, 5 * mm)])
+    reconciliation = [["Caja", "Sucursal", "Esperado", "Contado", "Diferencia", "Resultado"]]
     for row in report["registers"]:
-        if row["difference"] == ZERO:
-            result = "OK"
-        elif row["difference"] is not None:
-            result = "DESCUADRADA"
-        else:
-            result = "PENDIENTE"
-        reconciliation.append([
-            row["box"], row["branch"], f"${row['expected']:,.0f}",
-            "—" if row["counted"] is None else f"${row['counted']:,.0f}",
-            "—" if row["difference"] is None else f"${row['difference']:,.0f}", result,
-        ])
-    story.extend([
-        Paragraph("Arqueos y diferencias", styles["Heading2"]),
-        _pdf_table(reconciliation),
-        Spacer(1, 4 * mm),
-    ])
-
+        result = "OK" if row["difference"] == ZERO else "DESCUADRADA" if row["difference"] is not None else "PENDIENTE"
+        reconciliation.append([row["box"], row["branch"], f"${row['expected']:,.0f}", "—" if row["counted"] is None else f"${row['counted']:,.0f}", "—" if row["difference"] is None else f"${row['difference']:,.0f}", result])
+    story.extend([Paragraph("Arqueos y diferencias", styles["Heading2"]), _pdf_table(reconciliation), Spacer(1, 4 * mm)])
     if report["pending"]:
-        story.append(Paragraph(
-            f"Cajas pendientes de arqueo: {len(report['pending'])}",
-            styles["Normal"],
-        ))
+        story.append(Paragraph(f"Cajas pendientes de arqueo: {len(report['pending'])}", styles["Normal"]))
     credit_sales = report["sales_day"].get("Crédito", ZERO)
     if credit_sales:
-        story.append(Paragraph(
-            "Ventas a crédito del día (sin movimiento de caja asignable): "
-            f"${credit_sales:,.0f}",
-            styles["Normal"],
-        ))
-
+        story.append(Paragraph("Ventas a crédito del día (sin movimiento de caja asignable): " f"${credit_sales:,.0f}", styles["Normal"]))
     doc.build(story)
     return output.getvalue(), _filename(report, "pdf")
