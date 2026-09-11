@@ -416,11 +416,18 @@ def excel_report(report) -> tuple[bytes, str]:
             row["branch"], row["box"], row["status"], *map(float, values),
             float(sum(values, ZERO)),
         ])
-    wpc.append([
-        "TOTAL", "", "",
-        *[float(report["payments_by_box_totals"].get(method, ZERO)) for method in report["payment_methods"]],
-        float(sum(report["payments_by_box_totals"].values(), ZERO)),
-    ])
+    wpc.append(
+        [
+            "TOTAL",
+            "",
+            "",
+            *[
+                float(report["payments_by_box_totals"].get(method, ZERO))
+                for method in report["payment_methods"]
+            ],
+            float(sum(report["payments_by_box_totals"].values(), ZERO)),
+        ]
+    )
 
     wa = wb.create_sheet("Arqueos")
     wa.append([
@@ -610,7 +617,13 @@ def pdf_report(report) -> tuple[bytes, str]:
             *[_money_text(value) for value in values],
             _money_text(sum(values, ZERO)),
         ])
-    payment_table.append(_pdf_method_totals_row("TOTAL", payment_methods, report["payments_by_box_totals"]))
+    payment_table.append(
+        _pdf_method_totals_row(
+            "TOTAL",
+            payment_methods,
+            report["payments_by_box_totals"],
+        )
+    )
     story.extend([
         Paragraph("Pagos de cartera por caja", styles["Heading2"]),
         _pdf_table(payment_table),
