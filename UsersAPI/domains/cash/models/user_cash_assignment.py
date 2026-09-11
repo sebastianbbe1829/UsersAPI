@@ -53,5 +53,13 @@ class UserCashAssignmentDB(Base):
     unassigned_at = Column(DateTime, nullable=True)
     unassigned_by = Column(String(100), nullable=True)
 
-    branch = relationship("BranchDB", back_populates="user_assignments")
-    cash_box = relationship("CashBoxDB", back_populates="assignments")
+    branch = relationship(
+        "BranchDB",
+        back_populates="user_assignments",
+        overlaps="assignments",
+    )
+    cash_box = relationship(
+        "CashBoxDB",
+        back_populates="assignments",
+        overlaps="branch,user_assignments",
+    )
