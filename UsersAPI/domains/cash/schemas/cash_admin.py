@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
@@ -37,11 +38,13 @@ class CashBoxCreate(BaseModel):
     branch_id: int = Field(gt=0)
     code: str = Field(min_length=1, max_length=30)
     name: str = Field(min_length=2, max_length=100)
+    base_amount: Decimal = Field(default=Decimal("0.00"), ge=0, max_digits=18, decimal_places=2)
 
 
 class CashBoxUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=1, max_length=30)
     name: str | None = Field(default=None, min_length=2, max_length=100)
+    base_amount: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
     status: int | None = Field(default=None, ge=0, le=1)
 
 
@@ -52,6 +55,7 @@ class CashBoxRead(BaseModel):
     branch_name: str
     code: str
     name: str
+    base_amount: Decimal
     status: int
     created_at: datetime
     created_by: str
