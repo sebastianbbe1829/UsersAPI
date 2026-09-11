@@ -9,6 +9,7 @@ from .sale import (
     SaleRead,
 )
 from .sale_draft import SaleDraftCreate, SaleDraftRead
+from .sales_pos import SalesPOSCatalogRead, SalesPOSClientRead, SalesPOSCreditRead
 
 __all__ = [
     "SaleCreate",
@@ -21,4 +22,7 @@ __all__ = [
     "SaleRead",
     "SaleDraftCreate",
     "SaleDraftRead",
+    "SalesPOSCatalogRead",
+    "SalesPOSClientRead",
+    "SalesPOSCreditRead",
 ]
