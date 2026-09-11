@@ -11,7 +11,7 @@ from UsersAPI.security.permissions import require_permission
 from ..controllers.catalog_controller import list_product_items
 from ..schemas import ProductRead
 
-movement_lookup_routes = APIRouter(prefix="/inventory/movements", tags=["Inventarios"])
+movement_lookup_routes = APIRouter(prefix="/movements", tags=["Inventarios"])
 
 
 @movement_lookup_routes.get(
