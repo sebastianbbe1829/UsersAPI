@@ -18,11 +18,11 @@ _CURRENT_REPORT = None
 
 
 def _to_colombia_datetime(value):
-    """Interpret stored naive Caja timestamps as UTC and render them in Colombia."""
+    """Normalize report timestamps to Colombia without shifting naive DB values."""
     if value is None:
         return None
     if value.tzinfo is None:
-        value = value.replace(tzinfo=UTC)
+        return value.replace(tzinfo=COLOMBIA_TZ)
     return value.astimezone(COLOMBIA_TZ)
 
 
