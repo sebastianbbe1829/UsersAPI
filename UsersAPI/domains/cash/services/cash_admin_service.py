@@ -169,6 +169,7 @@ def create_cash_box(data: CashBoxCreate, db: Session, tenant_id: int, current_us
         branch_id=data.branch_id,
         code=code,
         name=data.name.strip(),
+        base_amount=data.base_amount,
         status=1,
         created_by=_actor_name(current_user),
     )
@@ -201,6 +202,8 @@ def update_cash_box(
         cash_box.code = code
     if "name" in changes and changes["name"] is not None:
         cash_box.name = changes["name"].strip()
+    if "base_amount" in changes and changes["base_amount"] is not None:
+        cash_box.base_amount = changes["base_amount"]
     if "status" in changes and changes["status"] is not None:
         cash_box.status = changes["status"]
     cash_box.updated_at = datetime.now()
