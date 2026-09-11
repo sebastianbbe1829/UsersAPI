@@ -43,6 +43,20 @@ def get_current_day(db: Session, tenant_id: int) -> CashDayDB | None:
     )
 
 
+def get_day_by_date(db: Session, tenant_id: int, business_date: date) -> CashDayDB | None:
+    return db.scalar(
+        select(CashDayDB)
+        .where(
+            CashDayDB.tenant_id == tenant_id,
+            CashDayDB.business_date == business_date,
+        )
+        .options(
+            joinedload(CashDayDB.branches).joinedload(CashDayBranchDB.branch),
+            joinedload(CashDayDB.registers),
+        )
+    )
+
+
 def require_open_day(db: Session, tenant_id: int) -> CashDayDB:
     day = db.scalar(
         select(CashDayDB)
@@ -166,6 +180,7 @@ def start_day(
         )
 
     for box in active_boxes:
+        base_amount = Decimal(str(box.base_amount or 0))
         db.add(
             CashRegisterDB(
                 tenant_id=tenant_id,
@@ -174,7 +189,7 @@ def start_day(
                 cash_box_id=box.id,
                 business_date=business_date,
                 opened_by=actor,
-                opening_amount=Decimal("0.00"),
+                opening_amount=base_amount,
                 status="OPEN",
             )
         )
@@ -341,10 +356,12 @@ def serialize_day(db: Session, day: CashDayDB) -> dict:
         .where(CashRegisterDB.tenant_id == day.tenant_id, CashRegisterDB.cash_day_id == day.id)
         .order_by(CashRegisterDB.branch_id, CashRegisterDB.id)
     ).all()
-    box_names = {
-        box.id: box.name
-        for box in db.scalars(select(CashBoxDB).where(CashBoxDB.tenant_id == day.tenant_id)).all()
-    }
+    box_rows = db.execute(
+        select(CashBoxDB.id, CashBoxDB.name, CashBoxDB.base_amount)
+        .where(CashBoxDB.tenant_id == day.tenant_id)
+    ).all()
+    box_names = {box_id: name for box_id, name, _base in box_rows}
+    box_bases = {box_id: base for box_id, _name, base in box_rows}
     branch_names = {
         branch.id: branch.name
         for branch in db.scalars(select(BranchDB).where(BranchDB.tenant_id == day.tenant_id)).all()
@@ -378,11 +395,13 @@ def serialize_day(db: Session, day: CashDayDB) -> dict:
                 "branch_name": branch_names.get(register.branch_id),
                 "cash_box_id": register.cash_box_id,
                 "cash_box_name": box_names.get(register.cash_box_id),
-                "status": register.status,
+                "base_amount": box_bases.get(register.cash_box_id, register.opening_amount),
                 "opening_amount": register.opening_amount,
+                "status": register.status,
                 "expected_cash": register.expected_cash,
                 "counted_cash": register.counted_cash,
                 "difference": register.difference,
+                "opened_at": register.opened_at,
                 "closed_at": register.closed_at,
                 "closed_by": register.closed_by,
             }
