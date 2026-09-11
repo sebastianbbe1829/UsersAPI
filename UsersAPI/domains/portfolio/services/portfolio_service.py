@@ -139,7 +139,7 @@ def register_payment(
 ):
     cash_context = require_operational_context(db, tenant_id, current_user)
     business_date = cash_context["business_date"]
-    cash_register_id = cash_context["register_id"]
+    cash_register_id = cash_context.get("register_id")
 
     if data.payment_date is not None and data.payment_date != business_date:
         raise HTTPException(
