@@ -52,6 +52,20 @@ def _cash_box(db: Session, tenant_id: int, cash_box_id: int) -> CashBoxDB:
     return cash_box
 
 
+def list_assignable_users(db: Session, tenant_id: int) -> list[dict]:
+    rows = db.execute(
+        select(UserTenantDB.id, UserDB.name, UserDB.dni)
+        .join(UserDB, UserDB.id == UserTenantDB.user_id)
+        .where(
+            UserTenantDB.tenant_id == tenant_id,
+            UserTenantDB.status == 1,
+            UserDB.status == 1,
+        )
+        .order_by(UserDB.name, UserDB.dni)
+    ).all()
+    return [{"id": user_id, "name": name, "dni": dni} for user_id, name, dni in rows]
+
+
 def list_branches(db: Session, tenant_id: int) -> list[dict]:
     rows = db.execute(
         select(
