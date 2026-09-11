@@ -24,6 +24,7 @@ class ObligationDB(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "sale_id", name="uq_obligations_tenant_sale"),
         Index("ix_obligations_business_date", "tenant_id", "business_date"),
+        Index("ix_obligations_cash_register", "tenant_id", "cash_register_id"),
         CheckConstraint("initial_amount > 0", name="ck_obligations_initial_amount"),
         CheckConstraint(
             "balance >= 0 AND balance <= initial_amount",
@@ -41,6 +42,12 @@ class ObligationDB(Base):
         Integer,
         ForeignKey("users_api.tenants.id"),
         nullable=False,
+        index=True,
+    )
+    cash_register_id = Column(
+        Integer,
+        ForeignKey("users_api.cash_registers.id"),
+        nullable=True,
         index=True,
     )
     client_id = Column(
