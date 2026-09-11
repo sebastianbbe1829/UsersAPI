@@ -1,5 +1,5 @@
 from copy import copy
-from datetime import timedelta, timezone
+from datetime import timezone
 from zoneinfo import ZoneInfo
 
 from reportlab.lib.units import mm
@@ -13,7 +13,6 @@ from . import cash_day_report_service as report_service
 
 COLOMBIA_TZ = ZoneInfo("America/Bogota")
 UTC = timezone.utc
-LEGACY_LOCAL_OFFSET = timedelta(hours=5)
 _CURRENT_REPORT = None
 
 
@@ -27,23 +26,14 @@ def _to_colombia_datetime(value):
 
 
 def _fmt_dt(value, empty="—"):
-    """Render Caja timestamps in Colombian 24-hour format."""
+    """Render Caja timestamps in Colombian 12-hour format with AM/PM."""
     value = _to_colombia_datetime(value)
-    return value.strftime("%d/%m/%Y %H:%M:%S") if value else empty
+    return value.strftime("%d/%m/%Y %I:%M:%S %p") if value else empty
 
 
 def _normalize_legacy_report_timestamps(report):
-    """Correct legacy local-naive close timestamps without changing persisted data."""
-    day = report.get("day")
-    if day is not None and day.opened_at and day.closed_at and day.closed_at < day.opened_at:
-        report["day"] = copy(day)
-        report["day"].closed_at = day.closed_at + LEGACY_LOCAL_OFFSET
-
-    for row in report.get("registers", []):
-        opened_at = row.get("opened_at")
-        closed_at = row.get("closed_at")
-        if opened_at and closed_at and closed_at < opened_at:
-            row["closed_at"] = closed_at + LEGACY_LOCAL_OFFSET
+    """Keep report timestamps consistent with the UTC storage convention."""
+    return report
 
 
 def _assign_credit_sales_to_registers(report, db, tenant_id):
@@ -80,12 +70,10 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
         )
     ).all()
 
-    unmapped_rows = []
     for sale_id, amount, stored_register_id in credit_rows:
         value = report_service._money(amount)
         register_id = stored_register_id or sale_register.get(str(sale_id))
         if register_id is None or register_id not in register_rows:
-            unmapped_rows.append(value)
             continue
 
         row = register_rows[register_id]
