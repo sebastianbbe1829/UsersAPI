@@ -70,7 +70,7 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
     unassigned_credit = credit_total
 
     credit_rows = db.execute(
-        select(SalePaymentDB.sale_id, SalePaymentDB.amount)
+        select(SalePaymentDB.sale_id, SalePaymentDB.amount, SalePaymentDB.cash_register_id)
         .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
         .where(
             SalePaymentDB.tenant_id == tenant_id,
@@ -82,9 +82,9 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
     ).all()
 
     unmapped_rows = []
-    for sale_id, amount in credit_rows:
+    for sale_id, amount, stored_register_id in credit_rows:
         value = report_service._money(amount)
-        register_id = sale_register.get(str(sale_id))
+        register_id = stored_register_id or sale_register.get(str(sale_id))
         if register_id is None or register_id not in register_rows:
             unmapped_rows.append(value)
             continue
@@ -95,24 +95,6 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
             report["sales_by_box_totals"].get("Crédito", report_service.ZERO) + value
         )
         unassigned_credit -= value
-
-    # A pure-credit sale has no cash movement by design. If the report has exactly
-    # one register with SALE activity that day, that register is the only
-    # unambiguous report-level candidate for the sale. This keeps the fix in the
-    # report and does not alter POS or the cash model. With multiple candidates,
-    # we leave the amount explicitly unassigned instead of guessing.
-    if unmapped_rows:
-        candidate_registers = sorted({movement.cash_register_id for movement in movements})
-        if len(candidate_registers) == 1:
-            register_id = candidate_registers[0]
-            row = register_rows.get(register_id)
-            if row is not None:
-                for value in unmapped_rows:
-                    row["sales"]["Crédito"] = row["sales"].get("Crédito", report_service.ZERO) + value
-                    report["sales_by_box_totals"]["Crédito"] = (
-                        report["sales_by_box_totals"].get("Crédito", report_service.ZERO) + value
-                    )
-                    unassigned_credit -= value
 
     report["unassigned_credit_sales"] = max(
         report_service.ZERO,
