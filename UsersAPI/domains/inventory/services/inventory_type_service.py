@@ -10,9 +10,7 @@ from ..schemas import InventoryTypeCreate, InventoryTypeUpdate
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 

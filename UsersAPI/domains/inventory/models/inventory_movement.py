@@ -3,7 +3,9 @@ import uuid
 from sqlalchemy import (
     CheckConstraint,
     Column,
+    Date,
     DateTime,
+    ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
@@ -46,12 +48,21 @@ class InventoryMovementDB(Base):
             "ix_users_api_inventory_movements_reversal_of_id",
             "reversal_of_id",
         ),
+        Index("ix_inventory_movements_business_date", "tenant_id", "business_date"),
+        Index("ix_inventory_movements_cash_register", "tenant_id", "cash_register_id"),
         {"schema": "users_api"},
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(Integer, nullable=False, index=True)
     product_id = Column(Integer, nullable=False, index=True)
+    cash_register_id = Column(
+        Integer,
+        ForeignKey("users_api.cash_registers.id"),
+        nullable=True,
+        index=True,
+    )
+    business_date = Column(Date, nullable=False)
     movement_type = Column(String(20), nullable=False)
     origin_type = Column(String(30), nullable=False)
     origin_id = Column(UUID(as_uuid=True), nullable=True)

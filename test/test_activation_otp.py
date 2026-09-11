@@ -122,9 +122,7 @@ def test_activation_rejects_invalid_token(
 ):
     user, _, _, _ = create_activation_context(db_session)
 
-    response = client.post(
-        f"/users/activate/{user.dni}/token-invalido/otp"
-    )
+    response = client.post(f"/users/activate/{user.dni}/token-invalido/otp")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Token de activación inválido"
@@ -137,9 +135,7 @@ def test_activation_rejects_token_for_another_user(
     user, _, _, token = create_activation_context(db_session)
     other_user, _, _, _ = create_activation_context(db_session)
 
-    response = client.post(
-        f"/users/activate/{other_user.dni}/{token}/otp"
-    )
+    response = client.post(f"/users/activate/{other_user.dni}/{token}/otp")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Token de activación inválido"

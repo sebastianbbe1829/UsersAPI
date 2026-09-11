@@ -12,17 +12,15 @@ from ..schemas import PermissionCreate
 # LISTAR PERMISOS
 # ============================================================
 
+
 def list_permission(
     db: Session,
 ):
-
     repo = PermissionRepository(db)
 
     permissions = repo.get_all_by_permission()
 
-    logger.debug(
-        "Listando permisos"
-    )
+    logger.debug("Listando permisos")
 
     return permissions
 
@@ -31,17 +29,16 @@ def list_permission(
 # OBTENER PERMISO POR CÓDIGO
 # ============================================================
 
+
 def get_permission(
     code: str,
     db: Session,
 ):
-
     repo = PermissionRepository(db)
 
     permission = repo.get_by_code(code)
 
     if not permission:
-
         logger.warning(
             "Permiso no encontrado",
             extra={
@@ -68,12 +65,12 @@ def get_permission(
 # CREAR PERMISO
 # ============================================================
 
+
 def create_permission(
     datos: PermissionCreate,
     current_user,
     db: Session,
 ):
-
     repo = PermissionRepository(db)
 
     # ========================================================
@@ -83,25 +80,19 @@ def create_permission(
     code = datos.code.strip().upper()
     name = datos.name.strip()
 
-    description = (
-        datos.description.strip()
-        if datos.description
-        else None
-    )
+    description = datos.description.strip() if datos.description else None
 
     # ========================================================
     # VALIDAR CÓDIGO
     # ========================================================
 
     if not code:
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El código del permiso es obligatorio.",
         )
 
     if not name:
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El nombre del permiso es obligatorio.",
@@ -113,17 +104,12 @@ def create_permission(
     # Incluye permisos inactivos.
     # ========================================================
 
-    existente = repo.get_by_code_any_status(
-        code
-    )
+    existente = repo.get_by_code_any_status(code)
 
     if existente:
-
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"El permiso '{code}' ya existe."
-            ),
+            detail=(f"El permiso '{code}' ya existe."),
         )
 
     # ========================================================
@@ -139,17 +125,13 @@ def create_permission(
     )
 
     try:
-
-        permission = repo.create(
-            permission
-        )
+        permission = repo.create(permission)
 
         db.commit()
 
         db.refresh(permission)
 
     except IntegrityError as exc:
-
         db.rollback()
 
         logger.error(
@@ -160,13 +142,10 @@ def create_permission(
 
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"El permiso '{code}' ya existe."
-            ),
+            detail=(f"El permiso '{code}' ya existe."),
         ) from exc
 
     except Exception as exc:
-
         db.rollback()
 
         logger.error(

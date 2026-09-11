@@ -82,10 +82,7 @@ def test_super_bootstrap_response_does_not_expose_mfa_secret():
         phone="3000000000",
         email="super@example.com",
         mfa_enabled=True,
-        provisioning_uri=(
-            "otpauth://totp/UsersAPI:super@example.com"
-            "?secret=TEST&issuer=UsersAPI"
-        ),
+        provisioning_uri=("otpauth://totp/UsersAPI:super@example.com?secret=TEST&issuer=UsersAPI"),
     )
 
     assert "mfa_secret" not in response.model_dump()
@@ -126,11 +123,7 @@ def test_multiple_super_users_are_valid_identities(db_session):
     db_session.add_all(users)
     db_session.flush()
 
-    count = (
-        db_session.query(GlobalUserDB)
-        .filter(GlobalUserDB.is_superuser.is_(True))
-        .count()
-    )
+    count = db_session.query(GlobalUserDB).filter(GlobalUserDB.is_superuser.is_(True)).count()
 
     assert count >= 2
 

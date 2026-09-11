@@ -12,17 +12,11 @@ from .dependencies import get_current_tenant
 
 
 def require_permission(permission_code: str, allow_super: bool = True):
-
     def permission_checker(
-        user_tenant: UserTenantDB = Depends(
-            get_current_tenant
-        ),
-        current_user: UserTenantDB | GlobalUserDB = Depends(
-            get_current_user
-        ),
+        user_tenant: UserTenantDB = Depends(get_current_tenant),
+        current_user: UserTenantDB | GlobalUserDB = Depends(get_current_user),
         db: Session = Depends(get_db),
     ):
-
         permission = (
             db.query(PermissionDB)
             .filter(
@@ -35,9 +29,7 @@ def require_permission(permission_code: str, allow_super: bool = True):
         if permission is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"El permiso '{permission_code}' no existe"
-                ),
+                detail=(f"El permiso '{permission_code}' no existe"),
             )
 
         # SUPER mantiene el comportamiento global existente salvo en
@@ -60,10 +52,7 @@ def require_permission(permission_code: str, allow_super: bool = True):
         if not has_permission:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "No tienes permisos para "
-                    "realizar esta operación"
-                ),
+                detail=("No tienes permisos para realizar esta operación"),
             )
 
         return user_tenant

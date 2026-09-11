@@ -137,9 +137,7 @@ def test_login_locks_after_tenant_configured_attempts_and_audits_lock(
         )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "Cuenta bloqueada, comuníquese con el administrador"
-    )
+    assert response.json()["detail"] == ("Cuenta bloqueada, comuníquese con el administrador")
 
     db_session.refresh(user_tenant)
     assert user_tenant.failed_login_attempts == 2
@@ -153,21 +151,15 @@ def test_login_locks_after_tenant_configured_attempts_and_audits_lock(
         .all()
     )
     security_events = [
-        event
-        for event in events
-        if event.event_type in {"LOGIN_FAILED", "ACCOUNT_LOCKED"}
+        event for event in events if event.event_type in {"LOGIN_FAILED", "ACCOUNT_LOCKED"}
     ]
     assert [event.event_type for event in security_events] == [
         "LOGIN_FAILED",
         "LOGIN_FAILED",
         "ACCOUNT_LOCKED",
     ]
-    assert all(
-        event.actor_login == user_tenant.email for event in security_events
-    )
-    assert all(
-        event.actor_dni == user_tenant.user.dni for event in security_events
-    )
+    assert all(event.actor_login == user_tenant.email for event in security_events)
+    assert all(event.actor_dni == user_tenant.user.dni for event in security_events)
 
     correct_password = client.post(
         "/auth/login",

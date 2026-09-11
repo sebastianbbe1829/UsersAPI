@@ -153,9 +153,7 @@ def test_client_controller_delegates(monkeypatch):
     assert client_controller.obtener_cliente(cid, db, 7) is sentinel
     assert client_controller.actualizar_cliente(cid, data, db, 7, user) is sentinel
     assert client_controller.eliminar_cliente(cid, db, 7, user) is sentinel
-    assert client_controller.levantar_restriccion_cliente(
-        cid, data, db, 7, user
-    ) is sentinel
+    assert client_controller.levantar_restriccion_cliente(cid, data, db, 7, user) is sentinel
     assert client_controller.informe_listas_restrictivas(db, 7) is sentinel
     assert client_controller.historial_levantamientos_restriccion(db, 7) is sentinel
 
@@ -250,10 +248,12 @@ def test_identification_seed_creates_updates_and_deactivates(monkeypatch):
     def query(model):
         q = MagicMock()
         if model is IdentificationTypeDB:
+
             def first():
                 expression = q.filter.call_args.args[0]
                 code = expression.right.value
                 return existing if code == "CC" else None
+
             q.filter.return_value.first.side_effect = first
             q.all.return_value = [obsolete]
         return q

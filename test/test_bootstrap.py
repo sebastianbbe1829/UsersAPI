@@ -31,9 +31,7 @@ def configure_bootstrap(monkeypatch):
     # El paquete UsersAPI.routes expone bootstrap_tenant_routes como APIRouter.
     # Para reemplazar la referencia `settings` usada por la ruta debemos
     # obtener el módulo real que contiene bootstrap_route.
-    bootstrap_routes_module = importlib.import_module(
-        "UsersAPI.routes.bootstrap_tenant_routes"
-    )
+    bootstrap_routes_module = importlib.import_module("UsersAPI.routes.bootstrap_tenant_routes")
 
     monkeypatch.setattr(
         bootstrap_routes_module,
@@ -108,20 +106,18 @@ def test_bootstrap_creates_new_tenant_with_admin_context(db_session, client):
         {"tenant_id": str(body["tenant_id"])},
     )
 
-    tenant = db_session.query(TenantDB).filter(
-        TenantDB.slug == payload["tenant_slug"]
-    ).one()
-    user = db_session.query(UserDB).filter(
-        UserDB.dni == payload["admin_dni"]
-    ).one()
-    user_tenant = db_session.query(UserTenantDB).filter(
-        UserTenantDB.tenant_id == tenant.id,
-        UserTenantDB.user_id == user.id,
-    ).one()
+    tenant = db_session.query(TenantDB).filter(TenantDB.slug == payload["tenant_slug"]).one()
+    user = db_session.query(UserDB).filter(UserDB.dni == payload["admin_dni"]).one()
+    user_tenant = (
+        db_session.query(UserTenantDB)
+        .filter(
+            UserTenantDB.tenant_id == tenant.id,
+            UserTenantDB.user_id == user.id,
+        )
+        .one()
+    )
 
-    config = db_session.query(TenantConfigDB).filter(
-        TenantConfigDB.tenant_id == tenant.id
-    ).one()
+    config = db_session.query(TenantConfigDB).filter(TenantConfigDB.tenant_id == tenant.id).one()
 
     assert config.app_title == payload["tenant_name"]
     assert config.logo_url is None
@@ -129,35 +125,52 @@ def test_bootstrap_creates_new_tenant_with_admin_context(db_session, client):
     assert config.secondary_color == "#6C757D"
     assert config.created_by == payload["admin_dni"]
 
-    admin_role = db_session.query(RoleDB).filter(
-        RoleDB.tenant_id == tenant.id,
-        RoleDB.code == "ADMIN",
-    ).one()
-    authenticate_role = db_session.query(RoleDB).filter(
-        RoleDB.tenant_id == tenant.id,
-        RoleDB.code == "AUTHENTICATE",
-    ).one()
+    admin_role = (
+        db_session.query(RoleDB)
+        .filter(
+            RoleDB.tenant_id == tenant.id,
+            RoleDB.code == "ADMIN",
+        )
+        .one()
+    )
+    authenticate_role = (
+        db_session.query(RoleDB)
+        .filter(
+            RoleDB.tenant_id == tenant.id,
+            RoleDB.code == "AUTHENTICATE",
+        )
+        .one()
+    )
 
     assert user_tenant.email == payload["admin_email"]
     assert user_tenant.status == 0
 
-    assigned_role = db_session.query(UserTenantRoleDB).filter(
-        UserTenantRoleDB.user_tenant_id == user_tenant.id,
-        UserTenantRoleDB.role_id == admin_role.id,
-    ).one_or_none()
+    assigned_role = (
+        db_session.query(UserTenantRoleDB)
+        .filter(
+            UserTenantRoleDB.user_tenant_id == user_tenant.id,
+            UserTenantRoleDB.role_id == admin_role.id,
+        )
+        .one_or_none()
+    )
     assert assigned_role is not None
 
-    admin_permission_count = db_session.query(RolePermissionDB).filter(
-        RolePermissionDB.role_id == admin_role.id
-    ).count()
+    admin_permission_count = (
+        db_session.query(RolePermissionDB).filter(RolePermissionDB.role_id == admin_role.id).count()
+    )
     assert admin_permission_count == len(PERMISSIONS) + len(INVENTORY_PERMISSIONS)
 
-    auth_permission = db_session.query(RolePermissionDB).filter(
-        RolePermissionDB.role_id == authenticate_role.id,
-        RolePermissionDB.permission_id == db_session.query(PermissionDB.id)
-        .filter(PermissionDB.code == "AUTHENTICATE")
-        .scalar_subquery(),
-    ).one_or_none()
+    auth_permission = (
+        db_session.query(RolePermissionDB)
+        .filter(
+            RolePermissionDB.role_id == authenticate_role.id,
+            RolePermissionDB.permission_id
+            == db_session.query(PermissionDB.id)
+            .filter(PermissionDB.code == "AUTHENTICATE")
+            .scalar_subquery(),
+        )
+        .one_or_none()
+    )
     assert auth_permission is not None
 
 

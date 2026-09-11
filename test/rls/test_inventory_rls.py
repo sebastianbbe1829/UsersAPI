@@ -77,9 +77,7 @@ def test_inventory_rls_does_not_bypass_and_blocks_cross_tenant_insert(
             (tenant_b,),
         )
         assert cur.fetchone()[0] == 0
-        cur.execute(
-            "SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user"
-        )
+        cur.execute("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
         assert cur.fetchone()[0] is False
 
     try:

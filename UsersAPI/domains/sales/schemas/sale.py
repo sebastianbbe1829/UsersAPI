@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -69,6 +69,7 @@ class SaleRead(BaseModel):
     id: UUID
     tenant_id: int
     sale_number: str
+    business_date: date
     status: str
     is_autoconsumption: bool
     subtotal: Decimal

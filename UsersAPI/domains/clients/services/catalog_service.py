@@ -74,9 +74,7 @@ def update_identification_type(
     }
     if protected_fields:
         referenced = (
-            db.query(ClientDB.id)
-            .filter(ClientDB.identification_type_id == item.id)
-            .first()
+            db.query(ClientDB.id).filter(ClientDB.identification_type_id == item.id).first()
         )
         if referenced:
             if "code" in protected_fields:

@@ -6,12 +6,9 @@ from ..database import Base
 
 
 class UserDB(Base):
-
     __tablename__ = "app_users"
 
-    __table_args__ = {
-        "schema": "users_api"
-    }
+    __table_args__ = {"schema": "users_api"}
 
     id = Column(
         Integer,
@@ -32,7 +29,6 @@ class UserDB(Base):
         index=True,
     )
 
-
     # Auditoría creación
     created_at = Column(
         DateTime,
@@ -50,7 +46,6 @@ class UserDB(Base):
         server_default=text("USER"),
     )
 
-
     # Auditoría actualización
     updated_at = Column(
         DateTime,
@@ -67,7 +62,6 @@ class UserDB(Base):
         nullable=True,
         server_default=text("USER"),
     )
-
 
     tenants = relationship(
         "UserTenantDB",

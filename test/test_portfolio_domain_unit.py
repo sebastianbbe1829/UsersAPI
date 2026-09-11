@@ -218,9 +218,7 @@ def _payment_data(client_id, obligation_id, amount="100.00"):
         client_id=client_id,
         payment_method=" cash ",
         amount=Decimal(amount),
-        allocations=[
-            {"obligation_id": obligation_id, "amount": Decimal(amount)}
-        ],
+        allocations=[{"obligation_id": obligation_id, "amount": Decimal(amount)}],
     )
 
 
@@ -264,9 +262,7 @@ def test_register_payment_rejects_wrong_client(monkeypatch):
     client_id = uuid4()
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(
-        client_id=uuid4(), status="ACTIVE", balance=Decimal("200.00")
-    )
+    obligation = SimpleNamespace(client_id=uuid4(), status="ACTIVE", balance=Decimal("200.00"))
     repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation)
     monkeypatch.setattr(
         "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
@@ -287,9 +283,7 @@ def test_register_payment_rejects_inactive_obligation(monkeypatch):
     client_id = uuid4()
     obligation_id = uuid4()
     data = _payment_data(client_id, obligation_id)
-    obligation = SimpleNamespace(
-        client_id=client_id, status="SETTLED", balance=Decimal("200.00")
-    )
+    obligation = SimpleNamespace(client_id=client_id, status="SETTLED", balance=Decimal("200.00"))
     repository = SimpleNamespace(get_obligation=lambda *_args, **_kwargs: obligation)
     monkeypatch.setattr(
         "UsersAPI.domains.portfolio.services.portfolio_service.PortfolioRepository",
@@ -359,6 +353,10 @@ def test_register_payment_applies_partial_payment(monkeypatch):
         "UsersAPI.domains.portfolio.services.portfolio_service._client",
         lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
     )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.record_automatic_movement",
+        lambda **_kwargs: None,
+    )
 
     result = register_payment(data, db, 1, SimpleNamespace(email="cashier"))
 
@@ -397,6 +395,10 @@ def test_register_payment_settles_obligation_and_sale(monkeypatch):
     monkeypatch.setattr(
         "UsersAPI.domains.portfolio.services.portfolio_service._client",
         lambda *_args, **_kwargs: SimpleNamespace(id=client_id),
+    )
+    monkeypatch.setattr(
+        "UsersAPI.domains.portfolio.services.portfolio_service.record_automatic_movement",
+        lambda **_kwargs: None,
     )
 
     register_payment(data, db, 1, SimpleNamespace(email="cashier"))

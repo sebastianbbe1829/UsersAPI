@@ -57,27 +57,33 @@ def test_global_user_routes_delegate_all_paths(monkeypatch):
     for name, value in funcs.items():
         monkeypatch.setattr(controller, name, value)
 
-    assert global_user_routes.listar_global_supers_route(
-        db=db, current_user=current
-    ) == [1]
-    assert global_user_routes.obtener_global_super_route(
-        2, db=db, current_user=current
-    ) == 2
-    assert global_user_routes.obtener_global_super_mfa_provisioning_route(
-        2, db=db, current_user=current
-    ) == 3
-    assert global_user_routes.crear_global_super_route(
-        data, "123456", db=db, current_user=current
-    ) == 4
-    assert global_user_routes.actualizar_global_super_route(
-        2, data, "654321", db=db, current_user=current
-    ) == 5
+    assert global_user_routes.listar_global_supers_route(db=db, current_user=current) == [1]
+    assert global_user_routes.obtener_global_super_route(2, db=db, current_user=current) == 2
+    assert (
+        global_user_routes.obtener_global_super_mfa_provisioning_route(
+            2, db=db, current_user=current
+        )
+        == 3
+    )
+    assert (
+        global_user_routes.crear_global_super_route(data, "123456", db=db, current_user=current)
+        == 4
+    )
+    assert (
+        global_user_routes.actualizar_global_super_route(
+            2, data, "654321", db=db, current_user=current
+        )
+        == 5
+    )
 
 
 def test_account_lock_notification_recipient_resolution_and_delivery(monkeypatch):
     db = MagicMock()
     db.execute.return_value.scalars.return_value.all.return_value = [
-        " admin@example.com ", None, "", "second@example.com"
+        " admin@example.com ",
+        None,
+        "",
+        "second@example.com",
     ]
     assert lock_service._get_admin_recipients(db, 7) == [
         "admin@example.com",
@@ -114,9 +120,7 @@ def test_account_lock_notification_handles_no_admins_and_send_failure(monkeypatc
     )
     send.assert_not_called()
 
-    db.execute.return_value.scalars.return_value.all.return_value = [
-        "admin@example.com"
-    ]
+    db.execute.return_value.scalars.return_value.all.return_value = ["admin@example.com"]
     lock_service.notify_tenant_admins_account_locked(
         db,
         tenant_id=7,
@@ -176,9 +180,7 @@ def test_auth_audit_maps_user_and_covers_super_and_close_validation(monkeypatch)
             _token({"tenant_id": 7, "session_id": "s1"}),
             event_type="INVALID",
         )
-    assert auth_audit_service.close_login_session(
-        db, _token({"tenant_id": 7})
-    ) is None
+    assert auth_audit_service.close_login_session(db, _token({"tenant_id": 7})) is None
 
 
 def test_auth_audit_refresh_and_touch_success(monkeypatch):
@@ -214,9 +216,7 @@ def test_auth_audit_refresh_and_touch_success(monkeypatch):
 
     assert auth_audit_service.touch_active_session(db, "token", payload) is session
 
-    monkeypatch.setattr(
-        auth_audit_service, "_decode_token", MagicMock(return_value=payload)
-    )
+    monkeypatch.setattr(auth_audit_service, "_decode_token", MagicMock(return_value=payload))
     monkeypatch.setattr(
         auth_audit_service,
         "create_access_token",
@@ -274,9 +274,7 @@ def test_auth_audit_idle_timeout_closes_and_clears_super_session(monkeypatch):
 
 def _user_update_context(monkeypatch, *, locked=True):
     tenant = SimpleNamespace(id=7, slug="acme", name="Acme")
-    user = SimpleNamespace(
-        id=11, dni="12345", name="Ana", updated_at=None, updated_by=None
-    )
+    user = SimpleNamespace(id=11, dni="12345", name="Ana", updated_at=None, updated_by=None)
     link = SimpleNamespace(
         id=21,
         tenant_id=7,
@@ -304,9 +302,7 @@ def _user_update_context(monkeypatch, *, locked=True):
 
 def test_user_update_covers_all_mutations_and_notifications(monkeypatch):
     db, user, link, _, user_repo, link_repo = _user_update_context(monkeypatch)
-    monkeypatch.setattr(
-        user_update_service, "get_password_hash", lambda value: f"hash:{value}"
-    )
+    monkeypatch.setattr(user_update_service, "get_password_hash", lambda value: f"hash:{value}")
     monkeypatch.setattr(user_update_service, "audit_auth_event", MagicMock())
     email, whatsapp = MagicMock(), MagicMock()
     monkeypatch.setattr(user_update_service, "send_email", email)
@@ -337,34 +333,22 @@ def test_user_update_covers_all_mutations_and_notifications(monkeypatch):
 
 
 def test_user_update_covers_lookup_unlock_and_persistence_errors(monkeypatch):
-    db, _, link, tenant_repo, user_repo, link_repo = _user_update_context(
-        monkeypatch, locked=False
-    )
+    db, _, link, tenant_repo, user_repo, link_repo = _user_update_context(monkeypatch, locked=False)
     context = SimpleNamespace(tenant_id=7)
     tenant_repo.get_by_id.return_value = None
     with pytest.raises(HTTPException) as exc:
-        user_update_service.update_user(
-            "1", UserUpdate(name="Ana"), db, SimpleNamespace(), link
-        )
+        user_update_service.update_user("1", UserUpdate(name="Ana"), db, SimpleNamespace(), link)
     assert exc.value.status_code == 404
 
-    tenant_repo.get_by_id.return_value = SimpleNamespace(
-        id=7, slug="acme", name="Acme"
-    )
+    tenant_repo.get_by_id.return_value = SimpleNamespace(id=7, slug="acme", name="Acme")
     user_repo.get_by_dni_in_tenant.return_value = None
     with pytest.raises(HTTPException):
-        user_update_service.update_user(
-            "1", UserUpdate(name="Ana"), db, SimpleNamespace(), context
-        )
+        user_update_service.update_user("1", UserUpdate(name="Ana"), db, SimpleNamespace(), context)
 
-    user_repo.get_by_dni_in_tenant.return_value = SimpleNamespace(
-        id=1, dni="1", name="Ana"
-    )
+    user_repo.get_by_dni_in_tenant.return_value = SimpleNamespace(id=1, dni="1", name="Ana")
     link_repo.get_by_user_and_tenant.return_value = None
     with pytest.raises(HTTPException):
-        user_update_service.update_user(
-            "1", UserUpdate(name="Ana"), db, SimpleNamespace(), context
-        )
+        user_update_service.update_user("1", UserUpdate(name="Ana"), db, SimpleNamespace(), context)
 
     link_repo.get_by_user_and_tenant.return_value = link
     link.locked_at = None
@@ -374,9 +358,7 @@ def test_user_update_covers_lookup_unlock_and_persistence_errors(monkeypatch):
         )
     assert exc.value.status_code == 409
 
-    user_repo.update.side_effect = IntegrityError(
-        "stmt", {}, Exception("duplicate")
-    )
+    user_repo.update.side_effect = IntegrityError("stmt", {}, Exception("duplicate"))
     with pytest.raises(HTTPException) as exc:
         user_update_service.update_user(
             "1", UserUpdate(name="Changed"), db, SimpleNamespace(email="a@b"), context
@@ -452,9 +434,7 @@ def test_email_template_and_http_exception_branches(monkeypatch):
     _configure_email(monkeypatch)
     response = MagicMock(status_code=400, text="bad")
     response.raise_for_status.side_effect = requests.exceptions.HTTPError("bad")
-    monkeypatch.setattr(
-        email_utils.requests, "post", MagicMock(return_value=response)
-    )
+    monkeypatch.setattr(email_utils.requests, "post", MagicMock(return_value=response))
     with pytest.raises(requests.exceptions.HTTPError):
         email_utils.send_email("a@b", "s", "m")
 

@@ -95,11 +95,7 @@ def create_user_context(db, *, password="oldpass", name="Test User"):
     db.flush()
 
     for code in TEST_PERMISSIONS:
-        permission = (
-            db.query(PermissionDB)
-            .filter(PermissionDB.code == code)
-            .first()
-        )
+        permission = db.query(PermissionDB).filter(PermissionDB.code == code).first()
 
         if permission is None:
             permission = PermissionDB(

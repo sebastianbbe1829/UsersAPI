@@ -5,6 +5,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
+from UsersAPI.domains.cash.services.cash_movement_service import record_automatic_movement
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.clients.services.compliance_override_service import (
     has_compliance_override,
@@ -30,9 +32,7 @@ def _money(value: Decimal) -> Decimal:
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -103,6 +103,10 @@ def create_sale(
     current_user: object,
     is_autoconsumption: bool = False,
 ) -> SaleDB:
+    cash_context = require_operational_context(db, tenant_id, current_user)
+    business_date = cash_context["business_date"]
+    cash_register_id = cash_context.get("register_id")
+
     product_ids = [item.product_id for item in data.items]
     if len(product_ids) != len(set(product_ids)):
         raise HTTPException(
@@ -122,9 +126,7 @@ def create_sale(
             Decimal("0"),
         )
     )
-    normalized_methods = [
-        payment.payment_method.strip().upper() for payment in data.payments
-    ]
+    normalized_methods = [payment.payment_method.strip().upper() for payment in data.payments]
     credit_amount = _money(
         sum(
             (
@@ -157,7 +159,9 @@ def create_sale(
     repository = SaleRepository(db)
     sale = SaleDB(
         tenant_id=tenant_id,
+        cash_register_id=cash_register_id,
         sale_number=repository.next_sale_number(tenant_id),
+        business_date=business_date,
         status="PENDING" if has_credit else "COMPLETED",
         is_autoconsumption=is_autoconsumption,
         subtotal=Decimal("0"),
@@ -204,9 +208,7 @@ def create_sale(
             )
 
         inventory_costs[item.product_id] = Decimal(inventory.purchase_price or 0)
-        inventory_profits[item.product_id] = Decimal(
-            inventory.profit_percentage or 0
-        )
+        inventory_profits[item.product_id] = Decimal(inventory.profit_percentage or 0)
         unit_price = _sale_price(inventory, at_cost=is_autoconsumption)
         line_total = _money(Decimal(item.quantity) * unit_price)
         subtotal += line_total
@@ -223,9 +225,7 @@ def create_sale(
         )
 
     subtotal = _money(subtotal)
-    discount_amount = _money(
-        subtotal * Decimal(data.discount_percentage) / Decimal("100")
-    )
+    discount_amount = _money(subtotal * Decimal(data.discount_percentage) / Decimal("100"))
     total = _money(subtotal - discount_amount)
     if payment_total != total:
         raise HTTPException(
@@ -254,10 +254,7 @@ def create_sale(
         )
     else:
         percentage_total = sum(
-            (
-                Decimal(customer.allocation_percentage)
-                for customer in data.customers
-            ),
+            (Decimal(customer.allocation_percentage) for customer in data.customers),
             Decimal("0"),
         )
         if percentage_total != Decimal("100"):
@@ -309,8 +306,7 @@ def create_sale(
                         raise HTTPException(
                             status_code=status.HTTP_409_CONFLICT,
                             detail=(
-                                "Insufficient available credit. "
-                                f"Available credit: {available}"
+                                f"Insufficient available credit. Available credit: {available}"
                             ),
                         )
                 customer_name = client.full_name
@@ -319,9 +315,7 @@ def create_sale(
                 allocation_amount = _money(total - allocation_total)
             else:
                 allocation_amount = _money(
-                    total
-                    * Decimal(customer.allocation_percentage)
-                    / Decimal("100")
+                    total * Decimal(customer.allocation_percentage) / Decimal("100")
                 )
             allocation_total += allocation_amount
             sale.customers.append(
@@ -335,13 +329,11 @@ def create_sale(
                 )
             )
 
-    # SalePaymentDB represents the payment method selected for the sale.
-    # CREDITO is a valid sale payment method and must be persisted here.
-    # Actual money received later is represented separately by PaymentDB.
     for payment, method in zip(data.payments, normalized_methods):
         sale.payments.append(
             SalePaymentDB(
                 tenant_id=tenant_id,
+                cash_register_id=cash_register_id,
                 payment_method=method,
                 amount=_money(Decimal(payment.amount)),
             )
@@ -350,8 +342,10 @@ def create_sale(
     if has_credit:
         obligation = ObligationDB(
             tenant_id=tenant_id,
+            cash_register_id=cash_register_id,
             client_id=data.customers[0].client_id,
             sale_id=sale.id,
+            business_date=business_date,
             initial_amount=credit_amount,
             balance=credit_amount,
             status="ACTIVE",
@@ -369,9 +363,7 @@ def create_sale(
                 origin_id=sale.id,
                 quantity=item.quantity,
                 unit_purchase_price=inventory_costs[item.product_id],
-                profit_percentage=0
-                if is_autoconsumption
-                else inventory_profits[item.product_id],
+                profit_percentage=0 if is_autoconsumption else inventory_profits[item.product_id],
                 notes=(
                     f"Venta {sale.sale_number} - Autoconsumo"
                     if is_autoconsumption
@@ -381,6 +373,20 @@ def create_sale(
             db,
             tenant_id,
             current_user,
+        )
+
+    for payment, method in zip(data.payments, normalized_methods):
+        if method in CREDIT_METHODS or Decimal(payment.amount) == 0:
+            continue
+        record_automatic_movement(
+            db=db,
+            tenant_id=tenant_id,
+            amount=_money(Decimal(payment.amount)),
+            payment_method=method,
+            origin_type="SALE",
+            origin_id=sale.id,
+            description=f"Venta {sale.sale_number}",
+            current_user=current_user,
         )
 
     db.flush()

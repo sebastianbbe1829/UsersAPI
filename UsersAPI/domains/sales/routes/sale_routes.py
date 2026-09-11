@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
+from UsersAPI.domains.cash.services.cash_dependencies import require_operational_cash_context
 from UsersAPI.domains.core.controllers import get_current_user
 from UsersAPI.domains.core.database import get_db
 from UsersAPI.domains.core.models import UserTenantDB
@@ -29,7 +30,10 @@ sales_routes = APIRouter(prefix="/sales", tags=["Ventas"])
     "",
     response_model=SaleRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("SALES_CREATE"))],
+    dependencies=[
+        Depends(require_permission("SALES_CREATE")),
+        Depends(require_operational_cash_context),
+    ],
 )
 async def create_sale_route(
     data: SaleCreate,
@@ -44,7 +48,10 @@ async def create_sale_route(
     "/autoconsumption",
     response_model=SaleRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("SALES_AUTOCONSUME"))],
+    dependencies=[
+        Depends(require_permission("SALES_AUTOCONSUME")),
+        Depends(require_operational_cash_context),
+    ],
 )
 async def create_autoconsumption_sale_route(
     data: SaleCreate,

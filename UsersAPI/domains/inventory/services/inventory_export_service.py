@@ -62,16 +62,13 @@ def export_inventory_excel(
         .options(joinedload(InventoryDB.product).joinedload(ProductDB.inventory_type))
         .join(
             ProductDB,
-            (ProductDB.id == InventoryDB.product_id)
-            & (ProductDB.tenant_id == tenant_id),
+            (ProductDB.id == InventoryDB.product_id) & (ProductDB.tenant_id == tenant_id),
         )
         .filter(InventoryDB.tenant_id == tenant_id)
     )
     if search:
         term = f"%{search.strip()}%"
-        query = query.filter(
-            (ProductDB.code.ilike(term)) | (ProductDB.name.ilike(term))
-        )
+        query = query.filter((ProductDB.code.ilike(term)) | (ProductDB.name.ilike(term)))
     if inventory_type_id is not None:
         query = query.filter(ProductDB.inventory_type_id == inventory_type_id)
     rows = query.order_by(ProductDB.name, ProductDB.id).all()
@@ -131,17 +128,13 @@ def export_movements_excel(
         else None
     )
     end = (
-        datetime.combine(to_date, time.max, tzinfo=COLOMBIA_TZ)
-        .astimezone(UTC)
-        .replace(tzinfo=None)
+        datetime.combine(to_date, time.max, tzinfo=COLOMBIA_TZ).astimezone(UTC).replace(tzinfo=None)
         if to_date
         else None
     )
     query = (
         db.query(InventoryMovementDB)
-        .options(
-            joinedload(InventoryMovementDB.product).joinedload(ProductDB.inventory_type)
-        )
+        .options(joinedload(InventoryMovementDB.product).joinedload(ProductDB.inventory_type))
         .filter(InventoryMovementDB.tenant_id == tenant_id)
     )
     if product_id is not None:

@@ -94,9 +94,7 @@ class CityDB(Base):
     )
     code = Column(String(20), nullable=False)
     name = Column(String(100), nullable=False)
-    type = Column(
-        String(50), nullable=False, server_default=text("'Municipio'")
-    )
+    type = Column(String(50), nullable=False, server_default=text("'Municipio'"))
     latitude = Column(Numeric(10, 7), nullable=True)
     longitude = Column(Numeric(10, 7), nullable=True)
     active = Column(Boolean, nullable=False, server_default=text("true"))

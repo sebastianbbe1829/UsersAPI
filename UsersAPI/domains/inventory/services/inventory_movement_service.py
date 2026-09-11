@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -6,6 +6,8 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
 
 from ..models import InventoryDB, InventoryMovementDB
 from ..repositories import InventoryMovementRepository, InventoryRepository, ProductRepository
@@ -24,9 +26,7 @@ COLOMBIA_TZ = ZoneInfo("America/Bogota")
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -45,10 +45,7 @@ def _validate_origin(
     if expected_movement_type and data.movement_type != expected_movement_type:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{origin_type} movements must be "
-                f"{expected_movement_type} movements"
-            ),
+            detail=(f"{origin_type} movements must be {expected_movement_type} movements"),
         )
     if origin_type == "SALE" and data.origin_id is None:
         raise HTTPException(
@@ -80,9 +77,9 @@ def _calculate_weighted_average_cost(
 ) -> Decimal:
     if current_quantity <= 0 or current_average_cost is None:
         return entry_unit_cost
-    return (
-        current_quantity * current_average_cost + entry_quantity * entry_unit_cost
-    ) / (current_quantity + entry_quantity)
+    return (current_quantity * current_average_cost + entry_quantity * entry_unit_cost) / (
+        current_quantity + entry_quantity
+    )
 
 
 def _calculate_reversed_average_cost(
@@ -97,8 +94,7 @@ def _calculate_reversed_average_cost(
     if current_average_cost is None or reversed_unit_cost is None:
         return current_average_cost
     remaining_value = (
-        current_quantity * current_average_cost
-        - reversed_quantity * reversed_unit_cost
+        current_quantity * current_average_cost - reversed_quantity * reversed_unit_cost
     )
     if remaining_value < 0:
         raise HTTPException(
@@ -115,6 +111,10 @@ def create_inventory_movement(
     current_user: object,
     reversal_of_id: UUID | None = None,
 ) -> InventoryMovementDB:
+    context = require_operational_context(db, tenant_id, current_user)
+    business_date = context["business_date"]
+    cash_register_id = context.get("register_id")
+
     origin_type = data.origin_type.strip().upper()
     if origin_type not in ALLOWED_ORIGIN_TYPES:
         raise HTTPException(
@@ -201,6 +201,8 @@ def create_inventory_movement(
     movement = InventoryMovementDB(
         tenant_id=tenant_id,
         product_id=data.product_id,
+        cash_register_id=cash_register_id,
+        business_date=business_date,
         movement_type=data.movement_type,
         origin_type=origin_type,
         origin_id=data.origin_id,
@@ -296,20 +298,6 @@ def list_inventory_movements(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="from_date cannot be greater than to_date",
         )
-    from_datetime = (
-        datetime.combine(from_date, time.min, tzinfo=COLOMBIA_TZ)
-        .astimezone(UTC)
-        .replace(tzinfo=None)
-        if from_date
-        else None
-    )
-    to_datetime = (
-        datetime.combine(to_date, time.max, tzinfo=COLOMBIA_TZ)
-        .astimezone(UTC)
-        .replace(tzinfo=None)
-        if to_date
-        else None
-    )
     repository = InventoryMovementRepository(db)
     if product_id is not None:
         return repository.list_by_product(
@@ -317,15 +305,15 @@ def list_inventory_movements(
             product_id,
             limit=limit,
             offset=offset,
-            from_datetime=from_datetime,
-            to_datetime=to_datetime,
+            from_date=from_date,
+            to_date=to_date,
         )
     return repository.list_all(
         tenant_id,
         limit=limit,
         offset=offset,
-        from_datetime=from_datetime,
-        to_datetime=to_datetime,
+        from_date=from_date,
+        to_date=to_date,
     )
 
 

@@ -9,10 +9,7 @@ def test_sensitive_data_filter_redacts_authentication_data():
         level=logging.INFO,
         pathname=__file__,
         lineno=1,
-        msg=(
-            "Login SUPER exitoso email=%s tenant_id=%s "
-            "session_id=%s client_host=%s token=%s"
-        ),
+        msg=("Login SUPER exitoso email=%s tenant_id=%s session_id=%s client_host=%s token=%s"),
         args=(
             "super@example.com",
             42,

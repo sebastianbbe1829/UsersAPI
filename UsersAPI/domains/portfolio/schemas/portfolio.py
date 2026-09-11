@@ -35,6 +35,7 @@ class ObligationRead(BaseModel):
     client_id: UUID
     sale_id: UUID
     sale_number: str | None = None
+    business_date: date
     initial_amount: Decimal
     balance: Decimal
     status: str
@@ -83,6 +84,7 @@ class PaymentRead(BaseModel):
     tenant_id: int
     client_id: UUID
     payment_date: date
+    business_date: date
     payment_method: str
     amount: Decimal
     status: PaymentStatus

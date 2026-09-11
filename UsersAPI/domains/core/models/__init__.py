@@ -19,9 +19,22 @@ from .otp import OTPCodeDB
 from .auth_audit import AuthAuditDB, AuthSessionDB
 
 __all__ = [
-    "UserDB", "TenantDB", "TenantConfigDB", "UserTenantDB", "GlobalUserDB", "RoleDB",
-    "PermissionDB", "RolePermissionDB", "UserTenantRoleDB", "ExtinguisherDB",
-    "ExtinguisherTypeDB", "ExtinguisherInspectionDB", "ExtinguisherInspectionItemDB",
-    "ExtinguisherInspectionResultDB", "ExtinguisherRechargeNotificationLogDB", "OTPCodeDB",
-    "AuthAuditDB", "AuthSessionDB",
+    "UserDB",
+    "TenantDB",
+    "TenantConfigDB",
+    "UserTenantDB",
+    "GlobalUserDB",
+    "RoleDB",
+    "PermissionDB",
+    "RolePermissionDB",
+    "UserTenantRoleDB",
+    "ExtinguisherDB",
+    "ExtinguisherTypeDB",
+    "ExtinguisherInspectionDB",
+    "ExtinguisherInspectionItemDB",
+    "ExtinguisherInspectionResultDB",
+    "ExtinguisherRechargeNotificationLogDB",
+    "OTPCodeDB",
+    "AuthAuditDB",
+    "AuthSessionDB",
 ]

@@ -24,9 +24,7 @@ def test_auth_route_covers_tenant_and_super_login_branches(monkeypatch):
     )
     assert routes.login(tenant_data, request, db) == "ok"
     assert limiter.check.call_count == 2
-    assert limiter.check.call_args_list[1].args[0] == (
-        "login:account:acme:user@example.com"
-    )
+    assert limiter.check.call_args_list[1].args[0] == ("login:account:acme:user@example.com")
 
     limiter.reset_mock()
     super_data = SimpleNamespace(
@@ -37,9 +35,7 @@ def test_auth_route_covers_tenant_and_super_login_branches(monkeypatch):
     )
     assert routes.login(super_data, request, db) == "ok"
     assert limiter.check.call_count == 3
-    assert limiter.check.call_args_list[2].args[0] == (
-        "login:super:mfa:super@example.com"
-    )
+    assert limiter.check.call_args_list[2].args[0] == ("login:super:mfa:super@example.com")
 
     controller.validate_token.return_value = {"valid": True}
     assert routes.validate("jwt", SimpleNamespace(), db) == {"valid": True}
@@ -73,17 +69,15 @@ def test_tenant_config_routes_cover_normal_and_super_paths(monkeypatch):
     db = MagicMock()
     datos = SimpleNamespace()
     assert asyncio.run(routes.obtener_config_tenant_route(user_tenant, db)) == "get"
-    assert asyncio.run(
-        routes.actualizar_config_tenant_route(datos, user_tenant, current, db)
-    ) == "update"
-    assert asyncio.run(
-        routes.obtener_config_tenant_super_route(7, db, current)
-    ) == "get"
-    assert asyncio.run(
-        routes.actualizar_config_tenant_super_route(
-            7, datos, "654321", db, current
-        )
-    ) == "update"
+    assert (
+        asyncio.run(routes.actualizar_config_tenant_route(datos, user_tenant, current, db))
+        == "update"
+    )
+    assert asyncio.run(routes.obtener_config_tenant_super_route(7, db, current)) == "get"
+    assert (
+        asyncio.run(routes.actualizar_config_tenant_super_route(7, datos, "654321", db, current))
+        == "update"
+    )
     getter.assert_any_call(tenant=tenant, db=db, current_user=user_tenant)
     updater.assert_any_call(
         tenant=tenant,
@@ -99,9 +93,5 @@ def test_tenant_config_routes_cover_normal_and_super_paths(monkeypatch):
     assert exc.value.status_code == 404
 
     with __import__("pytest").raises(HTTPException) as exc:
-        asyncio.run(
-            routes.actualizar_config_tenant_super_route(
-                99, datos, "654321", db, current
-            )
-        )
+        asyncio.run(routes.actualizar_config_tenant_super_route(99, datos, "654321", db, current))
     assert exc.value.status_code == 404

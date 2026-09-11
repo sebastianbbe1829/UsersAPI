@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # DATOS GLOBALES DEL USUARIO
 # ============================================================
 
+
 class UserBase(BaseModel):
     dni: str = Field(
         min_length=5,
@@ -35,8 +36,8 @@ class UserBase(BaseModel):
 #   status
 # ============================================================
 
-class UserCreate(UserBase):
 
+class UserCreate(UserBase):
     email: EmailStr = Field(
         description="Correo electrónico del usuario dentro del tenant",
     )
@@ -56,8 +57,7 @@ class UserCreate(UserBase):
     status: int = Field(
         default=0,
         description=(
-            "Estado del usuario dentro del tenant: "
-            "0=inactivo, 1=activo, 3=eliminado lógicamente"
+            "Estado del usuario dentro del tenant: 0=inactivo, 1=activo, 3=eliminado lógicamente"
         ),
     )
 
@@ -68,8 +68,8 @@ class UserCreate(UserBase):
 # Todos los campos son opcionales porque utilizamos PATCH.
 # ============================================================
 
-class UserUpdate(BaseModel):
 
+class UserUpdate(BaseModel):
     name: str | None = Field(
         default=None,
         min_length=2,
@@ -98,17 +98,13 @@ class UserUpdate(BaseModel):
     status: int | None = Field(
         default=None,
         description=(
-            "Nuevo estado dentro del tenant: "
-            "0=inactivo, 1=activo, 3=eliminado lógicamente"
+            "Nuevo estado dentro del tenant: 0=inactivo, 1=activo, 3=eliminado lógicamente"
         ),
     )
 
     unlock: bool | None = Field(
         default=None,
-        description=(
-            "Desbloquea la cuenta y reinicia los intentos fallidos "
-            "de autenticación"
-        ),
+        description=("Desbloquea la cuenta y reinicia los intentos fallidos de autenticación"),
     )
 
 
@@ -127,8 +123,8 @@ class UserUpdate(BaseModel):
 #   status
 # ============================================================
 
-class UserRead(UserBase):
 
+class UserRead(UserBase):
     email: EmailStr = Field(
         description="Correo electrónico del usuario",
     )
@@ -140,15 +136,12 @@ class UserRead(UserBase):
 
     status: int = Field(
         description=(
-            "Estado del usuario dentro del tenant: "
-            "0=inactivo, 1=activo, 3=eliminado lógicamente"
+            "Estado del usuario dentro del tenant: 0=inactivo, 1=activo, 3=eliminado lógicamente"
         ),
     )
 
     id: int = Field(
-        description=(
-            "Id del usuario"
-        ),
+        description=("Id del usuario"),
     )
 
     failed_login_attempts: int = Field(
@@ -170,8 +163,8 @@ class UserRead(UserBase):
 # RESPUESTA ELIMINACIÓN
 # ============================================================
 
-class UserDeleteResponse(UserRead):
 
+class UserDeleteResponse(UserRead):
     message: str = Field(
         description="Mensaje de confirmación de eliminación",
     )
@@ -181,8 +174,8 @@ class UserDeleteResponse(UserRead):
 # RESPUESTA ACTIVACIÓN
 # ============================================================
 
-class UserActivateResponse(UserRead):
 
+class UserActivateResponse(UserRead):
     message: str = Field(
         description="Mensaje de confirmación de activación",
     )

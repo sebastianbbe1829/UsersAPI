@@ -13,6 +13,7 @@ from ..repositories.role_repository import RoleRepository
 # CREAR ROL
 # ============================================================
 
+
 def create_role(
     tenant_id: int,
     code: str,
@@ -21,7 +22,6 @@ def create_role(
     db: Session,
     current_user=None,
 ) -> RoleDB:
-
     repo = RoleRepository(db)
 
     code = code.strip().upper()
@@ -58,9 +58,7 @@ def create_role(
         rol_eliminado.name = name
         rol_eliminado.description = description
         rol_eliminado.status = 1
-        rol_eliminado.updated_by = (
-            current_user.email if current_user else "bootstrap"
-        )
+        rol_eliminado.updated_by = current_user.email if current_user else "bootstrap"
         rol_eliminado.updated_at = datetime.now()
 
         try:
@@ -116,9 +114,7 @@ def create_role(
         name=name,
         description=description,
         status=1,
-        created_by=(
-            current_user.email if current_user else "bootstrap"
-        ),
+        created_by=(current_user.email if current_user else "bootstrap"),
         created_at=datetime.now(),
     )
 
@@ -163,6 +159,7 @@ def create_role(
 # LISTAR ROLES
 # ============================================================
 
+
 def list_roles(
     tenant_id: int,
     db: Session,
@@ -187,6 +184,7 @@ def list_roles(
 # ============================================================
 # OBTENER ROL
 # ============================================================
+
 
 def get_role(
     role_id: int,
@@ -218,6 +216,7 @@ def get_role(
 # ============================================================
 # ACTUALIZAR ROL
 # ============================================================
+
 
 def update_role(
     role_id: int,
@@ -278,9 +277,7 @@ def update_role(
     if description is not None:
         role.description = description
 
-    role.updated_by = (
-        current_user.email if current_user else "bootstrap"
-    )
+    role.updated_by = current_user.email if current_user else "bootstrap"
     role.updated_at = datetime.now()
 
     try:
@@ -304,6 +301,7 @@ def update_role(
 # ============================================================
 # ELIMINAR ROL
 # ============================================================
+
 
 def delete_role(
     role_id: int,

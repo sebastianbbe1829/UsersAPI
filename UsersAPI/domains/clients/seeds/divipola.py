@@ -74,11 +74,7 @@ def seed_divipola(db: Session, csv_path: Path = DEFAULT_CSV_PATH) -> dict[str, i
 
     # Cargar los catálogos existentes una sola vez. El seed anterior hacía
     # consultas individuales de departamento y ciudad para cada fila del CSV.
-    departments = (
-        db.query(DepartmentDB)
-        .filter(DepartmentDB.country_id == country.id)
-        .all()
-    )
+    departments = db.query(DepartmentDB).filter(DepartmentDB.country_id == country.id).all()
     departments_by_code = {department.code: department for department in departments}
 
     cities = (
@@ -87,10 +83,7 @@ def seed_divipola(db: Session, csv_path: Path = DEFAULT_CSV_PATH) -> dict[str, i
         .filter(DepartmentDB.country_id == country.id)
         .all()
     )
-    cities_by_key = {
-        (city.department_id, city.code): city
-        for city in cities
-    }
+    cities_by_key = {(city.department_id, city.code): city for city in cities}
 
     with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file)

@@ -144,6 +144,4 @@ def set_tenant(conn, tenant_id):
 
 def clear_tenant(conn):
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT set_config('app.current_tenant_id', '', false)"
-        )
+        cur.execute("SELECT set_config('app.current_tenant_id', '', false)")

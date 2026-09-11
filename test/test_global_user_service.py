@@ -73,10 +73,13 @@ def test_create_global_super_requires_valid_fresh_mfa(actor):
     db = MagicMock()
     datos = _create_data()
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service,
-        "verify_super_mfa_otp",
-        side_effect=HTTPException(status_code=401, detail="MFA inválido."),
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(
+            global_user_service,
+            "verify_super_mfa_otp",
+            side_effect=HTTPException(status_code=401, detail="MFA inválido."),
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             global_user_service.create_global_super(datos, "000000", db, actor)
@@ -97,13 +100,15 @@ def test_create_global_super_creates_enrolled_user_and_returns_provisioning_uri(
     db.flush.side_effect = flush_assigns_id
     datos = _create_data(dni="90000011", email=" New@Example.COM ")
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
-    ) as verify_otp, patch.object(
-        global_user_service, "get_password_hash", return_value="hashed-password"
-    ), patch.object(
-        global_user_service, "_encrypt_mfa_secret", side_effect=lambda secret: f"enc:{secret}"
-    ), patch.object(global_user_service, "send_email") as send_email_mock:
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(global_user_service, "verify_super_mfa_otp") as verify_otp,
+        patch.object(global_user_service, "get_password_hash", return_value="hashed-password"),
+        patch.object(
+            global_user_service, "_encrypt_mfa_secret", side_effect=lambda secret: f"enc:{secret}"
+        ),
+        patch.object(global_user_service, "send_email") as send_email_mock,
+    ):
         response = global_user_service.create_global_super(datos, "123456", db, actor)
 
     verify_otp.assert_called_once_with(actor, "123456")
@@ -141,8 +146,9 @@ def test_create_global_super_rejects_duplicate_email(actor):
     query.first.return_value = SimpleNamespace(email="new@example.com")
     datos = _create_data()
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(global_user_service, "verify_super_mfa_otp"),
     ):
         with pytest.raises(HTTPException) as exc_info:
             global_user_service.create_global_super(datos, "123456", db, actor)
@@ -155,10 +161,13 @@ def test_update_global_super_requires_fresh_mfa(actor):
     db = MagicMock()
     datos = GlobalSuperUpdate(name="Changed")
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service,
-        "verify_super_mfa_otp",
-        side_effect=HTTPException(status_code=401, detail="MFA inválido."),
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(
+            global_user_service,
+            "verify_super_mfa_otp",
+            side_effect=HTTPException(status_code=401, detail="MFA inválido."),
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             global_user_service.update_global_super(1, datos, "000000", db, actor)
@@ -172,9 +181,11 @@ def test_update_global_super_rejects_empty_update(actor):
     target = SimpleNamespace(id=1, email="target@example.com", is_active=True, is_superuser=True)
     datos = GlobalSuperUpdate()
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
-    ), patch.object(global_user_service, "get_global_super", return_value=target):
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(global_user_service, "verify_super_mfa_otp"),
+        patch.object(global_user_service, "get_global_super", return_value=target),
+    ):
         with pytest.raises(HTTPException) as exc_info:
             global_user_service.update_global_super(1, datos, "123456", db, actor)
 
@@ -196,9 +207,11 @@ def test_update_global_super_cannot_deactivate_last_active_super(actor):
     query.count.return_value = 1
     datos = GlobalSuperUpdate(is_active=False)
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
-    ), patch.object(global_user_service, "get_global_super", return_value=target):
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(global_user_service, "verify_super_mfa_otp"),
+        patch.object(global_user_service, "get_global_super", return_value=target),
+    ):
         with pytest.raises(HTTPException) as exc_info:
             global_user_service.update_global_super(1, datos, "123456", db, actor)
 
@@ -223,9 +236,11 @@ def test_update_global_super_deactivation_clears_session(actor):
     query.count.return_value = 2
     datos = GlobalSuperUpdate(is_active=False)
 
-    with patch.object(global_user_service, "require_super_user", return_value=actor), patch.object(
-        global_user_service, "verify_super_mfa_otp"
-    ), patch.object(global_user_service, "get_global_super", return_value=target):
+    with (
+        patch.object(global_user_service, "require_super_user", return_value=actor),
+        patch.object(global_user_service, "verify_super_mfa_otp"),
+        patch.object(global_user_service, "get_global_super", return_value=target),
+    ):
         result = global_user_service.update_global_super(2, datos, "123456", db, actor)
 
     assert result is target

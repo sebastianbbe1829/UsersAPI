@@ -37,16 +37,18 @@ def test_list_users_without_status_filter(monkeypatch):
 
     result = service.list_users(MagicMock(), 5)
 
-    assert result == [{
-        "dni": "123",
-        "name": "User",
-        "email": "user@example.com",
-        "phone": "3001234567",
-        "status": 1,
-        "id": 1,
-        "failed_login_attempts": 0,
-        "locked_at": None,
-    }]
+    assert result == [
+        {
+            "dni": "123",
+            "name": "User",
+            "email": "user@example.com",
+            "phone": "3001234567",
+            "status": 1,
+            "id": 1,
+            "failed_login_attempts": 0,
+            "locked_at": None,
+        }
+    ]
     repository.get_all_by_tenant.assert_called_once_with(5, None)
 
 

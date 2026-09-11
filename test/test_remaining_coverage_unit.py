@@ -17,9 +17,7 @@ def test_activation_otp_controller_success_and_value_error(monkeypatch):
         "generate_activation_otp",
         MagicMock(return_value=expires_at),
     )
-    result = activation_otp_controller.request_activation_otp(
-        "123", "token", MagicMock()
-    )
+    result = activation_otp_controller.request_activation_otp("123", "token", MagicMock())
     assert result.message.startswith("Código de verificación")
     assert result.expires_at == expires_at
 
@@ -29,9 +27,7 @@ def test_activation_otp_controller_success_and_value_error(monkeypatch):
         MagicMock(side_effect=ValueError("bad token")),
     )
     with pytest.raises(HTTPException) as exc:
-        activation_otp_controller.request_activation_otp(
-            "123", "token", MagicMock()
-        )
+        activation_otp_controller.request_activation_otp("123", "token", MagicMock())
     assert exc.value.status_code == 400
     assert exc.value.detail == "bad token"
 
@@ -44,9 +40,7 @@ def test_activation_otp_controller_preserves_http_and_maps_generic_error(monkeyp
         MagicMock(side_effect=http_error),
     )
     with pytest.raises(HTTPException) as exc:
-        activation_otp_controller.request_activation_otp(
-            "123", "token", MagicMock()
-        )
+        activation_otp_controller.request_activation_otp("123", "token", MagicMock())
     assert exc.value is http_error
 
     monkeypatch.setattr(
@@ -55,9 +49,7 @@ def test_activation_otp_controller_preserves_http_and_maps_generic_error(monkeyp
         MagicMock(side_effect=RuntimeError("provider")),
     )
     with pytest.raises(HTTPException) as exc:
-        activation_otp_controller.request_activation_otp(
-            "123", "token", MagicMock()
-        )
+        activation_otp_controller.request_activation_otp("123", "token", MagicMock())
     assert exc.value.status_code == 502
 
 
@@ -109,9 +101,7 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
         super_mode=False,
     )
     tenant_db = MagicMock()
-    tenant_result = auth_controller.login_user(
-        datos, tenant_db, client_ip="1.2.3.4"
-    )
+    tenant_result = auth_controller.login_user(datos, tenant_db, client_ip="1.2.3.4")
     assert tenant_result.access_token == "jwt-tenant"
     tenant_login.assert_called_once_with(
         datos,
@@ -128,14 +118,13 @@ def test_auth_controller_wrappers_and_tenant_login(monkeypatch):
         super_mode=True,
     )
     super_db = MagicMock()
-    super_result = auth_controller.login_user(
-        super_datos, super_db, client_ip="1.2.3.4"
-    )
+    super_result = auth_controller.login_user(super_datos, super_db, client_ip="1.2.3.4")
     assert super_result.access_token == "jwt-super"
     assert super_login.call_count == 1
-    assert auth_controller.login_super_user(
-        SimpleNamespace(), MagicMock(), "1.2.3.4"
-    ).access_token == "jwt-super"
+    assert (
+        auth_controller.login_super_user(SimpleNamespace(), MagicMock(), "1.2.3.4").access_token
+        == "jwt-super"
+    )
     assert auth_controller.validate_token("jwt", MagicMock()) == {"valid": True}
     assert audit.call_count == 3
 

@@ -28,8 +28,7 @@ class TenantConfigSuperUpdate(TenantConfigUpdate):
         default=None,
         ge=0,
         description=(
-            "Máximo de intentos fallidos antes de bloquear. "
-            "0 o vacío deshabilita el bloqueo."
+            "Máximo de intentos fallidos antes de bloquear. 0 o vacío deshabilita el bloqueo."
         ),
     )
 

@@ -16,16 +16,10 @@ def grant_permissions(db: Session, user_tenant, *permission_codes: str):
     role_id = user_tenant.roles[0].role_id
 
     for code in permission_codes:
-        permission = (
-            db.query(PermissionDB)
-            .filter(PermissionDB.code == code)
-            .first()
-        )
+        permission = db.query(PermissionDB).filter(PermissionDB.code == code).first()
 
         if permission is None:
-            raise AssertionError(
-                f"El permiso requerido por la prueba no existe: {code}"
-            )
+            raise AssertionError(f"El permiso requerido por la prueba no existe: {code}")
 
         exists = (
             db.query(RolePermissionDB)

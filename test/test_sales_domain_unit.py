@@ -62,9 +62,7 @@ def test_sale_repository_get_and_list_are_tenant_scoped():
 
     assert repository.get_by_id(7, uuid4()) == "sale"
 
-    db.scalars.return_value.unique.return_value.__iter__.return_value = iter(
-        ["a", "b"]
-    )
+    db.scalars.return_value.unique.return_value.__iter__.return_value = iter(["a", "b"])
     assert repository.list(7, limit=2, offset=1) == ["a", "b"]
 
 
@@ -74,9 +72,7 @@ def test_create_sale_rejects_duplicate_products_before_database_work():
             SaleItemCreate(product_id=1, quantity=1),
             SaleItemCreate(product_id=1, quantity=2),
         ],
-        payments=[
-            SalePaymentCreate(payment_method="cash", amount=Decimal("100"))
-        ],
+        payments=[SalePaymentCreate(payment_method="cash", amount=Decimal("100"))],
     )
 
     with pytest.raises(HTTPException) as error:
@@ -94,9 +90,7 @@ def test_create_sale_rejects_payment_total_mismatch():
     ]
     data = SaleCreate(
         items=[SaleItemCreate(product_id=1, quantity=2)],
-        payments=[
-            SalePaymentCreate(payment_method="cash", amount=Decimal("1"))
-        ],
+        payments=[SalePaymentCreate(payment_method="cash", amount=Decimal("1"))],
     )
 
     with pytest.raises(HTTPException) as error:
@@ -109,16 +103,10 @@ def test_credit_sale_cannot_be_split():
     data = SaleCreate(
         items=[SaleItemCreate(product_id=1, quantity=1)],
         customers=[
-            SaleCustomerCreate(
-                client_id=uuid4(), allocation_percentage=Decimal("50")
-            ),
-            SaleCustomerCreate(
-                client_id=uuid4(), allocation_percentage=Decimal("50")
-            ),
+            SaleCustomerCreate(client_id=uuid4(), allocation_percentage=Decimal("50")),
+            SaleCustomerCreate(client_id=uuid4(), allocation_percentage=Decimal("50")),
         ],
-        payments=[
-            SalePaymentCreate(payment_method="CREDITO", amount=Decimal("100"))
-        ],
+        payments=[SalePaymentCreate(payment_method="CREDITO", amount=Decimal("100"))],
     )
 
     with pytest.raises(HTTPException) as error:
@@ -130,14 +118,8 @@ def test_credit_sale_cannot_be_split():
 def test_credit_sale_requires_registered_client():
     data = SaleCreate(
         items=[SaleItemCreate(product_id=1, quantity=1)],
-        customers=[
-            SaleCustomerCreate(
-                allocation_percentage=Decimal("100"), is_generic=True
-            )
-        ],
-        payments=[
-            SalePaymentCreate(payment_method="CREDITO", amount=Decimal("100"))
-        ],
+        customers=[SaleCustomerCreate(allocation_percentage=Decimal("100"), is_generic=True)],
+        payments=[SalePaymentCreate(payment_method="CREDITO", amount=Decimal("100"))],
     )
 
     with pytest.raises(HTTPException) as error:
@@ -147,37 +129,23 @@ def test_credit_sale_requires_registered_client():
 
 
 def test_client_with_match_is_not_eligible_without_override(monkeypatch):
-    monkeypatch.setattr(
-        sale_service, "has_compliance_override", lambda *_args: False
-    )
-    client = SimpleNamespace(
-        id=uuid4(), status="ACTIVE", is_listed=True, compliance_status="MATCH"
-    )
-    assert (
-        sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is False
-    )
+    monkeypatch.setattr(sale_service, "has_compliance_override", lambda *_args: False)
+    client = SimpleNamespace(id=uuid4(), status="ACTIVE", is_listed=True, compliance_status="MATCH")
+    assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is False
 
 
 def test_client_with_match_is_eligible_with_override(monkeypatch):
-    monkeypatch.setattr(
-        sale_service, "has_compliance_override", lambda *_args: True
-    )
-    client = SimpleNamespace(
-        id=uuid4(), status="ACTIVE", is_listed=True, compliance_status="MATCH"
-    )
+    monkeypatch.setattr(sale_service, "has_compliance_override", lambda *_args: True)
+    client = SimpleNamespace(id=uuid4(), status="ACTIVE", is_listed=True, compliance_status="MATCH")
     assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is True
 
 
 def test_inactive_client_is_not_eligible_even_with_override(monkeypatch):
-    monkeypatch.setattr(
-        sale_service, "has_compliance_override", lambda *_args: True
-    )
+    monkeypatch.setattr(sale_service, "has_compliance_override", lambda *_args: True)
     client = SimpleNamespace(
         id=uuid4(), status="BLOCKED", is_listed=True, compliance_status="MATCH"
     )
-    assert (
-        sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is False
-    )
+    assert sale_service._client_is_eligible_for_sale(client, MagicMock(), 7) is False
 
 
 def test_clean_active_client_is_eligible_without_override(monkeypatch):

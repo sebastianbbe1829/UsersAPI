@@ -11,9 +11,7 @@ from .logging_config import logger
 DATABASE_URL = settings.database_url
 
 if not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL no está configurada."
-    )
+    raise RuntimeError("DATABASE_URL no está configurada.")
 
 
 # ============================================================
@@ -23,9 +21,7 @@ if not DATABASE_URL:
 BOOTSTRAP_DATABASE_URL = settings.bootstrap_database_url
 
 if not BOOTSTRAP_DATABASE_URL:
-    raise RuntimeError(
-        "BOOTSTRAP_DATABASE_URL no está configurada."
-    )
+    raise RuntimeError("BOOTSTRAP_DATABASE_URL no está configurada.")
 
 
 # ============================================================
@@ -90,11 +86,11 @@ logger.debug("Base de datos y sesiones configuradas correctamente")
 # RLS - CONTEXTO DEL TENANT
 # ============================================================
 
+
 def set_rls_tenant(
     db,
     tenant_id: int,
 ) -> None:
-
     db.execute(
         text(
             """
@@ -120,8 +116,8 @@ def set_rls_tenant(
 # permanece protegida por RLS.
 # ============================================================
 
-def get_db():
 
+def get_db():
     db = SessionLocal()
 
     try:
@@ -144,8 +140,8 @@ def get_db():
 # Esta conexión utiliza BOOTSTRAP_DATABASE_URL.
 # ============================================================
 
-def get_bootstrap_db():
 
+def get_bootstrap_db():
     db = BootstrapSessionLocal()
 
     try:

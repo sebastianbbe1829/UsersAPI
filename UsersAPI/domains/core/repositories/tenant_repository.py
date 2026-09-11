@@ -2,7 +2,6 @@ from ..models import TenantDB, UserTenantDB
 
 
 class TenantRepository:
-
     def __init__(self, db):
         self.db = db
 
@@ -13,20 +12,14 @@ class TenantRepository:
         return tenant
 
     def get_all(self, status_filter: int | None = None):
-
-        query = self.db.query(TenantDB).filter(
-            TenantDB.status != 3
-        )
+        query = self.db.query(TenantDB).filter(TenantDB.status != 3)
 
         if status_filter is not None:
-            query = query.filter(
-                TenantDB.status == status_filter
-            )
+            query = query.filter(TenantDB.status == status_filter)
 
         return query.all()
 
     def get_by_id(self, tenant_id: int):
-
         return (
             self.db.query(TenantDB)
             .filter(
@@ -37,17 +30,9 @@ class TenantRepository:
         )
 
     def get_by_id_including_deleted(self, tenant_id: int):
-
-        return (
-            self.db.query(TenantDB)
-            .filter(
-                TenantDB.id == tenant_id
-            )
-            .first()
-        )
+        return self.db.query(TenantDB).filter(TenantDB.id == tenant_id).first()
 
     def get_by_slug(self, slug: str):
-
         return (
             self.db.query(TenantDB)
             .filter(
@@ -58,7 +43,6 @@ class TenantRepository:
         )
 
     def get_by_name(self, name: str):
-
         return (
             self.db.query(TenantDB)
             .filter(
@@ -69,19 +53,13 @@ class TenantRepository:
         )
 
     def update(self, tenant: TenantDB):
-
         self.db.flush()
         self.db.refresh(tenant)
         self.db.flush()
         return tenant
 
     def delete(self, tenant: TenantDB):
-
-        self.db.query(TenantDB).filter(
-            TenantDB.id == tenant.id
-        ).update({
-            TenantDB.status: 3
-        })
+        self.db.query(TenantDB).filter(TenantDB.id == tenant.id).update({TenantDB.status: 3})
 
         self.db.flush()
         self.db.refresh(tenant)
@@ -108,8 +86,6 @@ class TenantRepository:
         )
 
         if status_filter is not None:
-            query = query.filter(
-                TenantDB.status == status_filter
-            )
+            query = query.filter(TenantDB.status == status_filter)
 
         return query.all()

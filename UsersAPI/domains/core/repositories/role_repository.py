@@ -2,7 +2,6 @@ from ..models import RoleDB
 
 
 class RoleRepository:
-
     def __init__(self, db):
         self.db = db
 
@@ -14,7 +13,6 @@ class RoleRepository:
         self,
         role: RoleDB,
     ):
-
         self.db.add(role)
 
         self.db.flush()
@@ -22,7 +20,6 @@ class RoleRepository:
         self.db.refresh(role)
 
         return role
-
 
     # ============================================================
     # LISTAR ROLES DEL TENANT
@@ -33,23 +30,15 @@ class RoleRepository:
         tenant_id: int,
         status_filter: int | None = None,
     ):
-
-        query = (
-            self.db.query(RoleDB)
-            .filter(
-                RoleDB.tenant_id == tenant_id,
-                RoleDB.status != 3,
-            )
+        query = self.db.query(RoleDB).filter(
+            RoleDB.tenant_id == tenant_id,
+            RoleDB.status != 3,
         )
 
         if status_filter is not None:
-
-            query = query.filter(
-                RoleDB.status == status_filter
-            )
+            query = query.filter(RoleDB.status == status_filter)
 
         return query.all()
-
 
     # ============================================================
     # BUSCAR POR ID
@@ -60,7 +49,6 @@ class RoleRepository:
         role_id: int,
         tenant_id: int,
     ):
-
         return (
             self.db.query(RoleDB)
             .filter(
@@ -71,7 +59,6 @@ class RoleRepository:
             .first()
         )
 
-
     # ============================================================
     # BUSCAR CÓDIGO ACTIVO
     # ============================================================
@@ -81,7 +68,6 @@ class RoleRepository:
         code: str,
         tenant_id: int,
     ):
-
         return (
             self.db.query(RoleDB)
             .filter(
@@ -91,7 +77,6 @@ class RoleRepository:
             )
             .first()
         )
-
 
     # ============================================================
     # BUSCAR CÓDIGO INCLUYENDO ELIMINADOS
@@ -102,7 +87,6 @@ class RoleRepository:
         code: str,
         tenant_id: int,
     ):
-
         return (
             self.db.query(RoleDB)
             .filter(
@@ -111,7 +95,6 @@ class RoleRepository:
             )
             .first()
         )
-
 
     # ============================================================
     # BUSCAR NOMBRE ACTIVO
@@ -122,7 +105,6 @@ class RoleRepository:
         name: str,
         tenant_id: int,
     ):
-
         return (
             self.db.query(RoleDB)
             .filter(
@@ -133,7 +115,6 @@ class RoleRepository:
             .first()
         )
 
-
     # ============================================================
     # BUSCAR NOMBRE INCLUYENDO ELIMINADOS
     # ============================================================
@@ -143,7 +124,6 @@ class RoleRepository:
         name: str,
         tenant_id: int,
     ):
-
         return (
             self.db.query(RoleDB)
             .filter(
@@ -153,7 +133,6 @@ class RoleRepository:
             .first()
         )
 
-
     # ============================================================
     # ACTUALIZAR
     # ============================================================
@@ -162,7 +141,6 @@ class RoleRepository:
         self,
         role: RoleDB,
     ):
-
         self.db.flush()
 
         self.db.refresh(role)
@@ -170,7 +148,6 @@ class RoleRepository:
         self.db.flush()
 
         return role
-
 
     # ============================================================
     # ELIMINACIÓN LÓGICA
@@ -180,12 +157,7 @@ class RoleRepository:
         self,
         role: RoleDB,
     ):
-
-        self.db.query(RoleDB).filter(
-            RoleDB.id == role.id
-        ).update({
-            RoleDB.status: 3
-        })
+        self.db.query(RoleDB).filter(RoleDB.id == role.id).update({RoleDB.status: 3})
 
         self.db.flush()
 

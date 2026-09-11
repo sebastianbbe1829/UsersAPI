@@ -15,10 +15,7 @@ from .screening_sync_service import create_sync_execution, run_sync_execution
 
 TIMEZONE = os.getenv("JOB_TIMEZONE", "America/Bogota")
 RUN_TIME = os.getenv("RESTRICTIVE_LISTS_SYNC_TIME", "07:00")
-ENABLED = (
-    os.getenv("RESTRICTIVE_LISTS_SYNC_ENABLED", "true").lower()
-    in {"1", "true", "yes", "on"}
-)
+ENABLED = os.getenv("RESTRICTIVE_LISTS_SYNC_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 ADVISORY_LOCK_ID = 824731906
 
 

@@ -21,10 +21,7 @@ def send_user_notifications(
     else:
         email_template = "activation"
         email_subject = f"Activa tu cuenta en {tenant_name}"
-        email_message = (
-            f"Hola {user.name}, "
-            f"tu cuenta en {tenant_name} ha sido creada exitosamente."
-        )
+        email_message = f"Hola {user.name}, tu cuenta en {tenant_name} ha sido creada exitosamente."
 
     try:
         send_email(

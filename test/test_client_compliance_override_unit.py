@@ -26,8 +26,13 @@ def _tenant_user():
 def test_override_does_not_require_mfa():
     db = MagicMock()
     client = SimpleNamespace(
-        id=uuid4(), tenant_id=10, status="BLOCKED", is_listed=True,
-        screenings=[], updated_at=None, updated_by=None,
+        id=uuid4(),
+        tenant_id=10,
+        status="BLOCKED",
+        is_listed=True,
+        screenings=[],
+        updated_at=None,
+        updated_by=None,
     )
     db.query.return_value.filter.return_value.first.return_value = client
     user = _tenant_user()
@@ -48,8 +53,13 @@ def test_override_preserves_original_match_history():
     db = MagicMock()
     screening = SimpleNamespace(id=uuid4(), requested_at=None)
     client = SimpleNamespace(
-        id=uuid4(), tenant_id=10, status="BLOCKED", is_listed=True,
-        screenings=[screening], updated_at=None, updated_by=None,
+        id=uuid4(),
+        tenant_id=10,
+        status="BLOCKED",
+        is_listed=True,
+        screenings=[screening],
+        updated_at=None,
+        updated_by=None,
     )
     db.query.return_value.filter.return_value.first.return_value = client
     user = _tenant_user()
@@ -67,8 +77,13 @@ def test_override_rejects_client_without_active_compliance_restriction():
 
     db = MagicMock()
     client = SimpleNamespace(
-        id=uuid4(), tenant_id=10, status="ACTIVE", is_listed=False,
-        screenings=[], updated_at=None, updated_by=None,
+        id=uuid4(),
+        tenant_id=10,
+        status="ACTIVE",
+        is_listed=False,
+        screenings=[],
+        updated_at=None,
+        updated_by=None,
     )
     db.query.return_value.filter.return_value.first.return_value = client
 

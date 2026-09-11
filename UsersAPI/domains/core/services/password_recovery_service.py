@@ -55,8 +55,7 @@ def request_password_recovery(
 
     if user_tenant is None:
         logger.info(
-            "Solicitud de recuperación para usuario no encontrado "
-            "tenant_id=%s email=%s",
+            "Solicitud de recuperación para usuario no encontrado tenant_id=%s email=%s",
             tenant_id,
             email,
         )
@@ -124,8 +123,7 @@ def reset_password(
     UserTenantRepository(db).update(user_tenant)
 
     logger.info(
-        "Contraseña actualizada mediante recuperación "
-        "user_tenant_id=%s tenant_id=%s",
+        "Contraseña actualizada mediante recuperación user_tenant_id=%s tenant_id=%s",
         user_tenant.id,
         tenant_id,
     )

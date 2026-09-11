@@ -14,7 +14,6 @@ from ..database import Base
 
 
 class PermissionDB(Base):
-
     __tablename__ = "permissions"
 
     __table_args__ = (
@@ -22,9 +21,7 @@ class PermissionDB(Base):
             "code",
             name="uq_permissions_code",
         ),
-        {
-            "schema": "users_api"
-        },
+        {"schema": "users_api"},
     )
 
     id = Column(

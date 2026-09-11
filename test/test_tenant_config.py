@@ -37,11 +37,7 @@ def test_tenant_config_is_created_with_defaults(
     assert data["primary_color"] == "#0D6EFD"
     assert data["secondary_color"] == "#6C757D"
 
-    config = (
-        db_session.query(TenantConfigDB)
-        .filter(TenantConfigDB.tenant_id == tenant_id)
-        .one()
-    )
+    config = db_session.query(TenantConfigDB).filter(TenantConfigDB.tenant_id == tenant_id).one()
     assert config.app_title == tenant.name
 
 
@@ -122,9 +118,7 @@ def test_tenant_config_update_isolated_from_another_tenant(
 
     set_rls_tenant(db_session, tenant_b_id)
     config_b = (
-        db_session.query(TenantConfigDB)
-        .filter(TenantConfigDB.tenant_id == tenant_b_id)
-        .one()
+        db_session.query(TenantConfigDB).filter(TenantConfigDB.tenant_id == tenant_b_id).one()
     )
 
     assert config_b.app_title == "Configuración B"
@@ -144,9 +138,7 @@ def test_tenant_config_requires_permission(
     grant_permissions(db_session, user_tenant, "CONFIG_UI_READ")
 
     config_update_permission = (
-        db_session.query(PermissionDB)
-        .filter(PermissionDB.code == "CONFIG_UI_UPDATE")
-        .one()
+        db_session.query(PermissionDB).filter(PermissionDB.code == "CONFIG_UI_UPDATE").one()
     )
     role_id = user_tenant.roles[0].role_id
     db_session.query(RolePermissionDB).filter(
@@ -163,9 +155,7 @@ def test_tenant_config_requires_permission(
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "No tienes permisos para realizar esta operación"
-    )
+    assert response.json()["detail"] == ("No tienes permisos para realizar esta operación")
 
 
 def test_tenant_config_rejects_invalid_colors(

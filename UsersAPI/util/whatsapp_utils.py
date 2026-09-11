@@ -18,6 +18,7 @@ WHATSAPP_API_URL = settings.whatsapp_api_url
 # FORMATEAR NÚMERO
 # ============================================================
 
+
 def format_number(number: str) -> str:
     """Normaliza números de Colombia."""
 
@@ -36,6 +37,7 @@ def format_number(number: str) -> str:
 # ENVIAR WHATSAPP
 # ============================================================
 
+
 def send_whatsapp(
     to_number: str,
     message: str | None = None,
@@ -45,8 +47,8 @@ def send_whatsapp(
     """Envía un mensaje mediante WhatsApp Cloud API."""
 
     if not WHATSAPP_API_URL:
-            logger.error("WHATSAPP_API_URL no está configurado")
-            return None
+        logger.error("WHATSAPP_API_URL no está configurado")
+        return None
 
     if not ACCESS_TOKEN:
         logger.error("WHATSAPP_TOKEN no está configurado")
@@ -57,9 +59,7 @@ def send_whatsapp(
         return None
 
     if not to_number:
-        logger.error(
-            "No se puede enviar WhatsApp: el número de teléfono está vacío"
-        )
+        logger.error("No se puede enviar WhatsApp: el número de teléfono está vacío")
         return None
 
     normalized_number = format_number(to_number)
@@ -73,9 +73,7 @@ def send_whatsapp(
 
     if WHATSAPP_MODE.lower() == "text":
         if not message:
-            logger.error(
-                "WHATSAPP_MODE=text pero no se recibió ningún mensaje"
-            )
+            logger.error("WHATSAPP_MODE=text pero no se recibió ningún mensaje")
             return None
 
         data = {
@@ -135,8 +133,7 @@ def send_whatsapp(
                 }
 
             logger.info(
-                "WhatsApp enviado correctamente | "
-                "status=%s | to=%s | mode=%s | template=%s",
+                "WhatsApp enviado correctamente | status=%s | to=%s | mode=%s | template=%s",
                 response.status_code,
                 normalized_number,
                 WHATSAPP_MODE,
@@ -147,8 +144,7 @@ def send_whatsapp(
             return response_data
 
         logger.error(
-            "Error HTTP WhatsApp | status=%s | response=%s | "
-            "to=%s | mode=%s | template=%s",
+            "Error HTTP WhatsApp | status=%s | response=%s | to=%s | mode=%s | template=%s",
             response.status_code,
             response.text,
             normalized_number,
@@ -160,8 +156,7 @@ def send_whatsapp(
 
     except requests.exceptions.RequestException as exc:
         logger.error(
-            "Error de conexión WhatsApp | to=%s | mode=%s | "
-            "template=%s | error=%s",
+            "Error de conexión WhatsApp | to=%s | mode=%s | template=%s | error=%s",
             normalized_number,
             WHATSAPP_MODE,
             template_name,

@@ -115,12 +115,15 @@ def test_validate_otp_accepts_valid_code_and_consumes_it(
         purpose="account_activation",
     )
 
-    assert validate_otp(
-        db_session,
-        destination=destination.upper(),
-        purpose="ACCOUNT_ACTIVATION",
-        code=sent["otp_code"],
-    ) is True
+    assert (
+        validate_otp(
+            db_session,
+            destination=destination.upper(),
+            purpose="ACCOUNT_ACTIVATION",
+            code=sent["otp_code"],
+        )
+        is True
+    )
 
     otp = (
         db_session.query(OTPCodeDB)
@@ -133,12 +136,15 @@ def test_validate_otp_accepts_valid_code_and_consumes_it(
     assert otp.attempts == 1
     assert otp.consumed_at is not None
 
-    assert validate_otp(
-        db_session,
-        destination=destination,
-        purpose="account_activation",
-        code=sent["otp_code"],
-    ) is False
+    assert (
+        validate_otp(
+            db_session,
+            destination=destination,
+            purpose="account_activation",
+            code=sent["otp_code"],
+        )
+        is False
+    )
 
 
 def test_validate_otp_rejects_invalid_code_and_increments_attempts(
@@ -157,12 +163,15 @@ def test_validate_otp_rejects_invalid_code_and_increments_attempts(
         purpose="login",
     )
 
-    assert validate_otp(
-        db_session,
-        destination=destination,
-        purpose="login",
-        code="000000",
-    ) is False
+    assert (
+        validate_otp(
+            db_session,
+            destination=destination,
+            purpose="login",
+            code="000000",
+        )
+        is False
+    )
 
     otp = (
         db_session.query(OTPCodeDB)
@@ -191,12 +200,15 @@ def test_validate_otp_rejects_expired_code_without_incrementing_attempts(
     db_session.add(otp)
     db_session.flush()
 
-    assert validate_otp(
-        db_session,
-        destination=destination,
-        purpose="login",
-        code="123456",
-    ) is False
+    assert (
+        validate_otp(
+            db_session,
+            destination=destination,
+            purpose="login",
+            code="123456",
+        )
+        is False
+    )
     assert otp.attempts == 0
 
 
@@ -216,12 +228,15 @@ def test_validate_otp_rejects_code_after_max_attempts(
     db_session.add(otp)
     db_session.flush()
 
-    assert validate_otp(
-        db_session,
-        destination=destination,
-        purpose="login",
-        code="123456",
-    ) is False
+    assert (
+        validate_otp(
+            db_session,
+            destination=destination,
+            purpose="login",
+            code="123456",
+        )
+        is False
+    )
     assert otp.attempts == 5
 
 
@@ -229,12 +244,15 @@ def test_validate_otp_returns_false_when_no_active_code_exists(
     db_session: Session,
 ):
     destination = unique_destination()
-    assert validate_otp(
-        db_session,
-        destination=destination,
-        purpose="login",
-        code="123456",
-    ) is False
+    assert (
+        validate_otp(
+            db_session,
+            destination=destination,
+            purpose="login",
+            code="123456",
+        )
+        is False
+    )
 
 
 def test_otp_routes_require_api_key(

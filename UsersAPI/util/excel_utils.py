@@ -177,13 +177,9 @@ def export_to_excel(
     # INFORMACIÓN DEL REPORTE
     # ==========================================================
 
-    fecha_generacion = datetime.now().strftime(
-        "%d/%m/%Y %H:%M:%S"
-    )
+    fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    nombre_usuario, dni_usuario = (
-        _obtener_datos_usuario(current_user)
-    )
+    nombre_usuario, dni_usuario = _obtener_datos_usuario(current_user)
 
     informacion = [
         (
@@ -203,7 +199,6 @@ def export_to_excel(
     fila = 3
 
     for etiqueta, valor in informacion:
-
         celda_etiqueta = ws.cell(
             row=fila,
             column=1,
@@ -237,17 +232,9 @@ def export_to_excel(
 
     total_usuarios = len(data)
 
-    activos = sum(
-        1
-        for usuario in data
-        if usuario.get("Estado") == "Activo"
-    )
+    activos = sum(1 for usuario in data if usuario.get("Estado") == "Activo")
 
-    inactivos = sum(
-        1
-        for usuario in data
-        if usuario.get("Estado") == "Inactivo"
-    )
+    inactivos = sum(1 for usuario in data if usuario.get("Estado") == "Inactivo")
 
     fila_resumen = 7
 
@@ -295,7 +282,6 @@ def export_to_excel(
         resumen,
         start=2,
     ):
-
         celda = ws.cell(
             row=fila_resumen,
             column=columna,
@@ -336,7 +322,6 @@ def export_to_excel(
         columnas,
         start=1,
     ):
-
         celda = ws.cell(
             row=fila_inicio_tabla,
             column=columna,
@@ -360,9 +345,7 @@ def export_to_excel(
 
         celda.border = borde_suave
 
-    ws.row_dimensions[
-        fila_inicio_tabla
-    ].height = 25
+    ws.row_dimensions[fila_inicio_tabla].height = 25
 
     # ==========================================================
     # DATOS
@@ -371,12 +354,10 @@ def export_to_excel(
     fila_actual = fila_inicio_tabla + 1
 
     for indice, usuario in enumerate(data):
-
         for columna, encabezado in enumerate(
             columnas,
             start=1,
         ):
-
             valor = usuario.get(
                 encabezado,
                 "",
@@ -395,7 +376,6 @@ def export_to_excel(
             )
 
             if indice % 2 == 1:
-
                 celda.fill = PatternFill(
                     "solid",
                     fgColor=COLOR_GRIS_CLARO,
@@ -446,14 +426,12 @@ def export_to_excel(
         )
 
         if estado == "Activo":
-
             celda_estado.fill = PatternFill(
                 "solid",
                 fgColor=COLOR_ACTIVO,
             )
 
         elif estado == "Inactivo":
-
             celda_estado.fill = PatternFill(
                 "solid",
                 fgColor=COLOR_INACTIVO,
@@ -468,10 +446,7 @@ def export_to_excel(
     ws.auto_filter.ref = (
         f"A{fila_inicio_tabla}:E{fila_actual - 1}"
         if total_usuarios > 0
-        else (
-            f"A{fila_inicio_tabla}:"
-            f"E{fila_inicio_tabla}"
-        )
+        else (f"A{fila_inicio_tabla}:E{fila_inicio_tabla}")
     )
 
     # ==========================================================
@@ -487,10 +462,7 @@ def export_to_excel(
     }
 
     for columna, ancho in anchos.items():
-
-        ws.column_dimensions[
-            columna
-        ].width = ancho
+        ws.column_dimensions[columna].width = ancho
 
     # ==========================================================
     # CONFIGURACIÓN DE LA HOJA
@@ -508,10 +480,7 @@ def export_to_excel(
         fila_inicio_tabla + 1,
         fila_actual,
     ):
-
-        ws.row_dimensions[
-            fila_dato
-        ].height = 22
+        ws.row_dimensions[fila_dato].height = 22
 
     # ==========================================================
     # GENERAR ARCHIVO
@@ -525,13 +494,6 @@ def export_to_excel(
 
     return StreamingResponse(
         output,
-        media_type=(
-            "application/vnd.openxmlformats-officedocument."
-            "spreadsheetml.sheet"
-        ),
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="{filename}"'
-            )
-        },
+        media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        headers={"Content-Disposition": (f'attachment; filename="{filename}"')},
     )

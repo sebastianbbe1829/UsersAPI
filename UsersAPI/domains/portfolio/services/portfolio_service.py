@@ -6,6 +6,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
+from UsersAPI.domains.cash.services.cash_movement_service import (
+    record_automatic_movement,
+    record_payment_reversal,
+)
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.sales.models import SaleDB
 
@@ -16,6 +21,7 @@ from ..schemas import CreditLimitUpdate, PaymentCreate
 MONEY_UNIT = Decimal("0.01")
 PAYMENT_STATUS_APPLIED = "APLICADO"
 PAYMENT_STATUS_CANCELLED = "ANULADO"
+INVALID_PORTFOLIO_PAYMENT_METHODS = {"CREDITO", "CREDIT", "CRÉDITO"}
 
 
 def _money(value: Decimal) -> Decimal:
@@ -24,9 +30,7 @@ def _money(value: Decimal) -> Decimal:
 
 def _actor_name(current_user: object | None) -> str:
     return (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "username", None)
-        or "system"
+        getattr(current_user, "email", None) or getattr(current_user, "username", None) or "system"
     )
 
 
@@ -52,9 +56,7 @@ def _client(
 
 
 def _credit_read(credit_limit: CreditLimitDB, db: Session, tenant_id: int):
-    used = _money(
-        Decimal(PortfolioRepository(db).credit_used(tenant_id, credit_limit.client_id))
-    )
+    used = _money(Decimal(PortfolioRepository(db).credit_used(tenant_id, credit_limit.client_id)))
     approved = _money(Decimal(credit_limit.approved_limit))
     credit_limit.credit_used = used
     credit_limit.credit_available = max(Decimal("0.00"), approved - used)
@@ -135,6 +137,22 @@ def register_payment(
     tenant_id: int,
     current_user: object,
 ):
+    cash_context = require_operational_context(db, tenant_id, current_user)
+    business_date = cash_context["business_date"]
+    cash_register_id = cash_context.get("register_id")
+
+    if data.payment_date is not None and data.payment_date != business_date:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "PAYMENT_DATE_MUST_MATCH_OPERATIONAL_DATE",
+                "message": (
+                    f"La fecha del pago debe coincidir con la fecha operativa de Caja "
+                    f"({business_date.isoformat()})."
+                ),
+            },
+        )
+
     client = _client(db, tenant_id, data.client_id, lock=True)
     allocations_total = _money(
         sum(
@@ -181,11 +199,18 @@ def register_payment(
         locked_obligations.append(obligation)
 
     actor = _actor_name(current_user)
+    payment_method = data.payment_method.strip().upper()
+    if payment_method in INVALID_PORTFOLIO_PAYMENT_METHODS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Credit is not a valid portfolio payment method",
+        )
     payment = PaymentDB(
         tenant_id=tenant_id,
+        cash_register_id=cash_register_id,
         client_id=client.id,
-        payment_date=data.payment_date or date.today(),
-        payment_method=data.payment_method.strip().upper(),
+        payment_date=business_date,
+        payment_method=payment_method,
         amount=payment_amount,
         status=PAYMENT_STATUS_APPLIED,
         reference=data.reference.strip() if data.reference else None,
@@ -221,6 +246,17 @@ def register_payment(
         )
 
     db.flush()
+    record_automatic_movement(
+        db=db,
+        tenant_id=tenant_id,
+        amount=payment_amount,
+        payment_method=payment_method,
+        origin_type="PORTFOLIO_PAYMENT",
+        origin_id=payment.id,
+        description=f"Pago de cartera {payment.id}",
+        current_user=current_user,
+    )
+    db.flush()
     return repository.get_payment(tenant_id, payment.id) or payment
 
 
@@ -230,6 +266,7 @@ def annul_payment(
     tenant_id: int,
     current_user: object,
 ):
+    require_operational_context(db, tenant_id, current_user)
     repository = PortfolioRepository(db)
     payment = db.scalar(
         select(PaymentDB)
@@ -266,10 +303,7 @@ def annul_payment(
         if obligation is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "Cannot annul payment because an allocated obligation "
-                    "was not found"
-                ),
+                detail=("Cannot annul payment because an allocated obligation was not found"),
             )
 
         new_balance = _money(Decimal(obligation.balance) + Decimal(allocation.amount))
@@ -287,6 +321,14 @@ def annul_payment(
         obligation.updated_at = datetime.now(UTC)
         obligation.updated_by = actor
 
+    record_payment_reversal(
+        db=db,
+        tenant_id=tenant_id,
+        amount=payment.amount,
+        payment_method=payment.payment_method,
+        payment_id=payment.id,
+        current_user=current_user,
+    )
     payment.status = PAYMENT_STATUS_CANCELLED
     db.flush()
     return repository.get_payment(tenant_id, payment.id) or payment

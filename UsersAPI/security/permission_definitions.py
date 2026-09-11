@@ -32,7 +32,7 @@ PERMISSIONS = [
     (
         "CONFIG_UI_UPDATE",
         "Actualizar configuración de UI",
-        "Permite actualizar configuración de UI",
+        "Permite actualizar la configuración de UI",
     ),
     (
         "EXTINGUISHER_READ",
@@ -69,7 +69,11 @@ PERMISSIONS = [
         "Permite levantar una restricción de compliance mediante autorización",
     ),
     ("SALES_READ", "Consultar ventas", "Permite consultar ventas y sus detalles"),
-    ("SALES_CREATE", "Crear ventas", "Permite registrar ventas y afectar el inventario"),
+    (
+        "SALES_CREATE",
+        "Crear ventas",
+        "Permite registrar ventas y afectar el inventario",
+    ),
     (
         "SALES_AUTOCONSUME",
         "Autorizar autoconsumo",
@@ -94,5 +98,28 @@ PERMISSIONS = [
         "PORTFOLIO_PAYMENT_CREATE",
         "Registrar pagos de cartera",
         "Permite registrar pagos y aplicarlos a obligaciones",
+    ),
+    ("CASH_READ", "Consultar caja", "Permite consultar cajas, movimientos y cierres"),
+    ("CASH_CREATE", "Abrir caja", "Permite abrir una caja"),
+    (
+        "CASH_MOVEMENT_CREATE",
+        "Registrar movimientos de caja",
+        "Permite registrar ingresos y egresos manuales de caja",
+    ),
+    ("CASH_CLOSE", "Cerrar caja", "Permite realizar el arqueo y cierre de caja"),
+    (
+        "CASH_DAY_START",
+        "Iniciar día de caja",
+        "Permite iniciar el día operativo y abrir todas las sucursales y cajas activas",
+    ),
+    (
+        "CASH_BRANCH_CLOSE",
+        "Cerrar sucursal",
+        "Permite cerrar una sucursal cuando todas sus cajas están cerradas",
+    ),
+    (
+        "CASH_DAY_CLOSE",
+        "Cerrar día de caja",
+        "Permite cerrar el día cuando todas las sucursales están cerradas",
     ),
 ]

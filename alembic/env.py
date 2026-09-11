@@ -12,6 +12,7 @@ import UsersAPI.domains.clients.models  # noqa: F401
 import UsersAPI.domains.inventory.models  # noqa: F401
 import UsersAPI.domains.sales.models  # noqa: F401
 import UsersAPI.domains.portfolio.models  # noqa: F401
+import UsersAPI.domains.cash.models  # noqa: F401
 from UsersAPI.settings import settings
 
 
@@ -24,9 +25,7 @@ config = context.config
 # La URL de base de datos nunca se almacena en alembic.ini.
 # Se obtiene desde la configuración central de la aplicación.
 if not settings.database_admin_url:
-    raise RuntimeError(
-        "DATABASE_ADMIN_URL no está configurada"
-    )
+    raise RuntimeError("DATABASE_ADMIN_URL no está configurada")
 
 config.set_main_option(
     "sqlalchemy.url",
@@ -59,6 +58,7 @@ DB_SCHEMA = "users_api"
 # ============================================================
 # FILTRO DE OBJETOS
 # ============================================================
+
 
 def include_name(
     name,
@@ -97,6 +97,9 @@ def compare_server_default(
     should not require a data migration solely to change that mechanism.
     """
 
+    if isinstance(inspected_default, Identity):
+        return False
+
     if isinstance(metadata_default, Identity):
         return False
 
@@ -107,26 +110,21 @@ def compare_server_default(
 # OFFLINE
 # ============================================================
 
-def run_migrations_offline() -> None:
 
-    url = config.get_main_option(
-        "sqlalchemy.url"
-    )
+def run_migrations_offline() -> None:
+    url = config.get_main_option("sqlalchemy.url")
 
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={
-            "paramstyle": "named"
-        },
+        dialect_opts={"paramstyle": "named"},
         include_schemas=True,
         include_name=include_name,
         compare_server_default=compare_server_default,
     )
 
     with context.begin_transaction():
-
         context.run_migrations()
 
 
@@ -134,11 +132,9 @@ def run_migrations_offline() -> None:
 # ONLINE
 # ============================================================
 
-def run_migrations_online() -> None:
 
-    configuration = config.get_section(
-        config.config_ini_section
-    )
+def run_migrations_online() -> None:
+    configuration = config.get_section(config.config_ini_section)
 
     connectable = engine_from_config(
         configuration,
@@ -147,7 +143,6 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
@@ -157,7 +152,6 @@ def run_migrations_online() -> None:
         )
 
         with context.begin_transaction():
-
             context.run_migrations()
 
 
@@ -166,9 +160,7 @@ def run_migrations_online() -> None:
 # ============================================================
 
 if context.is_offline_mode():
-
     run_migrations_offline()
 
 else:
-
     run_migrations_online()

@@ -196,12 +196,9 @@ def create_user(
 
     if existente is not None:
         nuevo_usuario = existente
-        link_existente = (
-            user_tenant_repository
-            .get_by_user_and_tenant_including_deleted(
-                existente.id,
-                tenant_id,
-            )
+        link_existente = user_tenant_repository.get_by_user_and_tenant_including_deleted(
+            existente.id,
+            tenant_id,
         )
 
         if link_existente is None:

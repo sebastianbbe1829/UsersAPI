@@ -32,9 +32,7 @@ def update_user(
 
     tenant_id = user_tenant.tenant_id
 
-    tenant = tenant_repository.get_by_id(
-        tenant_id=tenant_id
-    )
+    tenant = tenant_repository.get_by_id(tenant_id=tenant_id)
 
     if tenant is None:
         raise HTTPException(
@@ -61,9 +59,7 @@ def update_user(
         ahora = datetime.now()
         actor = _actor_dni(current_user)
         actor_login = (
-            current_user.email
-            if isinstance(current_user, UserTenantDB)
-            else current_user.email
+            current_user.email if isinstance(current_user, UserTenantDB) else current_user.email
         )
 
         link.failed_login_attempts = 0
@@ -158,10 +154,7 @@ def update_user(
         if link.phone:
             send_whatsapp(
                 to_number=link.phone,
-                message=(
-                    f"Hola {usuario.name}, "
-                    "tu cuenta ha sido actualizada exitosamente."
-                ),
+                message=(f"Hola {usuario.name}, tu cuenta ha sido actualizada exitosamente."),
                 template_name="hello_world",
                 parameters=None,
             )

@@ -105,9 +105,7 @@ def search_product_images(
     limit = min(max(per_page, 1), 20)
 
     if not settings.brave_search_api_key and not settings.pexels_api_key:
-        logger.warning(
-            "Product image search not configured: no provider API key is available."
-        )
+        logger.warning("Product image search not configured: no provider API key is available.")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(

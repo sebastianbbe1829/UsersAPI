@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -39,18 +39,15 @@ class PortfolioRepository:
         if client_id is not None:
             query = query.where(ObligationDB.client_id == client_id)
         if date_from is not None:
-            query = query.where(
-                ObligationDB.created_at >= datetime.combine(date_from, time.min)
-            )
+            query = query.where(ObligationDB.business_date >= date_from)
         if date_to is not None:
-            query = query.where(
-                ObligationDB.created_at < datetime.combine(
-                    date_to + timedelta(days=1), time.min
-                )
-            )
+            query = query.where(ObligationDB.business_date <= date_to)
         return list(
             self.db.scalars(
-                query.order_by(ObligationDB.created_at.desc())
+                query.order_by(
+                    ObligationDB.business_date.desc(),
+                    ObligationDB.created_at.desc(),
+                )
             )
         )
 

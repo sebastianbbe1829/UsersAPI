@@ -46,9 +46,7 @@ def crear_tipo_identificacion(db: Session, data: IdentificationTypeCreate):
     return create_identification_type(db, data)
 
 
-def actualizar_tipo_identificacion(
-    db: Session, item_id: int, data: IdentificationTypeUpdate
-):
+def actualizar_tipo_identificacion(db: Session, item_id: int, data: IdentificationTypeUpdate):
     return update_identification_type(db, item_id, data)
 
 
@@ -92,9 +90,7 @@ def crear_departamento(db: Session, data: DepartmentCreate):
     return create_department(db, data)
 
 
-def actualizar_departamento(
-    db: Session, item_id: int, data: DepartmentUpdate
-):
+def actualizar_departamento(db: Session, item_id: int, data: DepartmentUpdate):
     return update_department(db, item_id, data)
 
 

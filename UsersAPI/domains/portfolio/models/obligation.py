@@ -3,8 +3,10 @@ import uuid
 from sqlalchemy import (
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -21,6 +23,8 @@ class ObligationDB(Base):
     __tablename__ = "obligations"
     __table_args__ = (
         UniqueConstraint("tenant_id", "sale_id", name="uq_obligations_tenant_sale"),
+        Index("ix_obligations_business_date", "tenant_id", "business_date"),
+        Index("ix_obligations_cash_register", "tenant_id", "cash_register_id"),
         CheckConstraint("initial_amount > 0", name="ck_obligations_initial_amount"),
         CheckConstraint(
             "balance >= 0 AND balance <= initial_amount",
@@ -40,6 +44,12 @@ class ObligationDB(Base):
         nullable=False,
         index=True,
     )
+    cash_register_id = Column(
+        Integer,
+        ForeignKey("users_api.cash_registers.id"),
+        nullable=True,
+        index=True,
+    )
     client_id = Column(
         UUID(as_uuid=True),
         ForeignKey("users_api.clients.id"),
@@ -52,12 +62,11 @@ class ObligationDB(Base):
         nullable=False,
         index=True,
     )
+    business_date = Column(Date, nullable=False)
     initial_amount = Column(Numeric(18, 2), nullable=False)
     balance = Column(Numeric(18, 2), nullable=False)
     status = Column(String(20), nullable=False, server_default=text("'ACTIVE'"))
-    created_at = Column(
-        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
-    )
+    created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
     updated_at = Column(DateTime, nullable=True)
     updated_by = Column(String(100), nullable=True)

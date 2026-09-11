@@ -9,6 +9,7 @@ from ..repositories.user_tenant_repository import UserTenantRepository
 # UTILIDADES DEL SERVICIO DE USUARIOS
 # ============================================================
 
+
 def _actor_dni(
     current_user: UserTenantDB | GlobalUserDB | None,
 ) -> str:

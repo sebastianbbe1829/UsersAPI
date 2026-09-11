@@ -35,6 +35,7 @@ role_permission_routes = APIRouter(
 #   ROLE_UPDATE
 # ============================================================
 
+
 @role_permission_routes.post(
     "",
     response_model=RolePermissionRead,
@@ -50,7 +51,6 @@ async def asignar_permiso_rol_route(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
-
     return asignar_permiso_rol(
         role_id=datos.role_id,
         permission_id=datos.permission_id,
@@ -68,6 +68,7 @@ async def asignar_permiso_rol_route(
 # Permiso requerido:
 #   ROLE_READ
 # ============================================================
+
 
 @role_permission_routes.get(
     "/role/{role_id}",
@@ -87,7 +88,6 @@ async def listar_permisos_rol_route(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
-
     return listar_permisos_rol(
         role_id=role_id,
         tenant_id=cast(int, user_tenant.tenant_id),
@@ -103,6 +103,7 @@ async def listar_permisos_rol_route(
 # Permiso requerido:
 #   ROLE_UPDATE
 # ============================================================
+
 
 @role_permission_routes.delete(
     "/{role_permission_id}",
@@ -122,7 +123,6 @@ async def eliminar_permiso_rol_route(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
-
     return eliminar_permiso_rol(
         role_permission_id=role_permission_id,
         tenant_id=cast(int, user_tenant.tenant_id),

@@ -10,6 +10,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
+from .domains.cash.routes import cash_routes
 from .domains.clients.routes import catalog_routes, client_routes, screening_routes
 from .domains.core.routes import (
     auth_routers,
@@ -142,6 +143,10 @@ app = FastAPI(
             "name": "Cartera",
             "description": "Cupos, obligaciones, saldos y pagos por tenant",
         },
+        {
+            "name": "Caja",
+            "description": "Apertura, movimientos, arqueo y cierre de caja por tenant",
+        },
     ],
 )
 
@@ -249,6 +254,8 @@ app.include_router(sales_routes)
 logger.debug("Rutas de ventas registradas")
 app.include_router(portfolio_routes)
 logger.debug("Rutas de cartera registradas")
+app.include_router(cash_routes)
+logger.debug("Rutas de caja registradas")
 app.include_router(diagnostics_router)
 
 

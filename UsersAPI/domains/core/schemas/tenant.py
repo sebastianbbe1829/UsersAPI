@@ -65,8 +65,8 @@ class TenantDeleteResponse(BaseModel):
 # BOOTSTRAP
 # ============================================================
 
-class BootstrapTenantRequest(BaseModel):
 
+class BootstrapTenantRequest(BaseModel):
     tenant_name: str = Field(
         ...,
         min_length=2,
@@ -120,8 +120,8 @@ class BootstrapTenantRequest(BaseModel):
 # RESPUESTA BOOTSTRAP
 # ============================================================
 
-class BootstrapTenantResponse(BaseModel):
 
+class BootstrapTenantResponse(BaseModel):
     tenant_id: int
     tenant_name: str
     tenant_slug: str

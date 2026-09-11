@@ -34,11 +34,7 @@ def _now() -> datetime:
 
 
 def _get_max_login_attempts(db: Session, tenant_id: int) -> int:
-    config = (
-        db.query(TenantConfigDB)
-        .filter(TenantConfigDB.tenant_id == tenant_id)
-        .first()
-    )
+    config = db.query(TenantConfigDB).filter(TenantConfigDB.tenant_id == tenant_id).first()
     if config is None or config.max_login_attempts is None:
         return 0
     return max(0, int(config.max_login_attempts))

@@ -144,9 +144,7 @@ async def obtener_usuario(
     dni: str = Path(
         ...,
         description="DNI del usuario a consultar",
-        examples=[
-            {"ejemplo": {"value": "12345678"}}
-        ],
+        examples=[{"ejemplo": {"value": "12345678"}}],
     ),
     db: Session = Depends(get_db),
     current_user: UserTenantDB = Depends(get_current_user),
@@ -174,9 +172,7 @@ async def actualizar_usuario(
     dni: str = Path(
         ...,
         description="DNI del usuario a actualizar",
-        examples=[
-            {"ejemplo": {"value": "12345678"}}
-        ],
+        examples=[{"ejemplo": {"value": "12345678"}}],
     ),
     datos: UserUpdate = Body(
         ...,
@@ -227,9 +223,7 @@ async def eliminar_usuario(
     dni: str = Path(
         ...,
         description="DNI del usuario a eliminar",
-        examples=[
-            {"ejemplo": {"value": "12345678"}}
-        ],
+        examples=[{"ejemplo": {"value": "12345678"}}],
     ),
     db: Session = Depends(get_db),
     current_user: UserTenantDB = Depends(get_current_user),
