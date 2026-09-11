@@ -1,3 +1,4 @@
+from copy import copy
 from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -34,9 +35,9 @@ def _normalize_legacy_report_timestamps(report):
     same-day register is the legacy local value plus five hours before UTC rendering.
     """
     day = report.get("day")
-    if day is not None and day.opened_at and day.closed_at:
-        if day.closed_at < day.opened_at:
-            day.closed_at = day.closed_at + LEGACY_LOCAL_OFFSET
+    if day is not None and day.opened_at and day.closed_at and day.closed_at < day.opened_at:
+        report["day"] = copy(day)
+        report["day"].closed_at = day.closed_at + LEGACY_LOCAL_OFFSET
 
     for row in report.get("registers", []):
         opened_at = row.get("opened_at")
