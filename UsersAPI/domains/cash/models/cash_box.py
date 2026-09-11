@@ -5,6 +5,7 @@ from sqlalchemy import (
     Identity,
     Index,
     Integer,
+    Numeric,
     String,
     UniqueConstraint,
     text,
@@ -33,6 +34,7 @@ class CashBoxDB(Base):
     branch_id = Column(Integer, nullable=False)
     code = Column(String(30), nullable=False)
     name = Column(String(100), nullable=False)
+    base_amount = Column(Numeric(18, 2), nullable=False, server_default=text("0"))
     status = Column(Integer, nullable=False, server_default=text("1"))
     created_at = Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
     created_by = Column(String(100), nullable=False)
