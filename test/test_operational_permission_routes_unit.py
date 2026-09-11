@@ -23,12 +23,25 @@ def _permission_code(route) -> str:
 def test_sales_operational_routes_use_sales_create_permission():
     assert _permission_code(_route(sales_routes, "/sales/pos/catalog")) == "SALES_CREATE"
     assert _permission_code(_route(sales_routes, "/sales/pos/clients")) == "SALES_CREATE"
-    assert _permission_code(_route(sales_routes, "/sales/pos/clients/{client_id}/credit")) == "SALES_CREATE"
+    assert (
+        _permission_code(
+            _route(sales_routes, "/sales/pos/clients/{client_id}/credit")
+        )
+        == "SALES_CREATE"
+    )
 
 
 def test_portfolio_payment_operational_routes_use_payment_create_permission():
-    assert _permission_code(_route(portfolio_routes, "/portfolio/payments/clients")) == "PORTFOLIO_PAYMENT_CREATE"
-    assert _permission_code(_route(portfolio_routes, "/portfolio/payments/clients/{client_id}/obligations")) == "PORTFOLIO_PAYMENT_CREATE"
+    assert (
+        _permission_code(_route(portfolio_routes, "/portfolio/payments/clients"))
+        == "PORTFOLIO_PAYMENT_CREATE"
+    )
+    assert (
+        _permission_code(
+            _route(portfolio_routes, "/portfolio/payments/clients/{client_id}/obligations")
+        )
+        == "PORTFOLIO_PAYMENT_CREATE"
+    )
 
 
 def test_sales_pos_catalog_route_delegates_to_operational_service():
@@ -157,7 +170,10 @@ def test_portfolio_payment_clients_route_delegates_to_operational_service():
 
 
 def test_portfolio_payment_obligations_route_delegates_to_operational_service():
-    route = _route(portfolio_routes, "/portfolio/payments/clients/{client_id}/obligations")
+    route = _route(
+        portfolio_routes,
+        "/portfolio/payments/clients/{client_id}/obligations",
+    )
     db = MagicMock()
     tenant = SimpleNamespace(tenant_id=17)
     client_id = UUID("22222222-2222-2222-2222-222222222222")
