@@ -113,7 +113,7 @@ def create_inventory_movement(
 ) -> InventoryMovementDB:
     context = require_operational_context(db, tenant_id, current_user)
     business_date = context["business_date"]
-    cash_register_id = context["register_id"]
+    cash_register_id = context.get("register_id")
 
     origin_type = data.origin_type.strip().upper()
     if origin_type not in ALLOWED_ORIGIN_TYPES:
