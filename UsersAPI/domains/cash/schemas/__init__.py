@@ -24,6 +24,7 @@ from .cash_day import (
     CashDayRegisterRead,
     CashDayStart,
 )
+from .user_lookup import CashAssignableUserRead
 
 __all__ = [
     "CashContextRead",
@@ -46,4 +47,5 @@ __all__ = [
     "CashBoxUpdate",
     "CashAssignmentCreate",
     "CashAssignmentRead",
+    "CashAssignableUserRead",
 ]
