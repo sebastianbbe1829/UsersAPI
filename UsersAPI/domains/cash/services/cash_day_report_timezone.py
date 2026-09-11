@@ -2,7 +2,9 @@ from copy import copy
 from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from reportlab.platypus import Spacer
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from sqlalchemy import select
 
 from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
@@ -32,13 +34,7 @@ def _fmt_dt(value, empty="—"):
 
 
 def _normalize_legacy_report_timestamps(report):
-    """Correct legacy local-naive close timestamps without changing persisted data.
-
-    Caja timestamps are now stored as UTC-naive values. Older close timestamps were
-    sometimes persisted as Colombia local time. When that legacy value is earlier
-    than its corresponding opening timestamp, the only valid interpretation for a
-    same-day register is the legacy local value plus five hours before UTC rendering.
-    """
+    """Correct legacy local-naive close timestamps without changing persisted data."""
     day = report.get("day")
     if day is not None and day.opened_at and day.closed_at and day.closed_at < day.opened_at:
         report["day"] = copy(day)
@@ -52,13 +48,7 @@ def _normalize_legacy_report_timestamps(report):
 
 
 def _assign_credit_sales_to_registers(report, db, tenant_id):
-    """Paint credit portions in the register where the sale was made.
-
-    A credit portion is intentionally not a CashMovementDB entry because no money
-    entered the cash register at sale time. For a mixed sale, the existing SALE
-    movement identifies the register used for the sale, so the report can associate
-    the credit portion with that register without changing cash calculations.
-    """
+    """Associate credit sales with their sale register without creating cash movement."""
     day = report.get("day")
     if day is None:
         return
@@ -75,16 +65,9 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
     for movement in movements:
         sale_register.setdefault(str(movement.origin_id), movement.cash_register_id)
 
-    if not sale_register:
-        report["unassigned_credit_sales"] = report_service._money(
-            report["sales_day"].get("Crédito", report_service.ZERO)
-        )
-        return
-
     register_rows = {row["register_id"]: row for row in report["registers"]}
-    unassigned_credit = report_service._money(
-        report["sales_day"].get("Crédito", report_service.ZERO)
-    )
+    credit_total = report_service._money(report["sales_day"].get("Crédito", report_service.ZERO))
+    unassigned_credit = credit_total
 
     credit_rows = db.execute(
         select(SalePaymentDB.sale_id, SalePaymentDB.amount)
@@ -98,21 +81,38 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
         )
     ).all()
 
+    unmapped_rows = []
     for sale_id, amount in credit_rows:
-        register_id = sale_register.get(str(sale_id))
-        if register_id is None:
-            continue
-
-        row = register_rows.get(register_id)
-        if row is None:
-            continue
-
         value = report_service._money(amount)
+        register_id = sale_register.get(str(sale_id))
+        if register_id is None or register_id not in register_rows:
+            unmapped_rows.append(value)
+            continue
+
+        row = register_rows[register_id]
         row["sales"]["Crédito"] = row["sales"].get("Crédito", report_service.ZERO) + value
         report["sales_by_box_totals"]["Crédito"] = (
             report["sales_by_box_totals"].get("Crédito", report_service.ZERO) + value
         )
         unassigned_credit -= value
+
+    # A pure-credit sale has no cash movement by design. If the report has exactly
+    # one register with SALE activity that day, that register is the only
+    # unambiguous report-level candidate for the sale. This keeps the fix in the
+    # report and does not alter POS or the cash model. With multiple candidates,
+    # we leave the amount explicitly unassigned instead of guessing.
+    if unmapped_rows:
+        candidate_registers = sorted({movement.cash_register_id for movement in movements})
+        if len(candidate_registers) == 1:
+            register_id = candidate_registers[0]
+            row = register_rows.get(register_id)
+            if row is not None:
+                for value in unmapped_rows:
+                    row["sales"]["Crédito"] = row["sales"].get("Crédito", report_service.ZERO) + value
+                    report["sales_by_box_totals"]["Crédito"] = (
+                        report["sales_by_box_totals"].get("Crédito", report_service.ZERO) + value
+                    )
+                    unassigned_credit -= value
 
     report["unassigned_credit_sales"] = max(
         report_service.ZERO,
@@ -143,11 +143,11 @@ def _without_sales_difference_paragraph(text, style, *args, **kwargs):
     return _ORIGINAL_PARAGRAPH(text, style, *args, **kwargs)
 
 
-# The legacy report module keeps the calculations/renderers in one place.
-# We replace only its timestamp helpers so PDF and Excel use the same rules.
 report_service._to_colombia_datetime = _to_colombia_datetime
 report_service._fmt_dt = _fmt_dt
 _ORIGINAL_PARAGRAPH = report_service.Paragraph
+_ORIGINAL_SPACER = report_service.Spacer
+_ORIGINAL_DOC = report_service.SimpleDocTemplate
 
 
 def build_day_report(*args, **kwargs):
@@ -172,15 +172,38 @@ def excel_report(report):
         report_service._to_colombia_datetime = original_to_colombia
 
 
+def _compact_doc(*args, **kwargs):
+    """Use the available landscape A4 height more efficiently so the report fits one page."""
+    kwargs.update(
+        {
+            "rightMargin": 6 * mm,
+            "leftMargin": 6 * mm,
+            "topMargin": 5 * mm,
+            "bottomMargin": 5 * mm,
+        }
+    )
+    return _ORIGINAL_DOC(*args, **kwargs)
+
+
+def _compact_spacer(width, height):
+    # The report contains several section spacers. Keep visual separation while
+    # avoiding unnecessary page breaks in the one-page daily closing report.
+    return _ORIGINAL_SPACER(width, min(height, 2 * mm))
+
+
 def pdf_report(report):
     global _CURRENT_REPORT
     _normalize_legacy_report_timestamps(report)
     original_fmt = report_service._fmt_dt
     original_to_colombia = report_service._to_colombia_datetime
     original_paragraph = report_service.Paragraph
+    original_doc = report_service.SimpleDocTemplate
+    original_spacer = report_service.Spacer
     report_service._fmt_dt = _fmt_dt
     report_service._to_colombia_datetime = _to_colombia_datetime
     report_service.Paragraph = _without_sales_difference_paragraph
+    report_service.SimpleDocTemplate = _compact_doc
+    report_service.Spacer = _compact_spacer
     _CURRENT_REPORT = report
     try:
         return report_service.pdf_report(report)
@@ -189,3 +212,5 @@ def pdf_report(report):
         report_service._fmt_dt = original_fmt
         report_service._to_colombia_datetime = original_to_colombia
         report_service.Paragraph = original_paragraph
+        report_service.SimpleDocTemplate = original_doc
+        report_service.Spacer = original_spacer
