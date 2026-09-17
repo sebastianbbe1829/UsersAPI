@@ -40,6 +40,7 @@ from .domains.inventory.routes import inventory_routes
 from .domains.portfolio.routes import portfolio_routes
 from .domains.sales.routes import sales_routes
 from .logging_config import logger
+from .security.rate_limiter import rate_limiter
 
 CURRENT_FILE = os.path.abspath(__file__)
 PACKAGE_DIR = os.path.dirname(CURRENT_FILE)
@@ -192,7 +193,11 @@ def root_head():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    return {"status": "healthy", "service": "UsersAPI"}
+    return {
+        "status": "healthy",
+        "service": "UsersAPI",
+        "rate_limiter": rate_limiter.status(),
+    }
 
 
 @app.head("/health", include_in_schema=False)

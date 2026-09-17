@@ -60,3 +60,41 @@ def test_client_ip_returns_unknown_when_client_is_unavailable():
     request = make_request(None)
 
     assert limiter.client_ip(request) == "unknown"
+
+
+def test_in_memory_rate_limiter_ping_and_status():
+    limiter = InMemoryRateLimiter()
+    assert limiter.ping() is True
+    assert limiter.status() == {"backend": "memory", "connected": True}
+
+
+def test_redis_rate_limiter_ping_and_status(monkeypatch):
+    from unittest.mock import MagicMock
+    import redis
+    from UsersAPI.security.rate_limiter import RedisRateLimiter
+
+    mock_client = MagicMock()
+    mock_client.ping.return_value = True
+    monkeypatch.setattr(redis.Redis, "from_url", lambda *args, **kwargs: mock_client)
+
+    limiter = RedisRateLimiter("redis://localhost:6379/0")
+    assert limiter.ping() is True
+    assert limiter.status() == {"backend": "redis", "connected": True}
+
+    mock_client.ping.side_effect = redis.exceptions.ConnectionError("Failed")
+    assert limiter.ping() is False
+    assert limiter.status() == {"backend": "redis", "connected": False}
+
+
+def test_health_endpoint_reports_rate_limiter_status():
+    from fastapi.testclient import TestClient
+    from UsersAPI.main import app
+
+    client = TestClient(app)
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert "rate_limiter" in data
+    assert "backend" in data["rate_limiter"]
+    assert "connected" in data["rate_limiter"]

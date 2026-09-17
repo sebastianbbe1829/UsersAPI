@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, Request, status
 
+from ..logging_config import logger
 from ..settings import APP_ENV, settings
 
 MAX_WINDOW_SECONDS = 15 * 60
@@ -65,6 +66,12 @@ class InMemoryRateLimiter:
         with self._lock:
             self._attempts.clear()
             self._last_cleanup = 0.0
+
+    def ping(self) -> bool:
+        return True
+
+    def status(self) -> dict[str, object]:
+        return {"backend": "memory", "connected": True}
 
     @staticmethod
     def client_ip(request: Request) -> str:
@@ -144,6 +151,15 @@ class RedisRateLimiter:
         except self._redis_error as exc:
             raise RuntimeError("No fue posible limpiar las claves Redis del rate limiter.") from exc
 
+    def ping(self) -> bool:
+        try:
+            return bool(self._client.ping())
+        except Exception:
+            return False
+
+    def status(self) -> dict[str, object]:
+        return {"backend": "redis", "connected": self.ping()}
+
     @staticmethod
     def client_ip(request: Request) -> str:
         return request.client.host if request.client else "unknown"
@@ -167,6 +183,16 @@ def _build_rate_limiter():
 
 
 rate_limiter = _build_rate_limiter()
+
+if settings.rate_limit_backend == "redis":
+    if rate_limiter.ping():
+        logger.info("Rate limiter conectado a Redis exitosamente.")
+    else:
+        logger.warning(
+            "Rate limiter configurado para Redis, pero no se pudo verificar la conexión inicial."
+        )
+else:
+    logger.debug("Rate limiter inicializado en memoria (InMemoryRateLimiter).")
 
 
 LOGIN_IP_LIMIT = 30
