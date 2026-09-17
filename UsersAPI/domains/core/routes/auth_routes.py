@@ -9,7 +9,7 @@ from ..schemas import (
     LoginResponse,
     TokenValidationResponse,
 )
-from ..security.rate_limiter import (
+from UsersAPI.security.rate_limiter import (
     LOGIN_ACCOUNT_LIMIT,
     LOGIN_ACCOUNT_WINDOW,
     LOGIN_IP_LIMIT,

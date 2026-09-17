@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..controllers.bootstrap_tenant_controller import bootstrap_tenant_application
 from ..database import get_bootstrap_db
 from ..schemas import BootstrapTenantRequest, BootstrapTenantResponse
-from ..security.rate_limiter import (
+from UsersAPI.security.rate_limiter import (
     TENANT_BOOTSTRAP_LIMIT,
     TENANT_BOOTSTRAP_WINDOW,
     rate_limiter,

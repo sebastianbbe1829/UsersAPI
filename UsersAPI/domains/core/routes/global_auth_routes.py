@@ -11,7 +11,7 @@ from ..schemas import (
     SuperLoginRequest,
     SuperLoginResponse,
 )
-from ..security.rate_limiter import (
+from UsersAPI.security.rate_limiter import (
     SUPER_BOOTSTRAP_LIMIT,
     SUPER_BOOTSTRAP_WINDOW,
     SUPER_LOGIN_LIMIT,

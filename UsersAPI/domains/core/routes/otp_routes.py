@@ -13,7 +13,7 @@ from ..schemas.otp import (
     OTPValidateRequest,
     OTPValidateResponse,
 )
-from ..security.rate_limiter import (
+from UsersAPI.security.rate_limiter import (
     OTP_GENERATE_LIMIT,
     OTP_GENERATE_WINDOW,
     OTP_VALIDATE_LIMIT,
