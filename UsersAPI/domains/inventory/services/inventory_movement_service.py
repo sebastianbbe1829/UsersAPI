@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
+from UsersAPI.application.operational_context import require_operational_context
 
 from ..models import InventoryDB, InventoryMovementDB
 from ..repositories import InventoryMovementRepository, InventoryRepository, ProductRepository

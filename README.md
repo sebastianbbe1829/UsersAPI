@@ -29,6 +29,7 @@ repositories/  → acceso a datos mediante SQLAlchemy
 models/        → modelos ORM
 schemas/       → contratos Pydantic
 security/      → autenticación, autorización, JWT, RLS y rate limiting
+application/   → casos de uso y adaptadores entre dominios
 util/          → utilidades de Excel, email y WhatsApp
 ```
 
@@ -38,6 +39,10 @@ Flujo general:
 Cliente → Route → Controller → Service → Repository → PostgreSQL
                                       ↘ seguridad / reglas de negocio
 ```
+
+Las integraciones que cruzan dominios se concentran en `application/`. Esto evita
+que un dominio operativo dependa de los detalles internos de otro dominio y
+permite conservar wrappers de compatibilidad durante las migraciones.
 
 ## Requisitos
 
@@ -138,6 +143,26 @@ Documentación interactiva local:
 - `http://127.0.0.1:8000/docs`
 - `http://127.0.0.1:8000/redoc`
 
+## Ejecución selectiva de pruebas
+
+La suite completa valida todos los dominios y tarda más que los grupos rápidos.
+Para iterar localmente puedes ejecutar:
+
+```bash
+# Pruebas unitarias o por un patrón de archivo
+pytest -q -k unit
+
+# Grupos con infraestructura o configuración específica
+pytest -q test/rls
+pytest -q test/security
+pytest -q test/super
+
+# Suite completa, equivalente al quality gate de CI
+pytest -q --cov=UsersAPI --cov-report=term-missing --cov-fail-under=90
+```
+
+Los marcadores disponibles son `unit`, `integration`, `rls`, `security` y `super`.
+
 ## Autenticación y autorización
 
 ### Usuarios TENANT
@@ -200,9 +225,16 @@ El acceso a un endpoint protegido debe validarse mediante el permiso correspondi
 
 ## Rate limiting
 
-Los endpoints sensibles utilizan un rate limiter de ventana deslizante en memoria. Se combinan controles por IP y por cuenta/destino cuando corresponde, y los bloqueos responden con HTTP `429` y `Retry-After`.
+Los endpoints sensibles utilizan un rate limiter de ventana deslizante. Se
+combinan controles por IP y por cuenta/destino cuando corresponde, y los
+bloqueos responden con HTTP `429` y `Retry-After`.
 
 La configuración actual está pensada para una instancia de API. Si el servicio escala horizontalmente a múltiples instancias, el contador debe migrarse a un almacenamiento compartido como Redis para mantener límites consistentes.
+
+Para producción con varias instancias, configura `RATE_LIMIT_BACKEND=redis` y
+`REDIS_URL=redis://...`. En desarrollo y pruebas se usa `RATE_LIMIT_BACKEND=memory`
+por defecto. La API no permite iniciar producción con el backend en memoria ni sin
+`REDIS_URL`.
 
 El limiter utiliza `request.client.host` y no confía directamente en `X-Forwarded-For` ni `X-Real-IP`.
 

@@ -7,7 +7,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyle
 from sqlalchemy import select
 
-from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
+from UsersAPI.application.financial_reporting import get_credit_sales_by_register
 
 from ..models import CashMovementDB
 from . import cash_day_report_service as report_service
@@ -59,17 +59,7 @@ def _assign_credit_sales_to_registers(report, db, tenant_id):
     credit_total = report_service._money(report["sales_day"].get("Crédito", report_service.ZERO))
     unassigned_credit = credit_total
 
-    credit_rows = db.execute(
-        select(SalePaymentDB.sale_id, SalePaymentDB.amount, SalePaymentDB.cash_register_id)
-        .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
-        .where(
-            SalePaymentDB.tenant_id == tenant_id,
-            SaleDB.tenant_id == tenant_id,
-            SaleDB.business_date == day.business_date,
-            SaleDB.status != "CANCELLED",
-            SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
-        )
-    ).all()
+    credit_rows = get_credit_sales_by_register(db, tenant_id, day.business_date)
 
     for sale_id, amount, stored_register_id in credit_rows:
         value = report_service._money(amount)

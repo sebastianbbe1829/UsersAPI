@@ -16,10 +16,10 @@ from ..schemas.global_user import (
     GlobalSuperUpdate,
 )
 from ..util.email_utils import send_email
+from ....security.super_auth import require_super_user
 from .global_auth_service import _decrypt_mfa_secret, _encrypt_mfa_secret
 from .password_service import get_password_hash
 from .super_mfa_service import verify_super_mfa_otp
-from .super_tenant_service import require_super_user
 
 
 def _now() -> datetime:

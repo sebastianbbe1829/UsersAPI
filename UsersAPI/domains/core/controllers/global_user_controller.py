@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from ..schemas.global_user import GlobalSuperCreate, GlobalSuperUpdate
+from ....security.super_auth import require_super_user
 from ..services.global_user_service import (
     create_global_super,
     get_global_super,
@@ -8,9 +9,6 @@ from ..services.global_user_service import (
     list_global_supers,
     update_global_super,
 )
-from ..services.super_tenant_service import require_super_user
-
-
 def listar_global_supers(db: Session, current_user):
     actor = require_super_user(current_user)
     return list_global_supers(db, current_user=actor)

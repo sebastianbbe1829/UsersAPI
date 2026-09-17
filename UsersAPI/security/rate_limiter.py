@@ -1,9 +1,11 @@
 from collections import defaultdict, deque
 from threading import Lock
-from time import monotonic
+from time import monotonic, time
+from uuid import uuid4
 
 from fastapi import HTTPException, Request, status
 
+from ..settings import APP_ENV, settings
 
 MAX_WINDOW_SECONDS = 15 * 60
 CLEANUP_INTERVAL_SECONDS = 60
@@ -79,7 +81,92 @@ class InMemoryRateLimiter:
         return (value or "").strip().lower()
 
 
-rate_limiter = InMemoryRateLimiter()
+class RedisRateLimiter:
+    """Rate limiter distribuido para despliegues con varias instancias."""
+
+    _SCRIPT = """
+    local key = KEYS[1]
+    local now = tonumber(ARGV[1])
+    local window_start = now - tonumber(ARGV[2])
+    local limit = tonumber(ARGV[3])
+    local member = ARGV[4]
+
+    redis.call("ZREMRANGEBYSCORE", key, 0, window_start)
+    local count = redis.call("ZCARD", key)
+    if count >= limit then
+        local oldest = redis.call("ZRANGE", key, 0, 0, "WITHSCORES")[2]
+        return {0, oldest}
+    end
+
+    redis.call("ZADD", key, now, member)
+    redis.call("EXPIRE", key, tonumber(ARGV[2]))
+    return {1, 0}
+    """
+
+    def __init__(self, redis_url: str):
+        try:
+            import redis
+        except ImportError as exc:
+            raise RuntimeError(
+                "El backend Redis del rate limiter requiere instalar la dependencia redis."
+            ) from exc
+
+        self._redis_error = redis.exceptions.RedisError
+        self._client = redis.Redis.from_url(redis_url, decode_responses=False)
+        self._script = self._client.register_script(self._SCRIPT)
+
+    def check(self, key: str, limit: int, window_seconds: int) -> None:
+        now = time()
+        redis_key = f"usersapi:rate-limit:{key}"
+        member = f"{now}:{uuid4().hex}"
+        try:
+            allowed, oldest = self._script(
+                keys=[redis_key],
+                args=[now, window_seconds, limit, member],
+            )
+        except self._redis_error as exc:
+            raise RuntimeError("No fue posible consultar Redis para el rate limiter.") from exc
+
+        if int(allowed) == 0:
+            retry_after = max(1, int(float(oldest) + window_seconds - now))
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Demasiados intentos. Inténtalo nuevamente más tarde.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+    def reset(self) -> None:
+        """Elimina las claves del limiter; usado para aislar pruebas."""
+        try:
+            keys = list(self._client.scan_iter(match="usersapi:rate-limit:*"))
+            if keys:
+                self._client.delete(*keys)
+        except self._redis_error as exc:
+            raise RuntimeError("No fue posible limpiar las claves Redis del rate limiter.") from exc
+
+    @staticmethod
+    def client_ip(request: Request) -> str:
+        return request.client.host if request.client else "unknown"
+
+    @staticmethod
+    def normalize(value: str | None) -> str:
+        return (value or "").strip().lower()
+
+
+def _build_rate_limiter():
+    backend = settings.rate_limit_backend
+    if APP_ENV == "production" and backend != "redis":
+        raise RuntimeError("En producción RATE_LIMIT_BACKEND debe ser 'redis'.")
+    if backend == "redis":
+        if not settings.redis_url:
+            raise RuntimeError("REDIS_URL es obligatoria cuando RATE_LIMIT_BACKEND=redis.")
+        return RedisRateLimiter(settings.redis_url)
+    if backend != "memory":
+        raise RuntimeError("RATE_LIMIT_BACKEND debe ser 'memory' o 'redis'.")
+    return InMemoryRateLimiter()
+
+
+rate_limiter = _build_rate_limiter()
 
 
 LOGIN_IP_LIMIT = 30
@@ -104,3 +191,6 @@ OTP_VALIDATE_WINDOW = 10 * 60
 
 SUPER_BOOTSTRAP_LIMIT = 5
 SUPER_BOOTSTRAP_WINDOW = 15 * 60
+
+TENANT_BOOTSTRAP_LIMIT = 5
+TENANT_BOOTSTRAP_WINDOW = 15 * 60

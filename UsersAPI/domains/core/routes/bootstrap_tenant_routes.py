@@ -1,11 +1,16 @@
 import secrets
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ..controllers.bootstrap_tenant_controller import bootstrap_tenant_application
 from ..database import get_bootstrap_db
 from ..schemas import BootstrapTenantRequest, BootstrapTenantResponse
+from ..security.rate_limiter import (
+    TENANT_BOOTSTRAP_LIMIT,
+    TENANT_BOOTSTRAP_WINDOW,
+    rate_limiter,
+)
 from ..settings import settings
 
 
@@ -22,6 +27,7 @@ bootstrap_tenant_routes = APIRouter(
 )
 def bootstrap_route(
     datos: BootstrapTenantRequest,
+    request: Request,
     x_bootstrap_key: str | None = Header(None, alias="X-Bootstrap-Key"),
     x_bootstrap_tenant_key: str | None = Header(
         None,
@@ -52,6 +58,12 @@ def bootstrap_route(
         bootstrap_key,
         settings.bootstrap_tenant_key,
     ):
+        client_ip = rate_limiter.client_ip(request)
+        rate_limiter.check(
+            f"tenant:bootstrap:ip:{client_ip}",
+            TENANT_BOOTSTRAP_LIMIT,
+            TENANT_BOOTSTRAP_WINDOW,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Clave de bootstrap inválida.",
