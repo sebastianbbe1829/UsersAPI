@@ -1,26 +1,31 @@
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
-
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
-from UsersAPI.domains.cash.services.cash_movement_service import record_automatic_movement
+from UsersAPI.application.operational_context import require_operational_context
+from UsersAPI.application.sales_integrations import (
+    available_credit,
+    client_is_eligible_for_sale,
+    record_sale_cash_movement,
+    record_sale_inventory_movement,
+)
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.clients.services.compliance_override_service import (
     has_compliance_override,
 )
 from UsersAPI.domains.inventory.models import InventoryDB, ProductDB
 from UsersAPI.domains.inventory.schemas import InventoryMovementCreate
-from UsersAPI.domains.inventory.services.inventory_movement_service import (
-    create_inventory_movement,
-)
-from UsersAPI.domains.portfolio.models import CreditLimitDB, ObligationDB
+from UsersAPI.domains.portfolio.models import ObligationDB
 
 from ..models import SaleCustomerDB, SaleDB, SaleItemDB, SalePaymentDB
 from ..repositories import SaleRepository
 from ..schemas import SaleCreate
+
+_credit_available = available_credit
+create_inventory_movement = record_sale_inventory_movement
+record_automatic_movement = record_sale_cash_movement
 
 MONEY_UNIT = Decimal("1")
 CREDIT_METHODS = {"CREDITO"}
@@ -36,6 +41,19 @@ def _actor_name(current_user: object | None) -> str:
     )
 
 
+def _client_is_eligible_for_sale(
+    client: ClientDB,
+    db: Session,
+    tenant_id: int,
+) -> bool:
+    return client_is_eligible_for_sale(
+        client,
+        db,
+        tenant_id,
+        compliance_override_checker=has_compliance_override,
+    )
+
+
 def _sale_price(inventory: InventoryDB, at_cost: bool = False) -> Decimal:
     if inventory.quantity <= 0 or inventory.purchase_price is None:
         raise HTTPException(
@@ -47,52 +65,6 @@ def _sale_price(inventory: InventoryDB, at_cost: bool = False) -> Decimal:
     return _money(
         Decimal(inventory.purchase_price)
         * (Decimal("1") + Decimal(inventory.profit_percentage or 0))
-    )
-
-
-def _client_is_eligible_for_sale(
-    client: ClientDB,
-    db: Session,
-    tenant_id: int,
-) -> bool:
-    if client.status != "ACTIVE":
-        return False
-    if client.is_listed or client.compliance_status == "MATCH":
-        return has_compliance_override(client.id, db, tenant_id)
-    return True
-
-
-def _credit_available(
-    client_id: UUID,
-    db: Session,
-    tenant_id: int,
-) -> Decimal:
-    credit_limit = db.scalar(
-        select(CreditLimitDB)
-        .where(
-            CreditLimitDB.tenant_id == tenant_id,
-            CreditLimitDB.client_id == client_id,
-            CreditLimitDB.active.is_(True),
-        )
-        .with_for_update()
-    )
-    if credit_limit is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Client does not have an active credit limit",
-        )
-    used = db.scalar(
-        select(func.coalesce(func.sum(ObligationDB.balance), 0)).where(
-            ObligationDB.tenant_id == tenant_id,
-            ObligationDB.client_id == client_id,
-            ObligationDB.status == "ACTIVE",
-        )
-    )
-    return _money(
-        max(
-            Decimal("0"),
-            Decimal(credit_limit.approved_limit) - Decimal(used or 0),
-        )
     )
 
 
@@ -383,7 +355,6 @@ def create_sale(
             tenant_id=tenant_id,
             amount=_money(Decimal(payment.amount)),
             payment_method=method,
-            origin_type="SALE",
             origin_id=sale.id,
             description=f"Venta {sale.sale_number}",
             current_user=current_user,

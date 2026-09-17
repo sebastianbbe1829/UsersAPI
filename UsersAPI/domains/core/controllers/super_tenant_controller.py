@@ -2,13 +2,13 @@ from sqlalchemy.orm import Session
 
 from ..models import GlobalUserDB
 from ..schemas import BootstrapTenantRequest, BootstrapTenantResponse, TenantUpdate
+from ....security.super_auth import require_super_user
 from ..services.super_tenant_service import (
     get_any_tenant,
     list_all_tenants,
     provision_tenant,
     update_any_tenant,
 )
-from ..services.super_tenant_service import require_super_user
 from ..services.super_mfa_service import verify_super_mfa_otp
 
 

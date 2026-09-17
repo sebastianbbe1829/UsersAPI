@@ -8,24 +8,10 @@ from ..logging_config import logger
 from ..models import GlobalUserDB
 from ..repositories.tenant_repository import TenantRepository
 from ..schemas import BootstrapTenantRequest, TenantUpdate
+from ....security import super_auth
 from .bootstrap_tenant_service import bootstrapTenant
 
-
-def require_super_user(current_user) -> GlobalUserDB:
-    if not isinstance(current_user, GlobalUserDB):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Esta operación requiere una sesión SUPER.",
-        )
-
-    if not current_user.is_active or not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="El usuario no tiene privilegios SUPER.",
-        )
-
-    return current_user
-
+require_super_user = super_auth.require_super_user
 
 def list_all_tenants(db: Session):
     repo = TenantRepository(db)

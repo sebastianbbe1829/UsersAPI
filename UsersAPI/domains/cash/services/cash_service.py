@@ -2,10 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
+from UsersAPI.application.financial_reporting import get_credit_sales_total
 
 from ..models import CashMovementDB, CashRegisterDB, UserCashAssignmentDB
 from ..repositories import CashRepository
@@ -179,14 +179,10 @@ class CashService:
                     manual_expense += Decimal(str(movement.amount or 0))
             if _is_cash(movement.payment_method):
                 physical_cash_delta += signed
-        sales_credit = db.scalar(
-            select(func.coalesce(func.sum(SalePaymentDB.amount), 0))
-            .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
-            .where(
-                SalePaymentDB.tenant_id == register.tenant_id,
-                SalePaymentDB.payment_method.in_(["CREDITO", "CREDIT", "CRÉDITO"]),
-                SaleDB.business_date == register.business_date,
-            )
+        sales_credit = get_credit_sales_total(
+            db,
+            register.tenant_id,
+            register.business_date,
         )
         expected_cash = Decimal(str(register.opening_amount or 0)) + physical_cash_delta
         return {

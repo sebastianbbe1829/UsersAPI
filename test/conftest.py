@@ -1,5 +1,6 @@
 import importlib
 import os
+from pathlib import Path
 
 os.environ["APP_ENV"] = "test"
 
@@ -19,6 +20,24 @@ from sqlalchemy.orm import Session  # noqa: E402
 from UsersAPI.database import BootstrapSessionLocal, engine, get_db  # noqa: E402
 from UsersAPI.main import app  # noqa: E402
 from UsersAPI.security.rate_limiter import rate_limiter  # noqa: E402
+
+
+def pytest_collection_modifyitems(items):
+    """Clasifica pruebas por ubicación y convención de nombres."""
+    for item in items:
+        path = Path(str(item.fspath)).as_posix()
+        name = Path(path).stem
+        if "/rls/" in path:
+            item.add_marker(pytest.mark.rls)
+        elif "/security/" in path:
+            item.add_marker(pytest.mark.security)
+        elif "/super/" in path:
+            item.add_marker(pytest.mark.super)
+
+        if "_unit" in name or name.endswith("_unit"):
+            item.add_marker(pytest.mark.unit)
+        elif not any(marker in item.keywords for marker in ("rls", "security", "super")):
+            item.add_marker(pytest.mark.integration)
 
 
 @pytest.fixture(autouse=True)

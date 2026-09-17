@@ -52,6 +52,8 @@ class Settings:
     brave_images_url: str = os.getenv("BRAVE_IMAGES_URL", "")
     pexels_api_key: str = os.getenv("PEXELS_API_KEY", "")
     pexels_images_url: str = os.getenv("PEXELS_IMAGES_URL", "")
+    rate_limit_backend: str = os.getenv("RATE_LIMIT_BACKEND", "memory").strip().lower()
+    redis_url: str = os.getenv("REDIS_URL", "")
     port: int = int(os.getenv("PORT", "8000"))
 
 

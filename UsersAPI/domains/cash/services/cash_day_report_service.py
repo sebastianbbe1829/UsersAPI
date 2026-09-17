@@ -21,8 +21,10 @@ from reportlab.platypus import (
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from UsersAPI.domains.portfolio.models import PaymentDB
-from UsersAPI.domains.sales.models import SaleDB, SalePaymentDB
+from UsersAPI.application.financial_reporting import (
+    get_portfolio_payment_rows,
+    get_sales_payment_rows,
+)
 
 from ..models import BranchDB, CashBoxDB, CashDayDB, CashMovementDB, CashRegisterDB
 
@@ -200,24 +202,11 @@ def build_day_report(
                 register_cash["manual_expense"] += amount
         if method == "Efectivo":
             register_cash["net_cash"] += signed
-    sale_rows = db.execute(
-        select(SalePaymentDB.payment_method, SalePaymentDB.amount)
-        .join(SaleDB, SaleDB.id == SalePaymentDB.sale_id)
-        .where(
-            SalePaymentDB.tenant_id == tenant_id,
-            SaleDB.tenant_id == tenant_id,
-            SaleDB.business_date == day.business_date,
-            SaleDB.status != "CANCELLED",
-        )
-    ).all()
+    sale_rows = get_sales_payment_rows(db, tenant_id, day.business_date)
     sales_day = defaultdict(lambda: ZERO)
     for method, amount in sale_rows:
         sales_day[_method(method)] += _money(amount)
-    payment_rows = db.execute(
-        select(PaymentDB.payment_method, PaymentDB.amount, PaymentDB.status).where(
-            PaymentDB.tenant_id == tenant_id, PaymentDB.payment_date == day.business_date
-        )
-    ).all()
+    payment_rows = get_portfolio_payment_rows(db, tenant_id, day.business_date)
     payments_day = defaultdict(lambda: ZERO)
     for method, amount, status in payment_rows:
         normalized_method = _method(method)

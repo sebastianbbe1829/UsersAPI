@@ -6,10 +6,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from UsersAPI.domains.cash.services.cash_context_service import require_operational_context
-from UsersAPI.domains.cash.services.cash_movement_service import (
-    record_automatic_movement,
-    record_payment_reversal,
+from UsersAPI.application.operational_context import require_operational_context
+from UsersAPI.application.portfolio_integrations import (
+    record_portfolio_cash_movement,
+    reverse_portfolio_cash_movement,
 )
 from UsersAPI.domains.clients.models import ClientDB
 from UsersAPI.domains.sales.models import SaleDB
@@ -22,6 +22,8 @@ MONEY_UNIT = Decimal("0.01")
 PAYMENT_STATUS_APPLIED = "APLICADO"
 PAYMENT_STATUS_CANCELLED = "ANULADO"
 INVALID_PORTFOLIO_PAYMENT_METHODS = {"CREDITO", "CREDIT", "CRÉDITO"}
+
+record_automatic_movement = record_portfolio_cash_movement
 
 
 def _money(value: Decimal) -> Decimal:
@@ -251,7 +253,6 @@ def register_payment(
         tenant_id=tenant_id,
         amount=payment_amount,
         payment_method=payment_method,
-        origin_type="PORTFOLIO_PAYMENT",
         origin_id=payment.id,
         description=f"Pago de cartera {payment.id}",
         current_user=current_user,
@@ -321,7 +322,7 @@ def annul_payment(
         obligation.updated_at = datetime.now(UTC)
         obligation.updated_by = actor
 
-    record_payment_reversal(
+    reverse_portfolio_cash_movement(
         db=db,
         tenant_id=tenant_id,
         amount=payment.amount,
