@@ -40,7 +40,7 @@ from .domains.inventory.routes import inventory_routes
 from .domains.portfolio.routes import portfolio_routes
 from .domains.sales.routes import sales_routes
 from .logging_config import logger
-from .security.rate_limiter import rate_limiter
+from .security.rate_limiter import log_rate_limiter_status, rate_limiter
 
 CURRENT_FILE = os.path.abspath(__file__)
 PACKAGE_DIR = os.path.dirname(CURRENT_FILE)
@@ -179,6 +179,7 @@ logger.debug("Configuración de CORS establecida para los orígenes: %s", origin
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 logger.debug("Directorio de archivos estáticos montado en /static: %s", STATIC_DIR)
+log_rate_limiter_status()
 
 
 @app.get("/", include_in_schema=False)

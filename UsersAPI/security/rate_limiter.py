@@ -184,15 +184,25 @@ def _build_rate_limiter():
 
 rate_limiter = _build_rate_limiter()
 
-if settings.rate_limit_backend == "redis":
-    if rate_limiter.ping():
-        logger.info("Rate limiter conectado a Redis exitosamente.")
+_rate_limiter_logged = False
+
+
+def log_rate_limiter_status() -> None:
+    global _rate_limiter_logged
+    if _rate_limiter_logged:
+        return
+    _rate_limiter_logged = True
+
+    if settings.rate_limit_backend == "redis":
+        if rate_limiter.ping():
+            logger.info("Rate limiter conectado a Redis exitosamente.")
+        else:
+            logger.warning(
+                "Rate limiter configurado para Redis, "
+                "pero no se pudo verificar la conexión inicial."
+            )
     else:
-        logger.warning(
-            "Rate limiter configurado para Redis, pero no se pudo verificar la conexión inicial."
-        )
-else:
-    logger.debug("Rate limiter inicializado en memoria (InMemoryRateLimiter).")
+        logger.debug("Rate limiter inicializado en memoria (InMemoryRateLimiter).")
 
 
 LOGIN_IP_LIMIT = 30
